@@ -94,8 +94,10 @@ export default function ProfilePage() {
           {profile?.photo ? (
             <img src={profile.photo} alt={profile.name} className="w-24 h-24 rounded-full object-cover border-4 border-white/30 mx-auto" />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-4xl font-bold border-4 border-white/20 mx-auto">
-              {initials}
+            <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center border-4 border-white/20 mx-auto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-12 h-12">
+                <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
             </div>
           )}
           <button

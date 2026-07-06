@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { chatApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { Chat } from '@/lib/types'
+import UserAvatar from '@/components/UserAvatar'
 
 function timeAgo(dateStr: string | null) {
   if (!dateStr) return ''
@@ -25,18 +26,7 @@ function ChatItem({ chat }: { chat: Chat }) {
 
   return (
     <Link href={`/chat/${chat.id}`} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100">
-      <div className="relative flex-shrink-0">
-        {chat.photo ? (
-          <img src={chat.photo} alt={chat.name} className="w-14 h-14 rounded-full object-cover" />
-        ) : (
-          <div className="w-14 h-14 rounded-full gradient-brand flex items-center justify-center text-white font-bold text-lg">
-            {initials}
-          </div>
-        )}
-        {chat.is_online && (
-          <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
-        )}
-      </div>
+      <UserAvatar src={chat.photo} name={chat.name} size={56} online={chat.is_online} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <p className="font-semibold text-gray-900 truncate">{chat.name ?? 'Unknown'}</p>

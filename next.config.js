@@ -15,6 +15,16 @@ const nextConfig = {
         hostname: 'randomuser.me',
         pathname: '/api/portraits/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'zingdates.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'zingdates.com',
+        pathname: '/**',
+      },
     ],
   },
 }

@@ -6,22 +6,7 @@ import { toast } from 'sonner'
 import { matchApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { AppUser } from '@/lib/types'
-
-function UserAvatar({ user, size = 56 }: { user: AppUser; size?: number }) {
-  const initials = user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  if (user.photo) return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <img src={user.photo} alt={user.name} className="rounded-full object-cover w-full h-full" />
-      {user.is_online && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />}
-    </div>
-  )
-  return (
-    <div className="relative rounded-full gradient-brand flex items-center justify-center text-white font-bold flex-shrink-0" style={{ width: size, height: size, fontSize: size * 0.35 }}>
-      {initials}
-      {user.is_online && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />}
-    </div>
-  )
-}
+import UserAvatar from '@/components/UserAvatar'
 
 export default function MatchesPage() {
   const token = useAuthStore(s => s.token) ?? ''
@@ -70,7 +55,7 @@ export default function MatchesPage() {
             {likedMe.map(u => (
               <div key={u.id} className="flex flex-col items-center gap-1.5 flex-shrink-0">
                 <div className="relative">
-                  <UserAvatar user={u} size={68} />
+                  <UserAvatar src={u.photo} name={u.name} size={68} online={u.is_online} />
                   <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gradient-brand flex items-center justify-center border-2 border-white">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1">
                       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -104,7 +89,7 @@ export default function MatchesPage() {
           <div className="space-y-3">
             {matches.map(u => (
               <Link key={u.id} href="/chat" className="flex items-center gap-4 bg-white rounded-2xl p-4 hover:shadow-md transition-shadow" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
-                <UserAvatar user={u} size={52} />
+                <UserAvatar src={u.photo} name={u.name} size={52} online={u.is_online} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900 truncate">{u.name}</p>

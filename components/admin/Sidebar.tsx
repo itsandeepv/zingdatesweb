@@ -188,11 +188,19 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       <div className="border-t border-white/10 p-4">
         {collapsed ? (
           <div className="flex justify-center">
-            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm font-bold">{adminInitial}</div>
+            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full gradient-brand flex items-center justify-center text-sm font-bold flex-shrink-0">{adminInitial}</div>
+            <div className="w-9 h-9 rounded-full gradient-brand flex items-center justify-center flex-shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-white truncate">{adminName}</p>
               <p className="text-xs text-white/40 truncate capitalize">{user?.role ?? 'Admin'}</p>
@@ -222,21 +230,24 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
 
       {/* Mobile toggle button */}
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 w-10 h-10 gradient-brand rounded-xl flex items-center justify-center shadow-brand"
+        className="lg:hidden fixed top-3.5 left-4 z-50 w-10 h-10 gradient-brand rounded-xl flex items-center justify-center shadow-brand"
         onClick={() => setMobileOpen(v => !v)}
       >
-        <Icon path={ICONS.menu} className="w-5 h-5" />
+        <Icon path={mobileOpen ? 'M6 18L18 6M6 6l12 12' : ICONS.menu} className="w-5 h-5" />
       </button>
 
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <>
-          <div className="lg:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setMobileOpen(false)} />
-          <aside className="lg:hidden fixed left-0 top-0 bottom-0 w-64 z-50">
-            {sidebarContent}
-          </aside>
-        </>
-      )}
+      {/* Mobile backdrop */}
+      <div
+        className={`lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${mobileOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setMobileOpen(false)}
+      />
+
+      {/* Mobile drawer — slides in */}
+      <aside
+        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 z-50 transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}
+      >
+        {sidebarContent}
+      </aside>
     </>
   )
 }

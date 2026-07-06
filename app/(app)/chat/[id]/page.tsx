@@ -149,8 +149,10 @@ export default function ChatPage() {
           {other?.photo ? (
             <img src={other.photo} alt={other.name} className="w-10 h-10 rounded-full object-cover" />
           ) : (
-            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold">
-              {other?.name?.[0]?.toUpperCase() ?? '?'}
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
             </div>
           )}
           {other?.is_online && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-white" />}

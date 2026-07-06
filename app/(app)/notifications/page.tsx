@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { notifApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { AppNotification } from '@/lib/types'
+import UserAvatar from '@/components/UserAvatar'
 
 function timeAgo(dateStr: string) {
   const d = new Date(dateStr)
@@ -110,13 +111,7 @@ export default function NotificationsPage() {
                 className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-gray-50 ${!n.is_read ? 'bg-pink-50/50' : ''}`}>
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  {fromUser?.photo ? (
-                    <img src={fromUser.photo} alt={fromUser.name} className="w-12 h-12 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full gradient-brand flex items-center justify-center text-white font-bold">
-                      {initials}
-                    </div>
-                  )}
+                  <UserAvatar src={fromUser?.photo} name={fromUser?.name} size={48} />
                   <div className="absolute -bottom-0.5 -right-0.5 text-base leading-none">{icon}</div>
                 </div>
 

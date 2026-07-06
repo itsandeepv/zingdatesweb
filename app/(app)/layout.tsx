@@ -7,65 +7,76 @@ import { useAuthStore } from '@/lib/store/auth'
 import { callApi } from '@/lib/api'
 
 function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
-  const dim = size === 'lg' ? 'w-11 h-11 text-base' : size === 'md' ? 'w-9 h-9 text-sm' : 'w-8 h-8 text-sm'
-  if (src) return <img src={src} alt={name} className={`${dim} rounded-full object-cover flex-shrink-0`} />
+  const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
+  const iconSize = px * 0.52
+  if (src) return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0" style={{ width: px, height: px }} />
   return (
-    <div className={`${dim} rounded-full gradient-brand flex items-center justify-center text-white font-bold flex-shrink-0`}>
-      {name?.[0]?.toUpperCase() ?? 'U'}
+    <div className="rounded-full gradient-brand flex items-center justify-center flex-shrink-0" style={{ width: px, height: px }}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: iconSize, height: iconSize }}>
+        <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+      </svg>
     </div>
   )
 }
 
 function NavIcon({ name, active }: { name: string; active: boolean }) {
-  const cls = `transition-colors flex-shrink-0`
   const color = active ? 'white' : 'rgba(255,255,255,0.45)'
+  const mobileColor = active ? '#E91E8C' : '#9CA3AF'
 
   if (name === 'discover') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
     </svg>
   )
   if (name === 'heart') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill={active ? color : 'none'} stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   )
   if (name === 'companion') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
     </svg>
   )
   if (name === 'chat') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   )
   if (name === 'bell') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
   )
   if (name === 'settings') return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   )
-  // person / profile
   return (
-    <svg className={cls} width="19" height="19" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
     </svg>
   )
 }
 
 const NAV = [
-  { href: '/discover',      label: 'Discover',      icon: 'discover'   },
-  { href: '/matches',       label: 'Matches',        icon: 'heart'      },
-  { href: '/companion',     label: 'Companion',      icon: 'companion'  },
-  { href: '/chat',          label: 'Chat',           icon: 'chat'       },
-  { href: '/notifications', label: 'Notifications',  icon: 'bell'       },
-  { href: '/profile',       label: 'Profile',        icon: 'person'     },
+  { href: '/discover',      label: 'Discover',      icon: 'discover'  },
+  { href: '/matches',       label: 'Matches',        icon: 'heart'     },
+  { href: '/companion',     label: 'Companion',      icon: 'companion' },
+  { href: '/chat',          label: 'Chat',           icon: 'chat'      },
+  { href: '/notifications', label: 'Alerts',         icon: 'bell'      },
+  { href: '/profile',       label: 'Profile',        icon: 'person'    },
+]
+
+// Bottom nav shows only 5 items on mobile
+const BOTTOM_NAV = [
+  { href: '/discover',      label: 'Discover',  icon: 'discover' },
+  { href: '/matches',       label: 'Matches',   icon: 'heart'    },
+  { href: '/chat',          label: 'Chat',      icon: 'chat'     },
+  { href: '/notifications', label: 'Alerts',    icon: 'bell'     },
+  { href: '/profile',       label: 'Profile',   icon: 'person'   },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -75,7 +86,6 @@ const PAGE_TITLES: Record<string, string> = {
   '/chat':          'Messages',
   '/notifications': 'Notifications',
   '/profile':       'My Profile',
-  '/settings':      'Settings',
   '/plans':         'Upgrade Plan',
 }
 
@@ -117,8 +127,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-gray-50">
 
-      {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className="fixed left-0 top-0 h-screen w-[220px] gradient-sidebar flex flex-col z-40"
+      {/* ── Desktop Sidebar (hidden on mobile) ──────────── */}
+      <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[220px] gradient-sidebar flex-col z-40"
         style={{ boxShadow: '4px 0 24px rgba(0,0,0,0.25)' }}>
 
         {/* Logo */}
@@ -134,7 +144,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
 
-        {/* Divider */}
         <div className="mx-5 h-px bg-white/8 mb-2" />
 
         {/* Nav items */}
@@ -145,31 +154,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             return (
               <Link key={item.href} href={item.href}
                 className={`relative flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150 group ${
-                  active
-                    ? 'text-white'
-                    : 'text-white/50 hover:text-white/85'
+                  active ? 'text-white' : 'text-white/50 hover:text-white/85'
                 }`}
                 style={active ? {
                   background: 'linear-gradient(90deg, rgba(233,30,140,0.18) 0%, rgba(156,39,176,0.08) 100%)',
                   boxShadow: 'inset 0 0 0 1px rgba(233,30,140,0.2)',
                 } : {}}>
-
-                {/* Left accent bar */}
                 {active && (
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
                     style={{ background: 'linear-gradient(180deg, #E91E8C 0%, #9C27B0 100%)' }} />
                 )}
-
-                {/* Icon wrapper */}
                 <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
-                  active
-                    ? 'bg-white/12'
-                    : 'group-hover:bg-white/6'
-                }`}>
+                  active ? 'bg-white/12' : 'group-hover:bg-white/6'
+                }`}
+                  style={{ color: active ? 'white' : 'rgba(255,255,255,0.45)' }}>
                   <NavIcon name={item.icon} active={active} />
                 </span>
-
-                <span className={`text-[13.5px] font-semibold leading-none transition-colors ${
+                <span className={`text-[13.5px] font-semibold leading-none ${
                   active ? 'text-white' : 'text-white/50 group-hover:text-white/80'
                 }`}>
                   {item.label}
@@ -179,11 +180,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Plans upgrade nudge */}
         {!user?.is_premium && (
           <div className="mx-3 mb-3">
             <Link href="/plans"
-              className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl transition-all hover:opacity-90"
+              className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl hover:opacity-90 transition-all"
               style={{ background: 'linear-gradient(135deg, rgba(233,30,140,0.22) 0%, rgba(156,39,176,0.22) 100%)', border: '1px solid rgba(233,30,140,0.25)' }}>
               <span className="text-lg leading-none">👑</span>
               <div className="min-w-0">
@@ -197,10 +197,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Divider */}
         <div className="mx-5 h-px bg-white/8" />
 
-        {/* User profile */}
         <div className="p-3">
           <Link href="/profile"
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/8 transition-colors group">
@@ -224,10 +222,33 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main area ────────────────────────────────────── */}
-      <div className="flex-1 ml-[220px] flex flex-col min-h-screen">
+      <div className="flex-1 lg:ml-[220px] flex flex-col min-h-screen">
 
-        {/* Top header */}
-        <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 px-8 py-4 flex items-center justify-between">
+        {/* Mobile top header */}
+        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+          style={{ background: 'linear-gradient(180deg, #1a1235 0%, #0f0a24 100%)' }}>
+          <Link href="/discover" className="flex items-center gap-2">
+            <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center"
+              style={{ boxShadow: '0 2px 8px rgba(233,30,140,0.4)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1.5">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+              </svg>
+            </div>
+            <span className="text-white font-bold text-base tracking-tight">zingDates</span>
+          </Link>
+
+          {pageTitle && (
+            <span className="text-white/70 text-sm font-semibold absolute left-1/2 -translate-x-1/2">{pageTitle}</span>
+          )}
+
+          <Link href="/profile" className="relative">
+            <Avatar name={user?.name ?? 'U'} src={user?.photo} size="sm" />
+            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#1a1235]" />
+          </Link>
+        </header>
+
+        {/* Desktop top header */}
+        <header className="hidden lg:flex sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-100 px-8 py-4 items-center justify-between">
           <div>
             {pageTitle && <h1 className="text-xl font-bold text-gray-900">{pageTitle}</h1>}
           </div>
@@ -249,11 +270,37 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 p-8 max-w-7xl w-full mx-auto">
+        {/* Page content — extra bottom padding on mobile for the bottom nav */}
+        <main className="flex-1 p-4 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
           {children}
         </main>
       </div>
+
+      {/* ── Mobile Bottom Navigation ─────────────────────── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gray-100"
+        style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
+        <div className="flex items-center justify-around px-2 py-2 safe-area-bottom">
+          {BOTTOM_NAV.map(item => {
+            const active = pathname === item.href ||
+              (item.href !== '/discover' && pathname?.startsWith(item.href + '/'))
+            return (
+              <Link key={item.href} href={item.href}
+                className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition-all min-w-0"
+                style={{ color: active ? '#E91E8C' : '#9CA3AF' }}>
+                <span className={`transition-transform ${active ? 'scale-110' : ''}`}>
+                  <NavIcon name={item.icon} active={active} />
+                </span>
+                <span className={`text-[10px] font-semibold leading-none ${active ? 'text-pink-500' : 'text-gray-400'}`}>
+                  {item.label}
+                </span>
+                {active && (
+                  <span className="w-1 h-1 rounded-full bg-pink-500" />
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
 
       {/* ── Incoming call modal ──────────────────────────── */}
       {incomingCall && (
