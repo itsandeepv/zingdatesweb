@@ -22,8 +22,10 @@ export interface AuthUser {
 interface AuthState {
   token: string | null
   user: AuthUser | null
+  _hasHydrated: boolean
   setAuth: (token: string, user: AuthUser) => void
   clearAuth: () => void
+  setHasHydrated: (val: boolean) => void
   isLoggedIn: () => boolean
   isAdmin: () => boolean
 }
@@ -33,6 +35,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       user: null,
+      _hasHydrated: false,
       setAuth: (token, user) => {
         if (typeof document !== 'undefined') {
           document.cookie = `zd-token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`
@@ -45,12 +48,18 @@ export const useAuthStore = create<AuthState>()(
         }
         set({ token: null, user: null })
       },
+      setHasHydrated: (val) => set({ _hasHydrated: val }),
       isLoggedIn: () => !!get().token,
       isAdmin: () => {
         const role = get().user?.role
         return role != null && ['admin', 'super_admin', 'moderator', 'support', 'analyst', 'marketing', 'finance'].includes(role)
       },
     }),
-    { name: 'zingdates-auth', skipHydration: false }
+    {
+      name: 'zingdates-auth',
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true)
+      },
+    }
   )
 )

@@ -31,7 +31,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true)
   const [marking, setMarking] = useState(false)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (token) load() }, [token])
 
   async function load() {
     setLoading(true)

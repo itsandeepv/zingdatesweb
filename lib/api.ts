@@ -1,5 +1,12 @@
 const BASE = 'http://zingdates.com/api'
 // http://localhost:8000/api
+
+/* ─── Global 401 handler ──────────────────────────────────────── */
+// Register a callback in the app layout so any 401 clears auth and redirects.
+let _on401: (() => void) | null = null
+export function registerUnauthorizedHandler(cb: () => void) { _on401 = cb }
+export function unregisterUnauthorizedHandler() { _on401 = null }
+
 export class ApiError extends Error {
   // `body` carries the full parsed error payload so callers can read flags the
   // backend sends alongside the message (e.g. `need_plan` on a 402).
@@ -20,6 +27,7 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }))
+    if (res.status === 401) _on401?.()
     throw new ApiError(res.status, err.message ?? 'Request failed', err)
   }
   const text = await res.text()

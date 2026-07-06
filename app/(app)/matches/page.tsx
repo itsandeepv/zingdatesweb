@@ -9,21 +9,23 @@ import type { AppUser } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
 
 export default function MatchesPage() {
-  const token = useAuthStore(s => s.token) ?? ''
+  const token = useAuthStore(s => s.token)
   const [matches, setMatches] = useState<AppUser[]>([])
   const [likedMe, setLikedMe] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!token) return
     load()
-  }, [])
+  }, [token])
 
   async function load() {
     setLoading(true)
     try {
+      const t = token!
       const [m, l] = await Promise.allSettled([
-        matchApi.list(token),
-        matchApi.likedMe(token),
+        matchApi.list(t),
+        matchApi.likedMe(t),
       ])
       if (m.status === 'fulfilled') setMatches(m.value ?? [])
       if (l.status === 'fulfilled') setLikedMe(l.value ?? [])

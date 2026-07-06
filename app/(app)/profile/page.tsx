@@ -79,7 +79,7 @@ export default function ProfilePage() {
   const [dnd, setDnd] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (token) load() }, [token])
 
   async function load() {
     setLoading(true)

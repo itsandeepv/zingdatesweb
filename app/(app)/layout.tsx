@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
-import { callApi } from '@/lib/api'
+import { callApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
 
 function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
@@ -92,7 +92,7 @@ const PAGE_TITLES: Record<string, string> = {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token, user, _hasHydrated, clearAuth } = useAuthStore()
   const [incomingCall, setIncomingCall] = useState<any>(null)
 
   const isCallPage = pathname?.startsWith('/call')
@@ -100,6 +100,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pageTitle = Object.entries(PAGE_TITLES).find(([k]) =>
     pathname === k || (k !== '/discover' && pathname?.startsWith(k + '/'))
   )?.[1] ?? ''
+
+  // Register global 401 handler: any API call that gets 401 clears auth and sends user to login.
+  useEffect(() => {
+    registerUnauthorizedHandler(() => {
+      clearAuth()
+      router.replace('/login')
+    })
+    return () => unregisterUnauthorizedHandler()
+  }, [])
+
+  // After Zustand hydrates from localStorage, redirect to login if no token.
+  useEffect(() => {
+    if (!_hasHydrated) return
+    if (!token) router.replace('/login')
+  }, [_hasHydrated, token])
 
   useEffect(() => {
     if (!token || isCallPage) return

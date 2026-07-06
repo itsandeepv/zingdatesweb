@@ -46,10 +46,11 @@ export default function ChatPage() {
   }
 
   useEffect(() => {
+    if (!token) return
     loadMessages(1, true)
     const iv = setInterval(pollNew, 3000)
     return () => clearInterval(iv)
-  }, [chatId])
+  }, [chatId, token])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

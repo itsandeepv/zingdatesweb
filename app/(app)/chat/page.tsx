@@ -53,10 +53,11 @@ export default function ChatListPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!token) return
     load()
     const iv = setInterval(load, 8000)
     return () => clearInterval(iv)
-  }, [])
+  }, [token])
 
   async function load() {
     try {

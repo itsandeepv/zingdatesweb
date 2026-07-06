@@ -136,7 +136,7 @@ export default function DiscoverPage() {
   const [matched, setMatched] = useState<AppUser | null>(null)
   const [skipped, setSkipped] = useState<Set<number>>(new Set())
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { if (token) load() }, [token])
 
   async function load() {
     setLoading(true)
