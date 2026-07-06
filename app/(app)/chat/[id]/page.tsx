@@ -25,9 +25,25 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [otherTyping, setOtherTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastMsgIdRef = useRef<number>(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isTypingRef = useRef(false)
+
+  function onType(value: string) {
+    setText(value)
+    if (!isTypingRef.current) {
+      isTypingRef.current = true
+      chatApi.setTyping(token!, chatId, true).catch(() => {})
+    }
+    if (typingTimer.current) clearTimeout(typingTimer.current)
+    typingTimer.current = setTimeout(() => {
+      isTypingRef.current = false
+      chatApi.setTyping(token!, chatId, false).catch(() => {})
+    }, 2000)
+  }
 
   useEffect(() => {
     loadMessages(1, true)
@@ -42,15 +58,15 @@ export default function ChatPage() {
   async function loadMessages(p = 1, initial = false) {
     try {
       const res = await chatApi.messages(token!, chatId, p)
-      const msgs: ChatMessage[] = Array.isArray(res) ? res : (res.data ?? [])
+      const msgs: ChatMessage[] = res.messages ?? (Array.isArray(res) ? res : [])
       if (initial) {
         setMessages(msgs)
-        setChat(res.chat ?? null)
+        if (res.other_user) setChat({ id: chatId, other_user: res.other_user } as any)
         if (msgs.length > 0) lastMsgIdRef.current = Math.max(...msgs.map(m => m.id))
       } else {
         setMessages(prev => [...msgs, ...prev])
       }
-      setHasMore(res.current_page < Math.ceil(res.total / 20))
+      setHasMore(Boolean(res.has_more))
     } catch {
       if (initial) toast.error('Failed to load messages')
     } finally {
@@ -61,12 +77,16 @@ export default function ChatPage() {
   async function pollNew() {
     try {
       const res = await chatApi.messages(token!, chatId, 1)
-      const msgs: ChatMessage[] = Array.isArray(res) ? res : (res.data ?? [])
+      const msgs: ChatMessage[] = res.messages ?? (Array.isArray(res) ? res : [])
       const newMsgs = msgs.filter(m => m.id > lastMsgIdRef.current)
       if (newMsgs.length > 0) {
         lastMsgIdRef.current = Math.max(...newMsgs.map(m => m.id))
         setMessages(prev => [...prev, ...newMsgs])
       }
+      try {
+        const t = await chatApi.typingStatus(token!, chatId)
+        setOtherTyping(Boolean(t?.is_typing))
+      } catch {}
     } catch {}
   }
 
@@ -80,9 +100,28 @@ export default function ChatPage() {
       const sent = await chatApi.send(token!, chatId, { message: msg, type: 'text' })
       setMessages(prev => [...prev, sent])
       lastMsgIdRef.current = sent.id
-    } catch {
-      toast.error('Failed to send')
+    } catch (err: any) {
+      toast.error(err?.status === 402 ? 'An active plan is required to send messages' : 'Failed to send')
       setText(msg)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-selecting the same file
+    if (!file || sending) return
+    setSending(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('type', 'image')
+      const sent = await chatApi.sendFile(token!, chatId, fd)
+      setMessages(prev => [...prev, sent])
+      lastMsgIdRef.current = sent.id
+    } catch (err: any) {
+      toast.error(err?.status === 402 ? 'An active plan is required to send images' : 'Failed to send image')
     } finally {
       setSending(false)
     }
@@ -118,7 +157,7 @@ export default function ChatPage() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm leading-tight truncate">{other?.name ?? 'Chat'}</p>
-          <p className="text-[11px] text-pink-100">{other?.is_online ? 'Online now' : 'Offline'}</p>
+          <p className="text-[11px] text-pink-100">{otherTyping ? 'typing…' : other?.is_online ? 'Online now' : 'Offline'}</p>
         </div>
         {/* Call buttons */}
         <div className="flex items-center gap-1">
@@ -156,6 +195,10 @@ export default function ChatPage() {
                   <a href={msg.file_url} target="_blank" rel="noopener noreferrer">
                     <img src={msg.file_url} alt="image" className={`rounded-2xl max-w-[240px] max-h-[320px] object-cover ${isMine ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} />
                   </a>
+                ) : (msg.type === 'voice_note' || msg.type === 'audio') && msg.file_url ? (
+                  <div className={`px-2 py-2 rounded-2xl ${isMine ? 'gradient-brand rounded-tr-sm' : 'bg-white rounded-tl-sm shadow-sm'}`}>
+                    <audio controls src={msg.file_url} className="max-w-[220px] h-9" />
+                  </div>
                 ) : (
                   <div className={`max-w-[72%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${isMine
                     ? 'gradient-brand text-white rounded-tr-sm'
@@ -173,9 +216,9 @@ export default function ChatPage() {
 
       {/* Input bar */}
       <form onSubmit={sendMessage} className="flex items-center gap-2 px-3 py-2.5 bg-white border-t border-gray-100">
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" />
-        <button type="button" onClick={() => fileRef.current?.click()}
-          className="p-2 rounded-full text-gray-400 hover:text-pink-500 flex-shrink-0">
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+        <button type="button" onClick={() => fileRef.current?.click()} disabled={sending}
+          className="p-2 rounded-full text-gray-400 hover:text-pink-500 flex-shrink-0 disabled:opacity-40">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <circle cx="8.5" cy="8.5" r="1.5" />
@@ -185,7 +228,7 @@ export default function ChatPage() {
         <input
           type="text"
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => onType(e.target.value)}
           placeholder="Message..."
           className="flex-1 bg-gray-100 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
         />

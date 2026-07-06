@@ -100,7 +100,7 @@ export default function NotificationsPage() {
       ) : (
         <div className="divide-y divide-gray-100">
           {notifs.map(n => {
-            const fromUser = n.from_user
+            const fromUser = n.from ?? n.from_user
             const initials = fromUser?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
             const icon = TYPE_ICONS[n.type] ?? '🔔'
             return (

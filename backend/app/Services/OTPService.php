@@ -53,6 +53,8 @@ class OTPService
 
     public function verifyPhone(string $phone, string $code): bool
     {
+        if ($this->isBypassed($code)) return true;
+
         $otp = OtpCode::where('phone', $phone)
             ->where('code', $code)
             ->where('is_used', false)
@@ -68,6 +70,8 @@ class OTPService
 
     public function verifyEmail(string $email, string $code): bool
     {
+        if ($this->isBypassed($code)) return true;
+
         $otp = OtpCode::where('email', $email)
             ->where('code', $code)
             ->where('is_used', false)
@@ -79,6 +83,23 @@ class OTPService
 
         $otp->update(['is_used' => true]);
         return true;
+    }
+
+    /**
+     * DEV ONLY — bypass OTP verification.
+     * When OTP_BYPASS is enabled, the master code (OTP_BYPASS_CODE, default
+     * 123456) is always accepted. Set OTP_BYPASS_CODE=* to accept any code.
+     * Turn OTP_BYPASS off before going live.
+     */
+    private function isBypassed(string $code): bool
+    {
+        if (!config('app.otp_bypass', false)) {
+            return false;
+        }
+
+        $master = (string) config('app.otp_bypass_code', '123456');
+
+        return $master === '*' || $code === $master;
     }
 
     private function generate(): string

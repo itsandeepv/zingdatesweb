@@ -2,9 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { discoverApi } from '@/lib/api'
+import { discoverApi, meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { AppUser } from '@/lib/types'
+
+// Resolve coordinates for the nearby query: try the browser, then the user's
+// saved profile location, then a sensible default so the feed always loads.
+async function resolveCoords(token: string): Promise<{ lat: number; lng: number }> {
+  const geo = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { timeout: 6000, maximumAge: 300000 },
+    )
+  })
+  if (geo) return geo
+  try {
+    const p: any = await meApi.profile(token)
+    const u = p?.user ?? p
+    if (u?.lat != null && u?.lng != null) return { lat: Number(u.lat), lng: Number(u.lng) }
+  } catch { /* ignore */ }
+  return { lat: 28.6139, lng: 77.209 } // New Delhi fallback
+}
 
 function ProfileCard({ user, onLike, onSkip, actioning }: {
   user: AppUser
@@ -119,7 +139,8 @@ export default function DiscoverPage() {
   async function load() {
     setLoading(true)
     try {
-      const data = await discoverApi.list(token)
+      const coords = await resolveCoords(token)
+      const data = await discoverApi.list(token, coords)
       const list = Array.isArray(data) ? data : (data as any).users ?? []
       setProfiles(list)
       setSkipped(new Set())

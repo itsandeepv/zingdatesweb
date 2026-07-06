@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { subscriptionsApi, plansApi } from '@/lib/api'
+import { subscriptionsApi } from '@/lib/api'
 
 function SubStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -47,7 +47,7 @@ export default function SubscriptionsPage() {
       if (planFilter !== 'all') params.plan = planFilter
       const [subsRes, plansRes] = await Promise.all([
         subscriptionsApi.list(token, params),
-        plansApi.list(token).catch(() => []),
+        subscriptionsApi.listPlans(token).catch(() => ({ data: [] })),
       ])
       setSubs(subsRes.data ?? subsRes ?? [])
       if (subsRes.meta) setMeta(subsRes.meta)
@@ -98,7 +98,7 @@ export default function SubscriptionsPage() {
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">MRR (page)</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">${(mrr / 100).toLocaleString()}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">₹{Number(mrr || 0).toLocaleString('en-IN')}</p>
         </div>
       </div>
 
@@ -156,7 +156,7 @@ export default function SubscriptionsPage() {
                     </td>
                     <td className="px-4 py-4"><PlanTypeBadge type={sub.plan_type ?? sub.planType ?? 'free'} /></td>
                     <td className="px-4 py-4 capitalize text-gray-600 whitespace-nowrap">{sub.billing_cycle ?? sub.billingCycle}</td>
-                    <td className="px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">${((sub.amount ?? 0)/100).toFixed(2)}</td>
+                    <td className="px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">₹{Number(sub.amount ?? 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{sub.start_date ?? sub.startDate}</td>
                     <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{sub.end_date ?? sub.endDate}</td>
                     <td className="px-4 py-4">

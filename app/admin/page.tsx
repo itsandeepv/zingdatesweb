@@ -91,7 +91,7 @@ function RevenueDonut({ subscriptions = 68, events = 22, coins = 10 }: { subscri
 }
 
 function fmt(n: number) { if (n >= 1e6) return (n/1e6).toFixed(1)+'M'; if (n >= 1e3) return (n/1e3).toFixed(1)+'K'; return String(n) }
-function fmtCurrency(n: number) { return '$' + (n/100).toLocaleString('en-US', { minimumFractionDigits: 0 }) }
+function fmtCurrency(n: number) { return '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 }) }
 
 export default function AdminDashboardPage() {
   const token = useAuthStore(s => s.token) ?? ''

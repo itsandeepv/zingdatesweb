@@ -15,11 +15,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoggedIn()) {
-      router.replace('/login')
+      router.replace('/admin-login')
       return
     }
     if (!isAdmin()) {
-      router.replace('/')
+      router.replace('/admin-login')
       return
     }
     setChecked(true)

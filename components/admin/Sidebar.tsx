@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
+import { useAuthStore } from '@/lib/store/auth'
 
 /* ─── Icons (inline SVG paths) ──────────────────────── */
 const Icon = ({ path, className = 'w-5 h-5' }: { path: string | string[]; className?: string }) => (
@@ -28,6 +29,7 @@ const ICONS = {
   lock:     ['M19 11H5a2 2 0 00-2 2v7a2 2 0 002 2h14a2 2 0 002-2v-7a2 2 0 00-2-2z', 'M7 11V7a5 5 0 0110 0v4'],
   phone:    'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 8.63 19.79 19.79 0 01.1 4 2 2 0 012.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 9.91a16 16 0 006.86 6.86l1.28-.45a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z',
   code:     ['M16 18l6-6-6-6', 'M8 6l-6 6 6 6'],
+  mic:      ['M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z', 'M19 10v2a7 7 0 01-14 0v-2', 'M12 19v4', 'M8 23h8'],
   gear:     ['M12 15a3 3 0 100-6 3 3 0 000 6z', 'M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z'],
   logout:   ['M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   chevron:  'M9 18l6-6-6-6',
@@ -35,38 +37,41 @@ const ICONS = {
 }
 
 /* ─── Nav structure ─────────────────────────────────── */
-interface NavItem { href: string; label: string; icon: keyof typeof ICONS; badge?: string }
+interface NavItem { href: string; label: string; icon: keyof typeof ICONS; badge?: string; soon?: boolean }
 interface NavGroup { label: string | null; items: NavItem[] }
 
+// `soon: true` = section not yet wired to the app backend (kept, disabled).
 const NAV: NavGroup[] = [
   { label: null, items: [
     { href: '/admin', label: 'Dashboard', icon: 'grid' },
   ]},
   { label: 'Management', items: [
-    { href: '/admin/users',          label: 'Users',          icon: 'users',    badge: '12.4K' },
+    { href: '/admin/users',          label: 'Users',          icon: 'users' },
+    { href: '/admin/companions',     label: 'Companions',     icon: 'heart' },
     { href: '/admin/subscriptions',  label: 'Subscriptions',  icon: 'card' },
     { href: '/admin/payments',       label: 'Payments',       icon: 'dollar' },
-    { href: '/admin/events',         label: 'Events',         icon: 'calendar' },
-    { href: '/admin/social',         label: 'Social',         icon: 'heart' },
+    { href: '/admin/events',         label: 'Events',         icon: 'calendar', soon: true },
+    { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
   ]},
-  { label: 'Communication', items: [
-    { href: '/admin/messaging', label: 'Messaging',  icon: 'bell' },
+  { label: 'Content', items: [
     { href: '/admin/content',   label: 'Content CMS', icon: 'file' },
+    { href: '/admin/podcasts',  label: 'Podcasts',    icon: 'mic' },
+    { href: '/admin/messaging', label: 'Messaging',  icon: 'bell', soon: true },
   ]},
   { label: 'Growth', items: [
     { href: '/admin/seo',       label: 'SEO',       icon: 'search' },
-    { href: '/admin/marketing', label: 'Marketing', icon: 'megaphone' },
-    { href: '/admin/analytics', label: 'Analytics', icon: 'bar' },
+    { href: '/admin/marketing', label: 'Marketing', icon: 'megaphone', soon: true },
+    { href: '/admin/analytics', label: 'Analytics', icon: 'bar', soon: true },
   ]},
   { label: 'Operations', items: [
-    { href: '/admin/support',  label: 'Support',  icon: 'ticket', badge: '23' },
-    { href: '/admin/staff',    label: 'Staff',    icon: 'shield' },
-    { href: '/admin/security', label: 'Security', icon: 'lock' },
+    { href: '/admin/support',  label: 'Support',  icon: 'ticket' },
+    { href: '/admin/staff',    label: 'Staff',    icon: 'shield', soon: true },
+    { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
   ]},
   { label: 'Platform', items: [
-    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone' },
-    { href: '/admin/api',      label: 'API',        icon: 'code' },
-    { href: '/admin/settings', label: 'Settings',   icon: 'gear' },
+    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone', soon: true },
+    { href: '/admin/api',      label: 'API',        icon: 'code', soon: true },
+    { href: '/admin/settings', label: 'Settings',   icon: 'gear', soon: true },
   ]},
 ]
 
@@ -75,7 +80,13 @@ interface Props { collapsed: boolean; onToggle: () => void }
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
   const pathname = usePathname()
+  const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const user = useAuthStore(s => s.user)
+  const clearAuth = useAuthStore(s => s.clearAuth)
+  const adminName = user?.name ?? 'Admin'
+  const adminInitial = adminName.charAt(0).toUpperCase()
+  const logout = () => { clearAuth(); router.replace('/admin-login') }
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
@@ -120,6 +131,27 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
             )}
             {group.items.map(item => {
               const active = isActive(item.href)
+
+              // Not-yet-wired sections: shown disabled with a "Soon" badge.
+              if (item.soon) {
+                return (
+                  <div
+                    key={item.href}
+                    title={collapsed ? `${item.label} (coming soon)` : undefined}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-white/25 cursor-not-allowed select-none
+                      ${collapsed ? 'justify-center' : ''}`}
+                  >
+                    <Icon path={ICONS[item.icon]} className="w-[18px] h-[18px] flex-shrink-0" />
+                    {!collapsed && (
+                      <>
+                        <span className="flex-1 truncate">{item.label}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-white/5 text-white/40 flex-shrink-0">Soon</span>
+                      </>
+                    )}
+                  </div>
+                )
+              }
+
               return (
                 <Link
                   key={item.href}
@@ -156,17 +188,17 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       <div className="border-t border-white/10 p-4">
         {collapsed ? (
           <div className="flex justify-center">
-            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm font-bold">R</div>
+            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm font-bold">{adminInitial}</div>
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full gradient-brand flex items-center justify-center text-sm font-bold flex-shrink-0">R</div>
+            <div className="w-9 h-9 rounded-full gradient-brand flex items-center justify-center text-sm font-bold flex-shrink-0">{adminInitial}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white truncate">Rahul Mehta</p>
-              <p className="text-xs text-white/40 truncate">Super Admin</p>
+              <p className="text-sm font-semibold text-white truncate">{adminName}</p>
+              <p className="text-xs text-white/40 truncate capitalize">{user?.role ?? 'Admin'}</p>
             </div>
             <button
-              onClick={() => { window.location.href = '/login' }}
+              onClick={logout}
               className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors text-white/40 hover:text-white flex-shrink-0"
               title="Logout"
             >

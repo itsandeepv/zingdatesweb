@@ -343,6 +343,8 @@ export interface AppUser {
   languages: string
   lat: number | null
   lng: number | null
+  city?: string | null
+  state?: string | null
   is_online: boolean
   last_seen: string | null
   wallet_balance: number
@@ -357,16 +359,21 @@ export interface AppUser {
   plan_expires_at: string | null
 }
 
+// Chat list item — the backend `/chats` returns a FLAT row per conversation.
+// The thread view reuses this shape with a nested `other_user`.
 export interface Chat {
   id: number
-  user_one_id: number
-  user_two_id: number
-  last_message_at: string | null
-  other_user: AppUser
-  last_message?: ChatMessage
-  unread_count?: number
-  created_at: string
-  updated_at: string
+  user_id?: number        // the OTHER participant's id (list rows)
+  name?: string
+  photo?: string | null
+  gender?: 'male' | 'female' | 'other' | null
+  is_online?: boolean
+  last_seen?: string | null
+  last_message?: string    // preview text (list rows)
+  last_time?: string       // humanised time (list rows)
+  unread?: number
+  is_typing?: boolean
+  other_user?: AppUser     // present in the thread view
 }
 
 export interface ChatMessage {
@@ -374,12 +381,14 @@ export interface ChatMessage {
   chat_id: number
   sender_id: number
   message: string | null
-  type: 'text' | 'image' | 'audio' | 'video' | 'file'
+  type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'voice_note'
   file_url: string | null
+  duration?: number
   is_read: boolean
   read_at: string | null
   created_at: string
   updated_at: string
+  sender?: AppUser
 }
 
 export interface Call {
@@ -405,8 +414,10 @@ export interface AppNotification {
   from_id: number
   type: string
   message: string | null
-  is_read: boolean
-  from_user?: AppUser
+  is_read: boolean | number
+  msg_count?: number | null
+  from?: AppUser          // backend eager-loads the sender as `from`
+  from_user?: AppUser     // legacy alias
   created_at: string
 }
 

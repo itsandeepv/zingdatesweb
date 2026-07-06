@@ -1,43 +1,41 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { orderApi } from '@/lib/api'
+import { orderApi, plansApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 
 declare global {
   interface Window { Razorpay: any }
 }
 
-const PLANS = [
-  {
-    id: 'trial',
-    name: '1 Day Trial',
-    price: 1,
-    period: '1 day',
+// Feature copy + presentation per plan id. Price / period come from the
+// backend so the card always reflects the amount that will actually be charged.
+const PLAN_META: Record<string, { badge: string | null; features: string[] }> = {
+  trial: {
     badge: null,
-    color: 'border-gray-200',
-    features: ['Browse all profiles', 'Send messages', 'Audio calls', 'View matches'],
+    features: ['Browse all profiles', 'Send messages', 'View matches', 'Audio calls'],
   },
-  {
-    id: 'monthly',
-    name: 'Monthly',
-    price: 299,
-    period: 'per month',
+  monthly: {
     badge: 'Popular',
-    color: 'border-pink-400',
     features: ['Everything in Trial', 'Video calls', 'Priority matching', 'Read receipts', 'Profile boost once/week'],
   },
-  {
-    id: 'vip',
-    name: 'VIP',
-    price: 1999,
-    period: 'per year',
+  vip: {
     badge: 'Best Value',
-    color: 'border-purple-500',
-    features: ['Everything in Monthly', 'Unlimited profile boosts', 'Super likes (5/day)', 'VIP badge', 'See who liked you', 'Priority support'],
+    features: ['Everything in Monthly', 'Audio & video calls', 'Companion bookings covered', 'VIP badge', 'See who liked you', 'Priority support'],
   },
+}
+
+const PLAN_ORDER = ['trial', 'monthly', 'vip']
+
+type PlanCard = { id: string; name: string; price: number; period: string; badge: string | null; features: string[] }
+
+// Fallback used only if the backend plan list can't be reached.
+const FALLBACK_PLANS: PlanCard[] = [
+  { id: 'trial', name: '1 Day Free Trial', price: 1, period: '1 day', ...PLAN_META.trial },
+  { id: 'monthly', name: 'Monthly Premium', price: 99, period: '30 days', ...PLAN_META.monthly },
+  { id: 'vip', name: 'VIP Plan', price: 199, period: '30 days', ...PLAN_META.vip },
 ]
 
 function loadRazorpay(): Promise<boolean> {
@@ -55,6 +53,27 @@ export default function PlansPage() {
   const router = useRouter()
   const { token, user, setAuth } = useAuthStore()
   const [paying, setPaying] = useState<string | null>(null)
+  const [plans, setPlans] = useState<PlanCard[]>(FALLBACK_PLANS)
+  const [status, setStatus] = useState<{ is_premium: boolean; plan_type: string | null; expiry: string | null } | null>(null)
+
+  useEffect(() => {
+    if (!token) return
+    plansApi.info(token).then((res: any) => {
+      const p = res?.plans
+      if (p && typeof p === 'object') {
+        const cards = PLAN_ORDER.filter(id => p[id]).map<PlanCard>(id => ({
+          id,
+          name: p[id].label ?? id,
+          price: Number(p[id].amount ?? 0),
+          period: p[id].days ? `${p[id].days} day${p[id].days > 1 ? 's' : ''}` : '',
+          badge: PLAN_META[id]?.badge ?? null,
+          features: PLAN_META[id]?.features ?? [],
+        }))
+        if (cards.length) setPlans(cards)
+      }
+      setStatus({ is_premium: !!res?.is_premium, plan_type: res?.plan_type ?? null, expiry: res?.expiry ?? null })
+    }).catch(() => { /* keep fallback */ })
+  }, [token])
 
   async function handlePurchase(planId: string) {
     if (paying) return
@@ -68,7 +87,7 @@ export default function PlansPage() {
 
       const options = {
         key: order.key,
-        amount: order.amount,
+        amount: Number(order.amount) * 100, // backend returns rupees; Razorpay wants paise
         currency: order.currency ?? 'INR',
         name: 'zingDates',
         description: `${planId.charAt(0).toUpperCase() + planId.slice(1)} Plan`,
@@ -116,9 +135,20 @@ export default function PlansPage() {
         <p className="text-sm text-gray-500">Unlock premium features and find your perfect match faster</p>
       </div>
 
+      {/* Current plan banner */}
+      {status?.is_premium && (
+        <div className="rounded-2xl p-4 gradient-brand text-white flex items-center justify-between" style={{ boxShadow: '0 4px 20px rgba(233,30,140,0.25)' }}>
+          <div>
+            <p className="text-sm font-bold uppercase tracking-wide">{status.plan_type} plan active</p>
+            {status.expiry && <p className="text-xs text-white/80 mt-0.5">Renews / expires {new Date(status.expiry).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })}</p>}
+          </div>
+          <span className="text-2xl">👑</span>
+        </div>
+      )}
+
       {/* Plans */}
       <div className="space-y-4">
-        {PLANS.map(plan => (
+        {plans.map(plan => (
           <div
             key={plan.id}
             className={`bg-white rounded-2xl p-5 border-2 transition-all ${plan.badge === 'Best Value' ? 'border-purple-500' : plan.badge === 'Popular' ? 'border-pink-400' : 'border-gray-200'}`}
@@ -153,12 +183,12 @@ export default function PlansPage() {
 
             <button
               onClick={() => handlePurchase(plan.id)}
-              disabled={!!paying}
+              disabled={!!paying || (status?.is_premium && status.plan_type === plan.id)}
               className={`w-full py-3 rounded-xl font-semibold text-sm transition-all disabled:opacity-50 ${
                 plan.badge ? 'gradient-brand text-white' : 'border border-gray-300 text-gray-700 hover:border-pink-400 hover:text-pink-600'
               }`}
               style={plan.badge ? { boxShadow: '0 2px 10px rgba(233,30,140,0.3)' } : {}}>
-              {paying === plan.id ? (
+              {status?.is_premium && status.plan_type === plan.id ? 'Current Plan' : paying === plan.id ? (
                 <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

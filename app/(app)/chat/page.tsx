@@ -18,39 +18,37 @@ function timeAgo(dateStr: string | null) {
 }
 
 function ChatItem({ chat }: { chat: Chat }) {
-  const u = chat.other_user
-  const initials = u?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-  const lastMsg = chat.last_message
-  const preview = lastMsg
-    ? (lastMsg.type !== 'text' ? `📎 ${lastMsg.type}` : (lastMsg.message ?? ''))
+  const initials = chat.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+  const preview = chat.last_message && chat.last_message.length > 0
+    ? chat.last_message
     : 'Start a conversation'
 
   return (
     <Link href={`/chat/${chat.id}`} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors active:bg-gray-100">
       <div className="relative flex-shrink-0">
-        {u?.photo ? (
-          <img src={u.photo} alt={u.name} className="w-14 h-14 rounded-full object-cover" />
+        {chat.photo ? (
+          <img src={chat.photo} alt={chat.name} className="w-14 h-14 rounded-full object-cover" />
         ) : (
           <div className="w-14 h-14 rounded-full gradient-brand flex items-center justify-center text-white font-bold text-lg">
             {initials}
           </div>
         )}
-        {u?.is_online && (
+        {chat.is_online && (
           <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-white" />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <p className="font-semibold text-gray-900 truncate">{u?.name ?? 'Unknown'}</p>
-          <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(chat.last_message_at)}</span>
+          <p className="font-semibold text-gray-900 truncate">{chat.name ?? 'Unknown'}</p>
+          <span className="text-xs text-gray-400 flex-shrink-0">{chat.last_time ?? ''}</span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className={`text-sm truncate ${chat.unread_count ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
+          <p className={`text-sm truncate ${chat.unread ? 'text-gray-900 font-medium' : 'text-gray-500'}`}>
             {preview}
           </p>
-          {(chat.unread_count ?? 0) > 0 && (
+          {(chat.unread ?? 0) > 0 && (
             <span className="flex-shrink-0 w-5 h-5 rounded-full gradient-brand text-white text-xs font-bold flex items-center justify-center">
-              {chat.unread_count}
+              {chat.unread}
             </span>
           )}
         </div>

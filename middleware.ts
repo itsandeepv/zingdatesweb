@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const PROTECTED = ['/admin', '/discover', '/matches', '/chat', '/call', '/profile', '/notifications', '/plans']
+const PROTECTED = ['/admin', '/discover', '/matches', '/companion', '/chat', '/call', '/profile', '/notifications', '/plans']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -9,7 +9,8 @@ export function middleware(request: NextRequest) {
   if (isProtected) {
     const token = request.cookies.get('zd-token')?.value
     if (!token) {
-      return NextResponse.redirect(new URL('/login?redirect=' + pathname, request.url))
+      const loginPath = pathname.startsWith('/admin') ? '/admin-login' : '/login'
+      return NextResponse.redirect(new URL(`${loginPath}?redirect=${pathname}`, request.url))
     }
   }
 
@@ -17,5 +18,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/discover/:path*', '/matches/:path*', '/chat/:path*', '/call/:path*', '/profile/:path*', '/notifications/:path*', '/plans/:path*'],
+  matcher: ['/admin/:path*', '/discover/:path*', '/matches/:path*', '/companion/:path*', '/chat/:path*', '/call/:path*', '/profile/:path*', '/notifications/:path*', '/plans/:path*'],
 }

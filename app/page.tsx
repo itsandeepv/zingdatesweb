@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
+import SiteFooter from '@/components/SiteFooter'
 
 export const metadata: Metadata = {
   title: 'zingDates — The Best Place to Meet Your Future Partner',
@@ -268,7 +269,7 @@ export default function LandingPage() {
           <p className="text-pink-100 text-xl mb-10">Join 5 million+ people already on zingDates. Free to download.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             {[
-              { store: 'App Store', sub: 'Download on the', icon: (<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />) },
+              // { store: 'App Store', sub: 'Download on the', icon: (<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />) },
               { store: 'Google Play', sub: 'Get it on', icon: (<path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z" />) },
             ].map(b => (
               <button key={b.store} className="flex items-center gap-3 bg-black/90 hover:bg-black text-white px-7 py-4 rounded-2xl font-semibold transition-colors mx-auto sm:mx-0">
@@ -288,41 +289,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ─────────────────────────────────────── */}
-      <footer className="bg-gray-900 text-gray-400 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-10 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">Z</span>
-                </div>
-                <span className="text-white font-bold text-lg">zingDates</span>
-              </div>
-              <p className="text-sm leading-relaxed">The best place to meet your future partner. Connecting people worldwide since 2024.</p>
-            </div>
-            {[
-              { title: 'Product',  links: ['Features', 'Pricing', 'Events', 'Success Stories'] },
-              { title: 'Company',  links: ['About', 'Blog', 'Careers', 'Press'] },
-              { title: 'Legal',    links: ['Privacy Policy', 'Terms of Service', 'Cookie Policy', 'Safety'] },
-            ].map(g => (
-              <div key={g.title}>
-                <h4 className="text-white font-semibold mb-4">{g.title}</h4>
-                <ul className="space-y-2">
-                  {g.links.map(l => (
-                    <li key={l}><a href="#" className="text-sm hover:text-white transition-colors">{l}</a></li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <div className="border-t border-gray-800 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-sm">© 2026 zingDates. All rights reserved.</p>
-            <Link href="/admin" className="text-xs text-gray-600 hover:text-gray-400 transition-colors">
-              Admin Dashboard →
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

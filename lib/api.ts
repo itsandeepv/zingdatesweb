@@ -1,10 +1,13 @@
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api'
-
+const BASE = 'http://zingdates.com/api'
+// http://localhost:8000/api
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  // `body` carries the full parsed error payload so callers can read flags the
+  // backend sends alongside the message (e.g. `need_plan` on a 402).
+  constructor(public status: number, message: string, public body: any = {}) {
     super(message)
     this.name = 'ApiError'
   }
+  get needPlan() { return this.status === 402 || this.body?.need_plan === true }
 }
 
 async function req<T>(path: string, options: RequestInit = {}, token?: string | null): Promise<T> {
@@ -17,7 +20,7 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: res.statusText }))
-    throw new ApiError(res.status, err.message ?? 'Request failed')
+    throw new ApiError(res.status, err.message ?? 'Request failed', err)
   }
   const text = await res.text()
   return (text ? JSON.parse(text) : null) as T
@@ -277,15 +280,64 @@ export const socialApi = {
     req<any>(`/admin/social/reports/${id}/action`, { method: 'POST', body: JSON.stringify({ action, admin_notes: notes }) }, token),
 }
 
+/* ─── Admin Companion Management ───────────────────────────────── */
+export const companionAdminApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/companions?${new URLSearchParams(params)}`, {}, token),
+  approve: (token: string, id: number) => req<any>(`/admin/companions/${id}/approve`, { method: 'POST' }, token),
+  suspend: (token: string, id: number) => req<any>(`/admin/companions/${id}/suspend`, { method: 'POST' }, token),
+  reject: (token: string, id: number) => req<any>(`/admin/companions/${id}/reject`, { method: 'POST' }, token),
+  bookings: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/companion-bookings?${new URLSearchParams(params)}`, {}, token),
+  withdrawals: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/withdrawals?${new URLSearchParams(params)}`, {}, token),
+  approveWithdraw: (token: string, id: number) => req<any>(`/admin/withdrawals/${id}/approve`, { method: 'POST' }, token),
+  rejectWithdraw: (token: string, id: number) => req<any>(`/admin/withdrawals/${id}/reject`, { method: 'POST' }, token),
+  payWithdraw: (token: string, id: number, ref?: string) => req<any>(`/admin/withdrawals/${id}/paid`, { method: 'POST', body: JSON.stringify({ payout_ref: ref }) }, token),
+  settings: (token: string) => req<any>('/admin/companion-settings', {}, token),
+  updateSettings: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/companion-settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+}
+
 /* ─── Admin Messaging ─────────────────────────────────────────── */
 export const messagingApi = {
   sendPush: (token: string, data: Record<string, any>) =>
     req<any>('/admin/messaging/push', { method: 'POST', body: JSON.stringify(data) }, token),
 }
 
-/* ─── Public Plans ────────────────────────────────────────────── */
+/* ─── Plans (auth) ────────────────────────────────────────────── */
+// `/plans` → { is_premium, plan_type, expiry, trial_used, plans:{trial,monthly,vip} }
 export const plansApi = {
-  list: () => req<any[]>('/plans'),
+  info: (token: string) => req<any>('/plans', {}, token),
+  list: (token?: string) => req<any>('/plans', {}, token),
+}
+
+/* ─── Public Blog (no auth) ───────────────────────────────────── */
+export const blogApi = {
+  list: (params: Record<string, string> = {}) =>
+    req<any>(`/blog?${new URLSearchParams(params)}`),
+  get: (slug: string) => req<any>(`/blog/${slug}`),
+  categories: () => req<any>('/blog/categories'),
+}
+
+/* ─── Public Podcasts (no auth) ───────────────────────────────── */
+export const podcastApi = {
+  list: (params: Record<string, string> = {}) =>
+    req<any>(`/podcasts?${new URLSearchParams(params)}`),
+  get: (slug: string) => req<any>(`/podcasts/${slug}`),
+  categories: () => req<any>('/podcasts/categories'),
+}
+
+/* ─── Admin Podcasts ──────────────────────────────────────────── */
+export const podcastAdminApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/podcasts?${new URLSearchParams(params)}`, {}, token),
+  create: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/podcasts', { method: 'POST', body: JSON.stringify(data) }, token),
+  update: (token: string, id: number, data: Record<string, any>) =>
+    req<any>(`/admin/podcasts/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  delete: (token: string, id: number) =>
+    req<any>(`/admin/podcasts/${id}`, { method: 'DELETE' }, token),
 }
 
 /* ─── Me (Current User) ───────────────────────────────── */
@@ -308,31 +360,91 @@ export const meApi = {
 }
 
 /* ─── Discovery ───────────────────────────────────────── */
+// Backend `/users/nearby` REQUIRES lat/lng and returns { success, users, ... }.
 export const discoverApi = {
-  list: (token: string) => req<any[]>('/users/nearby', {}, token),
+  list: async (token: string, coords?: { lat: number; lng: number }, filter?: 'all' | 'new') => {
+    const p = new URLSearchParams()
+    if (coords) { p.set('lat', String(coords.lat)); p.set('lng', String(coords.lng)) }
+    if (filter) p.set('filter', filter)
+    const res = await req<any>(`/users/nearby?${p}`, {}, token)
+    return (res?.users ?? res ?? []) as any[]
+  },
   like: (token: string, userId: number) =>
     req<{ matched: boolean; chat_id?: number }>(`/users/${userId}/like`, { method: 'POST' }, token),
   block: (token: string, userId: number) =>
     req<any>(`/users/${userId}/block`, { method: 'POST' }, token),
+  unblock: (token: string, userId: number) =>
+    req<any>(`/users/${userId}/block`, { method: 'DELETE' }, token),
+  blocked: async (token: string) => {
+    const res = await req<any>('/users/blocked', {}, token)
+    return (res?.users ?? res ?? []) as any[]
+  },
+  search: async (token: string, q: string) => {
+    const res = await req<any>(`/users/search?q=${encodeURIComponent(q)}`, {}, token)
+    return (res?.users ?? res ?? []) as any[]
+  },
 }
 
-/* ─── Matches ─────────────────────────────────────────── */
+/* ─── Matches / Likes ─────────────────────────────────── */
+// `/likes` → { users }.  `/likes/received` → { likes:[{ user_id, name, photo, is_online, blurred }] }.
 export const matchApi = {
-  list: (token: string) => req<any[]>('/likes', {}, token),
-  likedMe: (token: string) => req<any[]>('/likes/received', {}, token),
+  list: async (token: string) => {
+    const res = await req<any>('/likes', {}, token)
+    return (res?.users ?? res ?? []) as any[]
+  },
+  likedMe: async (token: string) => {
+    const res = await req<any>('/likes/received', {}, token)
+    const likes = res?.likes ?? (Array.isArray(res) ? res : [])
+    // Normalise to a user-like shape the UI expects (id = the actual user id).
+    return likes.map((l: any) => ({
+      id: l.user_id ?? l.id,
+      name: l.name,
+      photo: l.photo,
+      is_online: l.is_online,
+      blurred: l.blurred ?? false,
+      created_at: l.created_at,
+    })) as any[]
+  },
 }
 
 /* ─── Chats (User) ────────────────────────────────────── */
+// `/chats` → { chats:[flat items], stories }.  send → { message }.
 export const chatApi = {
-  list: (token: string) => req<any[]>('/chats', {}, token),
+  list: async (token: string) => {
+    const res = await req<any>('/chats', {}, token)
+    return (res?.chats ?? res ?? []) as any[]
+  },
   messages: (token: string, chatId: number, page = 1) =>
     req<any>(`/chats/${chatId}/messages?page=${page}`, {}, token),
-  send: (token: string, chatId: number, data: { message?: string; type?: string; file_url?: string }) =>
-    req<any>(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify(data) }, token),
+  send: async (token: string, chatId: number, data: { message?: string; type?: string }) => {
+    const res = await req<any>(`/chats/${chatId}/messages`, { method: 'POST', body: JSON.stringify(data) }, token)
+    return res?.message ?? res
+  },
+  sendFile: async (token: string, chatId: number, formData: FormData) => {
+    const r = await fetch(`${BASE}/chats/${chatId}/messages`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ message: r.statusText }))
+      throw new ApiError(r.status, err.message ?? 'Upload failed')
+    }
+    const j = await r.json()
+    return j?.message ?? j
+  },
   startWith: (token: string, userId: number) =>
     req<any>(`/chats/start/${userId}`, { method: 'POST' }, token),
   markRead: (token: string, chatId: number) =>
     req<any>(`/chats/${chatId}/read`, { method: 'POST' }, token),
+  typingStatus: (token: string, chatId: number) =>
+    req<any>(`/chats/${chatId}/typing-status`, {}, token),
+  setTyping: (token: string, chatId: number, isTyping: boolean) =>
+    req<any>(`/chats/${chatId}/typing`, { method: 'POST', body: JSON.stringify({ is_typing: isTyping }) }, token),
+  clear: (token: string, chatId: number) =>
+    req<any>(`/chats/${chatId}/clear`, { method: 'POST' }, token),
+  remove: (token: string, chatId: number) =>
+    req<any>(`/chats/${chatId}`, { method: 'DELETE' }, token),
 }
 
 /* ─── Calls (WebRTC) ──────────────────────────────────── */
@@ -343,6 +455,11 @@ export const callApi = {
       body: JSON.stringify({ offer_sdp: offerSdp }),
     }, token),
   incoming: (token: string) => req<any>('/calls/incoming', {}, token),
+  // Unwrapped poller used by the app layout — returns the call object or null.
+  pending: async (token: string) => {
+    const res = await req<any>('/calls/incoming', {}, token)
+    return res?.call ?? (res?.id ? res : null)
+  },
   history: (token: string) => req<any[]>('/calls/history', {}, token),
   status: (token: string, callId: number) => req<any>(`/calls/${callId}/status`, {}, token),
   answer: (token: string, callId: number) =>
@@ -365,8 +482,16 @@ export const callApi = {
 }
 
 /* ─── Notifications (User) ────────────────────────────── */
+// `/notifications` → { notifications:{ data:[...] }, unread_count }. Items carry `from`.
 export const notifApi = {
-  list: (token: string) => req<any[]>('/notifications', {}, token),
+  list: async (token: string) => {
+    const res = await req<any>('/notifications', {}, token)
+    return (res?.notifications?.data ?? (Array.isArray(res) ? res : [])) as any[]
+  },
+  unreadCount: async (token: string) => {
+    const res = await req<any>('/notifications', {}, token)
+    return (res?.unread_count ?? 0) as number
+  },
   markRead: (token: string, id: number) =>
     req<any>(`/notifications/${id}/read`, { method: 'POST' }, token),
   markAllRead: (token: string) =>
@@ -389,4 +514,52 @@ export const orderApi = {
   orders: (token: string) => req<any[]>('/wallet/orders', {}, token),
   paymentStatus: (token: string, orderId: string) =>
     req<any>(`/wallet/payment-status/${orderId}`, {}, token),
+}
+
+/* ─── Companion Booking (user + creator) ──────────────── */
+const qs = (params: Record<string, any> = {}) => {
+  const p = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v !== '' && v != null && v !== false) p.set(k, String(v)) })
+  const s = p.toString()
+  return s ? `?${s}` : ''
+}
+
+export const companionApi = {
+  // Discovery
+  feed: (token: string, params: Record<string, any> = {}) =>
+    req<any>(`/companion/feed${qs(params)}`, {}, token),
+  categories: (token: string) => req<any>('/companion/categories', {}, token),
+  profile: (token: string, id: number) => req<any>(`/companion/profile/${id}`, {}, token),
+
+  // Creator settings
+  me: (token: string) => req<any>('/companion/me', {}, token),
+  enable: (token: string) => req<any>('/companion/enable', { method: 'POST' }, token),
+  saveSettings: (token: string, data: Record<string, any>) =>
+    req<any>('/companion/settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+
+  // Bookings (client)
+  quote: (token: string, companionId: number, durationMin: number) =>
+    req<any>('/companion/bookings/quote', { method: 'POST', body: JSON.stringify({ companion_id: companionId, duration_min: durationMin }) }, token),
+  book: (token: string, data: Record<string, any>) =>
+    req<any>('/companion/bookings', { method: 'POST', body: JSON.stringify(data) }, token),
+  upcoming: (token: string, page = 1) => req<any>(`/companion/bookings/upcoming?page=${page}`, {}, token),
+  history: (token: string, status = 'all', page = 1) => req<any>(`/companion/bookings/history?status=${status}&page=${page}`, {}, token),
+  incoming: (token: string, page = 1) => req<any>(`/companion/bookings/incoming?page=${page}`, {}, token),
+  booking: (token: string, id: number) => req<any>(`/companion/bookings/${id}`, {}, token),
+  invoice: (token: string, id: number) => req<any>(`/companion/bookings/${id}/invoice`, {}, token),
+  accept: (token: string, id: number) => req<any>(`/companion/bookings/${id}/accept`, { method: 'POST' }, token),
+  reject: (token: string, id: number, reason?: string) => req<any>(`/companion/bookings/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  cancel: (token: string, id: number, reason?: string) => req<any>(`/companion/bookings/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  start: (token: string, id: number) => req<any>(`/companion/bookings/${id}/start`, { method: 'POST' }, token),
+  end: (token: string, id: number) => req<any>(`/companion/bookings/${id}/end`, { method: 'POST' }, token),
+  rate: (token: string, id: number, rating: number, review?: string) => req<any>(`/companion/bookings/${id}/rate`, { method: 'POST', body: JSON.stringify({ rating, review }) }, token),
+
+  // Creator dashboard
+  creatorStats: (token: string) => req<any>('/companion/creator/stats', {}, token),
+  creatorBookings: (token: string, status = 'all', page = 1) => req<any>(`/companion/creator/bookings?status=${status}&page=${page}`, {}, token),
+  creatorWallet: (token: string) => req<any>('/companion/creator/wallet', {}, token),
+  requestWithdraw: (token: string, amount: number, note?: string) => req<any>('/companion/creator/withdraw', { method: 'POST', body: JSON.stringify({ amount, note }) }, token),
+  withdrawHistory: (token: string, page = 1) => req<any>(`/companion/creator/withdraws?page=${page}`, {}, token),
+  getAvailability: (token: string) => req<any>('/companion/availability', {}, token),
+  setAvailability: (token: string, slots: any[]) => req<any>('/companion/availability', { method: 'PUT', body: JSON.stringify({ slots }) }, token),
 }
