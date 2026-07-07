@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { blogApi, podcastApi } from '@/lib/api'
@@ -85,9 +86,7 @@ export default function Navbar() {
     <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center shadow-brand">
-            <span className="text-white font-bold text-sm">Z</span>
-          </div>
+          <Image src="/logo-mark.png" alt="zingDates" width={36} height={36} priority className="w-9 h-9 object-contain" />
           <span className="text-xl font-bold gradient-brand-text">zingDates</span>
         </Link>
 
@@ -95,8 +94,8 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-7">
           <NavMenu label="Blog" href="/blog" loadCategories={blogCats} />
           <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} />
+          <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">About</Link>
           <a href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Features</a>
-          <a href="/#how-it-works" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">How It Works</a>
         </div>
 
         <div className="flex items-center gap-3">
@@ -139,6 +138,7 @@ export default function Navbar() {
           {[
             { label: 'Blog', href: '/blog' },
             { label: 'Podcasts', href: '/podcasts' },
+            { label: 'About', href: '/about' },
             { label: 'Features', href: '/#features' },
             { label: 'How It Works', href: '/#how-it-works' },
           ].map(l => (

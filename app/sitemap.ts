@@ -7,14 +7,15 @@ export const dynamic = 'force-dynamic'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/`, changeFrequency: 'weekly', priority: 1 },
-    { url: `${SITE_URL}/blog`, changeFrequency: 'daily', priority: 0.8 },
+    { url: SITE_URL, changeFrequency: 'weekly', priority: 1 },
+    { url: `${SITE_URL}/about`, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${SITE_URL}/blog`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/podcasts`, changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${SITE_URL}/register`, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${SITE_URL}/register`, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${SITE_URL}/login`, changeFrequency: 'monthly', priority: 0.3 },
     { url: `${SITE_URL}/terms`, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE_URL}/privacy`, changeFrequency: 'yearly', priority: 0.3 },
-    { url: `${SITE_URL}/refund`, changeFrequency: 'yearly', priority: 0.3 },
+    { url: `${SITE_URL}/refund`, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
   const [posts, episodes] = await Promise.all([

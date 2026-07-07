@@ -3,10 +3,41 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import { SITE_URL, SITE_NAME } from '@/lib/site'
 
 export const metadata: Metadata = {
   title: 'zingDates — The Best Place to Meet Your Future Partner',
   description: 'Connect with millions of people near you. Find meaningful relationships, attend local events, and build real connections on zingDates — the social networking app.',
+  alternates: { canonical: 'https://zingdates.com' },
+  openGraph: {
+    title: 'zingDates — The Best Place to Meet Your Future Partner',
+    description: 'Connect with millions of people near you. Find meaningful relationships, attend local events, and build real connections.',
+    url: 'https://zingdates.com',
+    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'zingDates — Find Your Perfect Match' }],
+  },
+}
+
+// Structured data — gives Google the brand name + logo for rich results / knowledge panel.
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: SITE_NAME,
+      url: SITE_URL,
+      logo: `${SITE_URL}/logo-full.png`,
+      image: `${SITE_URL}/og-image.jpg`,
+      description: 'zingDates is a social networking platform to meet your future partner through local events, real-time chat, and video calls.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      publisher: { '@id': `${SITE_URL}/#organization` },
+    },
+  ],
 }
 
 const FEATURES = [
@@ -28,26 +59,28 @@ const STATS = [
 ]
 
 const REVIEWS = [
-  { name: 'Priya S.', loc: 'Mumbai, India',    img: 'https://randomuser.me/api/portraits/women/26.jpg', text: 'I found my life partner on zingDates! The matching algorithm is incredible — it knew exactly what I was looking for.' },
-  { name: 'James W.', loc: 'New York, USA',     img: 'https://randomuser.me/api/portraits/men/32.jpg',   text: 'The events feature is amazing. I met so many interesting people at local meetups organised through the app.' },
-  { name: 'Sofia R.', loc: 'Barcelona, Spain',  img: 'https://randomuser.me/api/portraits/women/63.jpg', text: "zingDates changed my social life completely. It's not just dating — it's a whole community of genuine people." },
+  { name: 'Priya S.', loc: 'Mumbai, India',   img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face&q=85', text: 'I found my life partner on zingDates! The matching algorithm is incredible — it knew exactly what I was looking for.' },
+  { name: 'James W.', loc: 'New York, USA',   img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=85', text: 'The events feature is amazing. I met so many interesting people at local meetups organised through the app.' },
+  { name: 'Sofia R.', loc: 'Barcelona, Spain', img: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=face&q=85', text: "zingDates changed my social life completely. It's not just dating — it's a whole community of genuine people." },
 ]
 
 const PROFILES = [
-  { name: 'Aria', age: 24, online: true,  img: 'https://randomuser.me/api/portraits/women/44.jpg' },
-  { name: 'Maya', age: 26, online: false, img: 'https://randomuser.me/api/portraits/women/68.jpg' },
-  { name: 'Zoe',  age: 22, online: true,  img: 'https://randomuser.me/api/portraits/women/21.jpg' },
-  { name: 'Nina', age: 28, online: true,  img: 'https://randomuser.me/api/portraits/women/33.jpg' },
-  { name: 'Luna', age: 23, online: false, img: 'https://randomuser.me/api/portraits/women/57.jpg' },
-  { name: 'Sara', age: 25, online: true,  img: 'https://randomuser.me/api/portraits/women/12.jpg' },
-  { name: 'Kate', age: 27, online: true,  img: 'https://randomuser.me/api/portraits/women/76.jpg' },
-  { name: 'Emma', age: 21, online: false, img: 'https://randomuser.me/api/portraits/women/90.jpg' },
-  { name: 'Lily', age: 29, online: true,  img: 'https://randomuser.me/api/portraits/women/5.jpg'  },
+  { name: 'Aria', age: 24, online: true,  img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Maya', age: 26, online: false, img: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Zoe',  age: 22, online: true,  img: 'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Nina', age: 28, online: true,  img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Luna', age: 23, online: false, img: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Sara', age: 25, online: true,  img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Kate', age: 27, online: true,  img: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Emma', age: 21, online: false, img: 'https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?w=400&h=500&fit=crop&crop=top&q=85' },
+  { name: 'Lily', age: 29, online: true,  img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop&crop=top&q=85' },
 ]
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+
       {/* ── Navbar ─────────────────────────────────────── */}
       <Navbar />
 

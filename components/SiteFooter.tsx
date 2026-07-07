@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function SiteFooter() {
   const groups = [
@@ -28,9 +29,9 @@ export default function SiteFooter() {
         <div className="grid md:grid-cols-4 gap-10 mb-12">
           <div>
             <Link href="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center">
-                <span className="text-white font-bold text-sm">Z</span>
-              </div>
+              <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center p-1">
+                <Image src="/logo-mark.png" alt="zingDates" width={28} height={28} className="object-contain" />
+              </span>
               <span className="text-white font-bold text-lg">zingDates</span>
             </Link>
             <p className="text-sm leading-relaxed">The best place to meet your future partner. Connecting people worldwide since 2024.</p>
