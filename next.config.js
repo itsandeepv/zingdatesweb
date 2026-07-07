@@ -35,6 +35,16 @@ const nextConfig = {
         hostname: 'zingdates.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'api.zingdates.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'api.zingdates.com',
+        pathname: '/**',
+      },
     ],
   },
 }

@@ -1,4 +1,4 @@
-const BASE = 'http://zingdates.com/api'
+const BASE = 'http://api.zingdates.com/api'
 // http://localhost:8000/api
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
