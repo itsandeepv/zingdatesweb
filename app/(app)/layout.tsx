@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { callApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
+import NoPlanModal from '@/components/NoPlanModal'
 
 function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
@@ -95,7 +96,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { token, user, _hasHydrated, clearAuth } = useAuthStore()
   const [incomingCall, setIncomingCall] = useState<any>(null)
 
-  const isCallPage = pathname?.startsWith('/call')
+  const isCallPage    = pathname?.startsWith('/call')
+  const isConvoPage   = /^\/chat\//.test(pathname ?? '')
+  const isChatList    = pathname === '/chat'
+  const isFullScreen  = isConvoPage || isChatList
 
   const pageTitle = Object.entries(PAGE_TITLES).find(([k]) =>
     pathname === k || (k !== '/discover' && pathname?.startsWith(k + '/'))
@@ -140,7 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       : 'bg-white/10 text-white/40'
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className={`flex ${isFullScreen ? 'h-screen overflow-hidden bg-white' : 'min-h-screen bg-gray-50'}`}>
 
       {/* ── Desktop Sidebar (hidden on mobile) ──────────── */}
       <aside className="hidden lg:flex fixed left-0 top-0 h-screen w-[220px] gradient-sidebar flex-col z-40"
@@ -237,10 +241,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ── Main area ────────────────────────────────────── */}
-      <div className="flex-1 lg:ml-[220px] flex flex-col min-h-screen">
+      <div className={`flex-1 lg:ml-[220px] flex flex-col ${isFullScreen ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
 
-        {/* Mobile top header */}
-        <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3"
+        {/* Mobile top header — hidden for full-screen pages (chat has its own header) */}
+        <header className={`lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 ${isFullScreen ? 'hidden' : ''}`}
           style={{ background: 'linear-gradient(180deg, #1a1235 0%, #0f0a24 100%)' }}>
           <Link href="/discover" className="flex items-center gap-2">
             <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center"
@@ -285,14 +289,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* Page content — extra bottom padding on mobile for the bottom nav */}
-        <main className="flex-1 p-4 lg:p-8 pb-24 lg:pb-8 max-w-7xl w-full mx-auto">
+        {/* Page content */}
+        <main className={`flex-1 w-full ${
+          isFullScreen
+            ? 'overflow-hidden min-h-0'
+            : 'p-4 lg:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto'
+        }`}>
           {children}
         </main>
       </div>
 
-      {/* ── Mobile Bottom Navigation ─────────────────────── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gray-100"
+      {/* ── Mobile Bottom Navigation — hidden on convo page (chat has its own input) */}
+      <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-gray-100 ${isConvoPage ? 'hidden' : ''}`}
         style={{ background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}>
         <div className="flex items-center justify-around px-2 py-2 safe-area-bottom">
           {BOTTOM_NAV.map(item => {
@@ -316,6 +324,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </div>
       </nav>
+
+      {/* ── No-plan upsell modal ─────────────────────────── */}
+      {pathname !== '/plans' && <NoPlanModal />}
 
       {/* ── Incoming call modal ──────────────────────────── */}
       {incomingCall && (

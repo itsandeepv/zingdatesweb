@@ -62,7 +62,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
 
         {/* Form card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8" style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
+        <div className="bg-white rounded-3xl shadow-2xl p-8 overflow-hidden" style={{ boxShadow: '0 32px 80px rgba(0,0,0,0.5)' }}>
           {children}
         </div>
 

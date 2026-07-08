@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { toast } from 'sonner'
 import { chatApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { Chat, ChatMessage } from '@/lib/types'
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -249,8 +249,12 @@ export default function ChatPage() {
       setMessages(prev => [...prev, sent])
       lastMsgIdRef.current = sent.id
     } catch (err: any) {
-      toast.error(err?.status === 402 ? 'An active plan is required to send messages' : 'Failed to send')
-      setText(msg)
+      if (err?.status === 402) {
+        triggerPlanModal()
+      } else {
+        toast.error('Failed to send')
+        setText(msg)
+      }
     } finally {
       setSending(false)
     }
@@ -269,7 +273,8 @@ export default function ChatPage() {
       setMessages(prev => [...prev, sent])
       lastMsgIdRef.current = sent.id
     } catch (err: any) {
-      toast.error(err?.status === 402 ? 'An active plan is required to send images' : 'Failed to send image')
+      if (err?.status === 402) triggerPlanModal()
+      else toast.error('Failed to send image')
     } finally {
       setSending(false)
     }
@@ -288,7 +293,7 @@ export default function ChatPage() {
   /* ── Loading skeleton ─────────────────────────── */
   if (loading) {
     return (
-      <div className="flex flex-col h-[100dvh]">
+      <div className="flex flex-col h-full">
         {/* Header skeleton */}
         <div className="h-[68px] gradient-brand flex items-center px-4 gap-3">
           <div className="w-5 h-5 rounded bg-white/20" />
@@ -313,7 +318,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh]">
+    <div className="flex flex-col h-full relative">
       {/* ── Top bar ──────────────────────────────── */}
       <header
         className="gradient-brand text-white px-3 py-2.5 flex items-center gap-3 sticky top-0 z-10"
@@ -381,10 +386,9 @@ export default function ChatPage() {
       <div
         ref={messagesRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-1"
+        className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-1"
         style={{
           background: 'linear-gradient(180deg, #fdf4ff 0%, #fff5f8 100%)',
-          backgroundAttachment: 'fixed',
         }}
       >
         {hasMore && (
@@ -452,7 +456,7 @@ export default function ChatPage() {
       {showScrollBtn && (
         <button
           onClick={() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' })}
-          className="absolute bottom-20 right-4 w-10 h-10 rounded-full gradient-brand shadow-brand flex items-center justify-center z-20 active:scale-90 transition-transform"
+          className="absolute bottom-[76px] right-4 w-10 h-10 rounded-full gradient-brand shadow-brand flex items-center justify-center z-20 active:scale-90 transition-transform"
           style={{ boxShadow: '0 4px 20px rgba(233,30,140,0.4)' }}
         >
           <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">

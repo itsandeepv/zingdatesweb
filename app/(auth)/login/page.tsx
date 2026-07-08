@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
@@ -20,7 +19,6 @@ const COUNTRY_CODES = [
 type Step = 'input' | 'otp'
 
 export default function LoginPage() {
-  const router  = useRouter()
   const setAuth = useAuthStore(s => s.setAuth)
 
   const [step, setStep]       = useState<Step>('input')
@@ -43,6 +41,17 @@ export default function LoginPage() {
       document.getElementById(`otp-${idx - 1}`)?.focus()
   }
 
+  function handleOtpPaste(e: React.ClipboardEvent, idx: number) {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!pasted) return
+    e.preventDefault()
+    const next = [...otp]
+    for (let j = 0; j < pasted.length && idx + j < 6; j++) next[idx + j] = pasted[j]
+    setOtp(next)
+    const focusIdx = Math.min(idx + pasted.length, 5)
+    document.getElementById(`otp-${focusIdx}`)?.focus()
+  }
+
   async function handleSendOtp(e: { preventDefault(): void }) {
     e.preventDefault()
     setLoading(true)
@@ -52,13 +61,10 @@ export default function LoginPage() {
         const verifyRes = await authApi.verifyOtp(phone, cc.replace('+', ''), res.otp)
         setAuth(verifyRes.token, verifyRes.user)
         toast.success(verifyRes.is_new_user ? 'Welcome to zingDates!' : 'Welcome back!')
-        if (verifyRes.is_new_user) {
-          router.push('/register')
-        } else if (verifyRes.user?.role && ['admin', 'super_admin', 'moderator'].includes(verifyRes.user.role)) {
-          router.push('/admin')
-        } else {
-          router.push('/discover')
-        }
+        const dest = verifyRes.is_new_user ? '/register'
+          : (verifyRes.user?.role && ['admin', 'super_admin', 'moderator'].includes(verifyRes.user.role)) ? '/admin'
+          : '/discover'
+        window.location.href = dest
         return
       }
       toast.success('OTP sent to your mobile number')
@@ -77,13 +83,10 @@ export default function LoginPage() {
       const res = await authApi.verifyOtp(phone, cc.replace('+', ''), otp.join(''))
       setAuth(res.token, res.user)
       toast.success(res.is_new_user ? 'Welcome to zingDates!' : 'Welcome back!')
-      if (res.is_new_user) {
-        router.push('/register')
-      } else if (res.user?.role && ['admin', 'super_admin', 'moderator'].includes(res.user.role)) {
-        router.push('/admin')
-      } else {
-        router.push('/discover')
-      }
+      const dest = res.is_new_user ? '/register'
+        : (res.user?.role && ['admin', 'super_admin', 'moderator'].includes(res.user.role)) ? '/admin'
+        : '/discover'
+      window.location.href = dest
     } catch (err: any) {
       toast.error(err.message || 'Invalid OTP')
     } finally {
@@ -127,11 +130,11 @@ export default function LoginPage() {
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
               Mobile Number
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full">
               <select
                 value={cc}
                 onChange={e => setCC(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all cursor-pointer text-gray-700">
+                className="flex-shrink-0 w-[108px] border border-gray-200 rounded-xl px-2 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all cursor-pointer text-gray-700">
                 {COUNTRY_CODES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
                 ))}
@@ -143,7 +146,7 @@ export default function LoginPage() {
                 placeholder="98765 43210"
                 required
                 autoFocus
-                className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300" />
+                className="flex-1 min-w-0 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300" />
             </div>
           </div>
 
@@ -185,10 +188,14 @@ export default function LoginPage() {
                   id={`otp-${i}`}
                   type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete={i === 0 ? 'one-time-code' : 'off'}
+                  autoFocus={i === 0}
                   maxLength={1}
                   value={v}
                   onChange={e => handleOtpChange(e.target.value, i)}
                   onKeyDown={e => handleOtpKeyDown(e, i)}
+                  onPaste={e => handleOtpPaste(e, i)}
                   className="w-11 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100 transition-all bg-gray-50 focus:bg-white text-gray-900"
                   style={{ height: 52 }} />
               ))}

@@ -353,6 +353,163 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── App Download Bridge ────────────────────────── */}
+      <section className="py-24 overflow-hidden relative" style={{ background: 'linear-gradient(160deg,#0c0720 0%,#1d0940 45%,#280c3a 75%,#0c0720 100%)' }}>
+        {/* Ambient blobs */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-24 left-1/3 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(233,30,140,0.28),transparent 70%)' }} />
+          <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(156,39,176,0.22),transparent 70%)' }} />
+          <div className="absolute top-1/2 -left-16 w-56 h-56 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(233,30,140,0.14),transparent 70%)' }} />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+
+            {/* Left — text + CTAs */}
+            <ScrollReveal direction="left">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 bg-white/10 border border-white/15 rounded-full px-4 py-2 mb-6">
+                <span className="text-base">📱</span>
+                <span className="text-pink-300 text-sm font-semibold">Available on Android & iOS</span>
+              </div>
+
+              <h2 className="text-4xl sm:text-5xl font-bold text-white leading-tight mb-5">
+                Stop scrolling.<br />
+                Start{' '}
+                <span className="gradient-brand-text-anim">connecting</span>{' '}
+                for real.
+              </h2>
+              <p className="text-white/60 text-lg leading-relaxed mb-8 max-w-lg">
+                Thousands of real people near you are waiting. Download the zingDates app and carry every match, message, and moment right in your pocket — wherever life takes you.
+              </p>
+
+              {/* Trust badges */}
+              <div className="flex flex-wrap gap-6 mb-10">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-0.5">{[1,2,3,4,5].map(i=><span key={i} className="text-yellow-400 text-base">★</span>)}</div>
+                  <span className="text-white/70 text-sm font-medium">4.9 App Rating</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-pink-400 text-base">👥</span>
+                  <span className="text-white/70 text-sm font-medium">5 Million+ Users</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400 text-base">🔒</span>
+                  <span className="text-white/70 text-sm font-medium">Verified Profiles</span>
+                </div>
+              </div>
+
+              {/* Store buttons */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <a href="#" className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105">
+                  <svg className="w-7 h-7 flex-shrink-0 fill-current" viewBox="0 0 24 24">
+                    <path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z"/>
+                  </svg>
+                  <div className="text-left">
+                    <p className="text-xs text-white/50">Get it on</p>
+                    <p className="font-bold text-base">Google Play</p>
+                  </div>
+                </a>
+                <a href="#" className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105">
+                  <svg className="w-7 h-7 flex-shrink-0 fill-current" viewBox="0 0 24 24">
+                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                  </svg>
+                  <div className="text-left">
+                    <p className="text-xs text-white/50">Download on the</p>
+                    <p className="font-bold text-base">App Store</p>
+                  </div>
+                </a>
+              </div>
+            </ScrollReveal>
+
+            {/* Right — phone mockup */}
+            <ScrollReveal direction="right" delay={120} className="relative flex justify-center lg:justify-end">
+              {/* Phone frame */}
+              <div className="relative w-64 animate-float2">
+                <div className="relative w-64 rounded-[44px] overflow-hidden border-[6px] border-white/20 shadow-2xl"
+                     style={{ background: '#1a0b30', boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)' }}>
+                  {/* Status bar */}
+                  <div className="flex items-center justify-between px-5 py-2 bg-black/30">
+                    <span className="text-white/70 text-[10px] font-semibold">9:41</span>
+                    <div className="w-16 h-4 rounded-full bg-black absolute left-1/2 -translate-x-1/2 top-0" />
+                    <div className="flex items-center gap-1">
+                      <svg className="w-3 h-3 fill-white/70" viewBox="0 0 24 24"><path d="M1.5 8.5C5.5 4.5 18.5 4.5 22.5 8.5"/><path d="M5 12c2.5-2.5 12-2.5 14 0"/><path d="M8.5 15.5c1.5-1.5 6-1.5 7 0"/><circle cx="12" cy="19" r="1"/></svg>
+                      <svg className="w-3 h-3 fill-white/70" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>
+                    </div>
+                  </div>
+
+                  {/* App header */}
+                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg,#E91E8C,#9C27B0)' }}>
+                    <div>
+                      <p className="text-white text-xs opacity-70">Good evening 👋</p>
+                      <p className="text-white font-bold text-sm">Discover</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                      <span className="text-white text-sm">🔔</span>
+                    </div>
+                  </div>
+
+                  {/* Profile cards stack */}
+                  <div className="px-3 py-3 space-y-2.5" style={{ background: '#0f0828' }}>
+                    {[
+                      { name: 'Priya', age: 24, city: 'Mumbai', online: true, color: '#E91E8C' },
+                      { name: 'Asha',  age: 26, city: 'Delhi',  online: false, color: '#9C27B0' },
+                    ].map((u, i) => (
+                      <div key={i} className="rounded-2xl overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div className="h-20 flex items-end p-3" style={{ background: `linear-gradient(135deg,${u.color}40,${u.color}20)` }}>
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                               style={{ background: u.color }}>
+                            {u.name[0]}
+                          </div>
+                          <div className="ml-2">
+                            <p className="text-white text-xs font-bold">{u.name}, {u.age}</p>
+                            <p className="text-white/50 text-[10px]">{u.city}</p>
+                          </div>
+                          {u.online && <span className="ml-auto w-2 h-2 rounded-full bg-green-400 ring-2 ring-green-400/30" />}
+                        </div>
+                        <div className="flex gap-2 px-3 py-2">
+                          <button className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-white/50 border border-white/10">Skip</button>
+                          <button className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-white" style={{ background: u.color }}>❤ Like</button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Match notification */}
+                    <div className="rounded-2xl p-3 flex items-center gap-2.5" style={{ background: 'linear-gradient(135deg,rgba(233,30,140,0.25),rgba(156,39,176,0.25))', border: '1px solid rgba(233,30,140,0.3)' }}>
+                      <span className="text-xl animate-heartbeat">💖</span>
+                      <div>
+                        <p className="text-white text-[11px] font-bold">It&apos;s a Match!</p>
+                        <p className="text-white/50 text-[10px]">You and Priya liked each other</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bottom nav bar */}
+                  <div className="flex justify-around py-3 px-4" style={{ background: '#0a061e', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    {['🏠','💝','💬','👤'].map((icon, i) => (
+                      <button key={i} className={`w-8 h-8 flex items-center justify-center text-base rounded-xl ${i === 1 ? 'gradient-brand' : ''}`}>
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Floating elements around the phone */}
+                <div className="absolute -top-4 -right-8 glass rounded-2xl px-3 py-2 border border-pink-200/30 shadow-xl animate-float" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)' }}>
+                  <p className="text-white text-[11px] font-bold">💬 New message</p>
+                  <p className="text-white/60 text-[10px]">Asha: Hey there! 👋</p>
+                </div>
+                <div className="absolute -bottom-2 -left-10 glass rounded-2xl px-3 py-2 border border-purple-200/30 shadow-xl animate-float2">
+                  <p className="text-white text-[11px] font-bold">📞 Incoming call</p>
+                  <p className="text-white/60 text-[10px]">from Priya</p>
+                </div>
+              </div>
+            </ScrollReveal>
+
+          </div>
+        </div>
+      </section>
+
       {/* ── Download CTA ───────────────────────────────── */}
       <section className="py-20 gradient-brand relative overflow-hidden">
         {/* Animated blobs inside CTA */}

@@ -60,7 +60,7 @@ export default function RegisterPage() {
       })
       setAuth(token!, res.user ?? res)
       toast.success('Welcome to zingDates!')
-      router.push('/discover')
+      window.location.href = '/discover'
     } catch (err: any) {
       toast.error(err.message || 'Failed to save profile. Please try again.')
     } finally {

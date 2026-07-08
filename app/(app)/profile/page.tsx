@@ -179,13 +179,14 @@ export default function ProfilePage() {
     <div className="pb-8 space-y-4 max-w-lg mx-auto">
 
       {/* ── Hero header ─────────────────────────────── */}
-      <div className="relative">
-        {/* Banner */}
-        <div className="gradient-brand h-36 rounded-b-3xl relative overflow-hidden">
-          {/* Decorative circles */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
-          <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-white/5" />
-        </div>
+      <div>
+        {/* Banner + avatar: inner relative so avatar positions against banner only */}
+        <div className="relative">
+          <div className="gradient-brand h-36 rounded-b-3xl relative overflow-hidden">
+            {/* Decorative circles */}
+            <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5" />
+            <div className="absolute -bottom-6 -left-6 w-28 h-28 rounded-full bg-white/5" />
+          </div>
 
         {/* Avatar overlapping banner */}
         <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: -52 }}>
@@ -226,8 +227,9 @@ export default function ProfilePage() {
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
           </div>
         </div>
+        </div>{/* end inner relative (banner + avatar) */}
 
-        {/* Name + details below avatar */}
+        {/* Name + details below avatar — pt-16 clears the 52px avatar overhang */}
         <div className="pt-16 pb-2 text-center">
           <h1 className="text-xl font-bold text-gray-900 leading-tight">
             {profile?.name ?? 'Your Name'}
@@ -244,7 +246,7 @@ export default function ProfilePage() {
             </p>
           )}
         </div>
-      </div>
+      </div>{/* end hero header */}
 
       {/* ── Profile completeness ─────────────────────── */}
       {comp.pct < 100 && (

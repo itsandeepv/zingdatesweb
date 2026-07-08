@@ -57,6 +57,14 @@ a { color: inherit; text-decoration: none; }
 .animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
 .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 8px); }
 
+/* dvh polyfill — full-screen pages use h-screen which is 100vh,
+   but iOS Safari shrinks viewport when the URL bar shows.
+   JS sets --dvh on mount to fix this. */
+.h-screen-safe {
+  height: 100vh;
+  height: 100dvh;
+}
+
 .animate-shimmer {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;

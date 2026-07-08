@@ -139,7 +139,7 @@ export default function ChatListPage() {
   }, [chats, filter, search])
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-white">
+    <div className="flex flex-col h-full bg-white">
       {/* ── Header ─────────────────────────────────── */}
       <div className="px-4 pt-5 pb-3 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between mb-4">
@@ -230,7 +230,7 @@ export default function ChatListPage() {
       )}
 
       {/* ── List ───────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      <div className="flex-1 overflow-y-auto bg-white min-h-0 pb-20">
         {loading ? (
           <div className="divide-y divide-gray-50">
             {Array.from({ length: 7 }).map((_, i) => <SkeletonItem key={i} />)}
