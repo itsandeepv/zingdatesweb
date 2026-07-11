@@ -215,15 +215,19 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
 }
 
 export default function DiscoverPage() {
-  const token = useAuthStore(s => s.token) ?? ''
+  const { token, user } = useAuthStore()
+  const safeToken = token ?? ''
   const [profiles, setProfiles] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState<number | null>(null)
   const [matched, setMatched] = useState<AppUser | null>(null)
   const [skipped, setSkipped] = useState<Set<number>>(new Set())
   const [showAppNudge, setShowAppNudge] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<AppUser[] | null>(null)
+  const [searching, setSearching] = useState(false)
 
-  useEffect(() => { if (token) load() }, [token])
+  useEffect(() => { if (safeToken) load() }, [safeToken])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -232,11 +236,29 @@ export default function DiscoverPage() {
     return () => clearTimeout(t)
   }, [])
 
+  // Debounced API search — runs 400ms after user stops typing
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q) { setSearchResults(null); return }
+    const t = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const results = await discoverApi.search(safeToken, q)
+        setSearchResults(Array.isArray(results) ? results : [])
+      } catch {
+        toast.error('Search failed')
+      } finally {
+        setSearching(false)
+      }
+    }, 400)
+    return () => clearTimeout(t)
+  }, [searchQuery, safeToken])
+
   async function load() {
     setLoading(true)
     try {
-      const coords = await resolveCoords(token)
-      const data = await discoverApi.list(token, coords)
+      const coords = await resolveCoords(safeToken)
+      const data = await discoverApi.list(safeToken, coords)
       const list = Array.isArray(data) ? data : (data as any).users ?? []
       setProfiles(list)
       setSkipped(new Set())
@@ -247,20 +269,25 @@ export default function DiscoverPage() {
     }
   }
 
-  async function handleLike(user: AppUser) {
+  async function handleLike(likedUser: AppUser) {
+    // Gate: free users see recharge popup immediately
+    if (!user?.is_premium) {
+      triggerPlanModal('like')
+      return
+    }
     if (actioning !== null) return
-    setActioning(user.id)
+    setActioning(likedUser.id)
     try {
-      const res = await discoverApi.like(token, user.id)
+      const res = await discoverApi.like(safeToken, likedUser.id)
       if (res.matched) {
-        setMatched(user)
+        setMatched(likedUser)
       } else {
-        toast.success(`You liked ${user.name}!`)
+        toast.success(`You liked ${likedUser.name}!`)
       }
-      setSkipped(s => new Set([...s, user.id]))
+      setSkipped(s => new Set([...s, likedUser.id]))
     } catch (err: any) {
       if (err?.status === 402 || err?.message?.toLowerCase().includes('plan')) {
-        triggerPlanModal()
+        triggerPlanModal('like')
       } else {
         toast.error('Failed to like')
       }
@@ -269,8 +296,8 @@ export default function DiscoverPage() {
     }
   }
 
-  function handleSkip(user: AppUser) {
-    setSkipped(s => new Set([...s, user.id]))
+  function handleSkip(skippedUser: AppUser) {
+    setSkipped(s => new Set([...s, skippedUser.id]))
   }
 
   function dismissNudge() {
@@ -278,7 +305,29 @@ export default function DiscoverPage() {
     setShowAppNudge(false)
   }
 
-  const visible = profiles.filter(p => !skipped.has(p.id))
+  function clearSearch() {
+    setSearchQuery('')
+    setSearchResults(null)
+  }
+
+  const isSearchMode = searchQuery.trim().length > 0
+
+  // While API results are loading, show instant local filter as preview
+  const visible = (() => {
+    if (!isSearchMode) return profiles.filter(p => !skipped.has(p.id))
+    const base = searchResults ?? profiles // fallback to local until API responds
+    const q = searchQuery.toLowerCase()
+    return base.filter(p => {
+      if (skipped.has(p.id)) return false
+      if (searchResults) return true // API already filtered
+      // Local preview filter on name / city / state
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.city?.toLowerCase() ?? '').includes(q) ||
+        (p.state?.toLowerCase() ?? '').includes(q)
+      )
+    })
+  })()
 
   if (loading) return (
     <div className="flex items-center justify-center h-96">
@@ -287,33 +336,84 @@ export default function DiscoverPage() {
   )
 
   return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-gray-500 text-sm mt-0.5">{visible.length} profiles near you</p>
+    <div className="space-y-4">
+      {/* Search + refresh bar */}
+      <div className="flex items-center gap-3">
+        {/* Search input */}
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            {searching
+              ? <div className="w-4 h-4 rounded-full border-2 border-pink-400 border-t-transparent animate-spin" />
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5">
+                  <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+                </svg>
+            }
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search by name or city…"
+            className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-transparent transition-all"
+          />
+          {isSearchMode && (
+            <button
+              onClick={clearSearch}
+              className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
+
+        {/* Refresh button */}
         <button
           onClick={load}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
+          title="Refresh nearby profiles"
+          className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
+      {/* Result count / search label */}
+      <p className="text-gray-500 text-sm">
+        {isSearchMode
+          ? searching
+            ? 'Searching…'
+            : `${visible.length} result${visible.length !== 1 ? 's' : ''} for "${searchQuery}"`
+          : `${visible.length} profiles near you`
+        }
+      </p>
+
       {/* Empty state */}
       {visible.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-32 text-center space-y-4">
-          <div className="text-7xl">🌸</div>
-          <h2 className="text-xl font-bold text-gray-800">You've seen everyone nearby!</h2>
-          <p className="text-gray-500 text-sm max-w-xs">Check back later or refresh to see new profiles in your area.</p>
-          <button onClick={load} className="gradient-brand text-white font-semibold px-8 py-3 rounded-xl shadow-brand hover:opacity-90 mt-2">
-            Refresh Profiles
-          </button>
-        </div>
+        isSearchMode ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center space-y-3">
+            <div className="text-6xl">🔍</div>
+            <h2 className="text-lg font-bold text-gray-800">No results found</h2>
+            <p className="text-gray-500 text-sm max-w-xs">
+              No profiles match &ldquo;{searchQuery}&rdquo;. Try a different name or city.
+            </p>
+            <button onClick={clearSearch} className="gradient-brand text-white font-semibold px-6 py-2.5 rounded-xl shadow-brand hover:opacity-90 text-sm mt-1">
+              Clear search
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-32 text-center space-y-4">
+            <div className="text-7xl">🌸</div>
+            <h2 className="text-xl font-bold text-gray-800">You&apos;ve seen everyone nearby!</h2>
+            <p className="text-gray-500 text-sm max-w-xs">Check back later or refresh to see new profiles in your area.</p>
+            <button onClick={load} className="gradient-brand text-white font-semibold px-8 py-3 rounded-xl shadow-brand hover:opacity-90 mt-2">
+              Refresh Profiles
+            </button>
+          </div>
+        )
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {visible.map(user => (

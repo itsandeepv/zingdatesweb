@@ -240,6 +240,11 @@ export default function ChatPage() {
   async function sendMessage(e?: { preventDefault(): void }) {
     e?.preventDefault()
     if (!text.trim() || sending) return
+    // Gate: free users see recharge popup before any network call
+    if (!user?.is_premium) {
+      triggerPlanModal('message')
+      return
+    }
     const msg = text.trim()
     setText('')
     if (inputRef.current) inputRef.current.style.height = 'auto'
@@ -250,7 +255,7 @@ export default function ChatPage() {
       lastMsgIdRef.current = sent.id
     } catch (err: any) {
       if (err?.status === 402) {
-        triggerPlanModal()
+        triggerPlanModal('message')
       } else {
         toast.error('Failed to send')
         setText(msg)
@@ -264,6 +269,10 @@ export default function ChatPage() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file || sending) return
+    if (!user?.is_premium) {
+      triggerPlanModal('message')
+      return
+    }
     setSending(true)
     try {
       const fd = new FormData()
@@ -273,7 +282,7 @@ export default function ChatPage() {
       setMessages(prev => [...prev, sent])
       lastMsgIdRef.current = sent.id
     } catch (err: any) {
-      if (err?.status === 402) triggerPlanModal()
+      if (err?.status === 402) triggerPlanModal('message')
       else toast.error('Failed to send image')
     } finally {
       setSending(false)

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { chatApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { Chat } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
 
@@ -35,14 +36,22 @@ function SkeletonItem() {
   )
 }
 
-function ChatItem({ chat }: { chat: Chat }) {
+function ChatItem({ chat, isPremium }: { chat: Chat; isPremium: boolean }) {
   const preview = chat.last_message?.trim().length ? chat.last_message : 'Start a conversation…'
   const hasUnread = (chat.unread ?? 0) > 0
   const t = timeAgo(chat.last_time)
 
+  function handleClick(e: React.MouseEvent) {
+    if (!isPremium) {
+      e.preventDefault()
+      triggerPlanModal('chat')
+    }
+  }
+
   return (
     <Link
       href={`/chat/${chat.id}`}
+      onClick={handleClick}
       className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-pink-50/70 active:bg-pink-100/60 transition-colors relative group"
     >
       {/* Unread left bar */}
@@ -100,22 +109,24 @@ function ChatItem({ chat }: { chat: Chat }) {
 }
 
 export default function ChatListPage() {
-  const token = useAuthStore(s => s.token) ?? ''
+  const { token, user } = useAuthStore()
+  const safeToken = token ?? ''
+  const isPremium = !!user?.is_premium
   const [chats, setChats] = useState<Chat[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread' | 'online'>('all')
 
   useEffect(() => {
-    if (!token) return
+    if (!safeToken) return
     load()
     const iv = setInterval(load, 8000)
     return () => clearInterval(iv)
-  }, [token])
+  }, [safeToken])
 
   async function load() {
     try {
-      const data = await chatApi.list(token)
+      const data = await chatApi.list(safeToken)
       setChats(data)
     } catch {
       if (loading) toast.error('Failed to load chats')
@@ -211,7 +222,12 @@ export default function ChatListPage() {
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Active now</p>
           <div className="flex gap-4">
             {onlineList.map(c => (
-              <Link key={c.id} href={`/chat/${c.id}`} className="flex flex-col items-center gap-1 flex-shrink-0 group">
+              <Link
+                key={c.id}
+                href={`/chat/${c.id}`}
+                onClick={e => { if (!isPremium) { e.preventDefault(); triggerPlanModal('chat') } }}
+                className="flex flex-col items-center gap-1 flex-shrink-0 group"
+              >
                 <div className="relative">
                   <div className="rounded-full p-0.5 bg-gradient-to-br from-pink-400 to-purple-500">
                     <div className="rounded-full bg-white p-0.5">
@@ -260,7 +276,7 @@ export default function ChatListPage() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50/80">
-            {filtered.map(chat => <ChatItem key={chat.id} chat={chat} />)}
+            {filtered.map(chat => <ChatItem key={chat.id} chat={chat} isPremium={isPremium} />)}
           </div>
         )}
       </div>

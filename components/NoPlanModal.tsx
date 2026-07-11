@@ -7,25 +7,38 @@ import { useAuthStore } from '@/lib/store/auth'
 const SESSION_KEY = 'zd-plan-modal-v1'
 export const PLAN_MODAL_EVT = 'zd:plan-required'
 
-export function triggerPlanModal() {
+export function triggerPlanModal(action?: string) {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(PLAN_MODAL_EVT))
+    window.dispatchEvent(new CustomEvent(PLAN_MODAL_EVT, { detail: { action } }))
   }
 }
+
+// Map of action keys → hero config (emoji, headline, sub)
+const ACTION_COPY: Record<string, { emoji: string; title: string; sub: string }> = {
+  like:    { emoji: '❤️',  title: 'Upgrade to Like Profiles',    sub: 'Get a plan to send likes and find your match.' },
+  chat:    { emoji: '💬',  title: 'Upgrade to Chat',             sub: 'Get a plan to open and send messages.' },
+  message: { emoji: '✉️',  title: 'Upgrade to Send Messages',    sub: 'Get a plan to reply and keep the conversation going.' },
+  call:    { emoji: '📞',  title: 'Upgrade to Make Calls',       sub: 'Get a plan to make audio & video calls.' },
+}
+const DEFAULT_COPY = { emoji: '👑', title: 'Upgrade to Premium', sub: 'Unlock everything zingDates has to offer.' }
 
 export default function NoPlanModal() {
   const { user, _hasHydrated } = useAuthStore()
   const [show, setShow] = useState(false)
+  const [action, setAction] = useState<string | undefined>(undefined)
 
   useEffect(() => {
     if (!_hasHydrated || !user || user.is_premium) return
 
-    const onTrigger = () => setShow(true)
+    const onTrigger = (e: Event) => {
+      setAction((e as CustomEvent).detail?.action)
+      setShow(true)
+    }
     window.addEventListener(PLAN_MODAL_EVT, onTrigger)
 
     let timer: ReturnType<typeof setTimeout> | null = null
     if (!sessionStorage.getItem(SESSION_KEY)) {
-      timer = setTimeout(() => setShow(true), 2500)
+      timer = setTimeout(() => { setAction(undefined); setShow(true) }, 2500)
     }
 
     return () => {
@@ -41,6 +54,8 @@ export default function NoPlanModal() {
 
   if (!show) return null
 
+  const copy = (action && ACTION_COPY[action]) ?? DEFAULT_COPY
+
   return (
     <div
       className="fixed inset-0 z-[49] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
@@ -55,9 +70,13 @@ export default function NoPlanModal() {
         <div className="gradient-brand relative px-6 pt-8 pb-14 text-center overflow-hidden">
           <div className="absolute -top-12 -left-12 w-40 h-40 rounded-full bg-white/10" />
           <div className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-white/10" />
-          <div className="text-5xl mb-3 relative z-10" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}>👑</div>
-          <h2 className="text-[22px] font-extrabold text-white leading-tight relative z-10">Upgrade to Premium</h2>
-          <p className="text-white/80 text-sm mt-1.5 relative z-10">Unlock everything zingDates has to offer</p>
+          {/* Close button */}
+          <button onClick={dismiss} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/15 flex items-center justify-center text-white/70 hover:bg-white/25 transition-colors z-10">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+          <div className="text-5xl mb-3 relative z-10" style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.3))' }}>{copy.emoji}</div>
+          <h2 className="text-[22px] font-extrabold text-white leading-tight relative z-10">{copy.title}</h2>
+          <p className="text-white/80 text-sm mt-1.5 relative z-10">{copy.sub}</p>
         </div>
 
         {/* Starting price badge — overlaps hero */}
