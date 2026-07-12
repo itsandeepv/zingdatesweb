@@ -372,6 +372,7 @@ export default function ChatPage() {
         <div className="flex items-center gap-1">
           <Link
             href={`/call/new?to=${other?.id}&type=audio`}
+            onClick={e => { if (!user?.is_premium) { e.preventDefault(); triggerPlanModal('call') } }}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all"
             title="Voice call"
           >
@@ -381,6 +382,7 @@ export default function ChatPage() {
           </Link>
           <Link
             href={`/call/new?to=${other?.id}&type=video`}
+            onClick={e => { if (!user?.is_premium) { e.preventDefault(); triggerPlanModal('call') } }}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all"
             title="Video call"
           >

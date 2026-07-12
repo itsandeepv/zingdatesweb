@@ -37,10 +37,30 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
 /* ─── Auth ────────────────────────────────────────────────────── */
 export const authApi = {
   sendOtp: (phone: string, countryCode: string) =>
-    req<{ message: string; otp?: string; dev_mode?: boolean }>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode }) }),
+    req<any>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode }) })
+      .then((res: any) => {
+        // Normalise: some backends wrap in { data: {...} }
+        const d = res?.data ?? res
+        return {
+          message:  d.message  ?? '',
+          otp:      d.otp      ?? res?.otp,
+          dev_mode: d.dev_mode ?? res?.dev_mode ?? false,
+        } as { message: string; otp?: string; dev_mode?: boolean }
+      }),
 
-  verifyOtp: (phone: string, countryCode: string, otp: string) =>
-    req<{ token: string; user: any; is_new_user: boolean }>('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode, otp }) }),
+  verifyOtp: async (phone: string, countryCode: string, otp: string) => {
+    const res = await req<any>('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode, otp }) })
+    // Normalise: handle { data:{...} } wrapper and alternate field names
+    const d = res?.data ?? res
+    const token = d.token ?? d.access_token ?? d.auth_token ?? d.authToken
+    const user  = d.user  ?? d.profile ?? d.userData
+    if (!token) throw new ApiError(401, 'Verification failed — no token received')
+    return {
+      token,
+      user,
+      is_new_user: d.is_new_user ?? d.isNewUser ?? d.new_user ?? false,
+    } as { token: string; user: any; is_new_user: boolean }
+  },
 
   adminLogin: (email: string, password: string) =>
     req<{ token: string; user: any }>('/auth/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) }),

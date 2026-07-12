@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { matchApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { AppUser } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
 
 export default function MatchesPage() {
-  const token = useAuthStore(s => s.token)
+  const { token, user } = useAuthStore()
+  const isPremium = !!user?.is_premium
   const [matches, setMatches] = useState<AppUser[]>([])
   const [likedMe, setLikedMe] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,10 +29,17 @@ export default function MatchesPage() {
         matchApi.list(t),
         matchApi.likedMe(t),
       ])
-      if (m.status === 'fulfilled') setMatches(m.value ?? [])
-      if (l.status === 'fulfilled') setLikedMe(l.value ?? [])
-    } catch {
-      toast.error('Failed to load matches')
+      if (m.status === 'fulfilled') {
+        setMatches(m.value ?? [])
+      } else {
+        const err = m.reason as any
+        if (err?.status === 402 || err?.needPlan) triggerPlanModal('like')
+        else toast.error('Failed to load matches')
+      }
+      if (l.status === 'fulfilled') {
+        setLikedMe(l.value ?? [])
+      }
+      // likedMe 402 is expected for free users — data is blurred server-side, no toast
     } finally {
       setLoading(false)
     }
@@ -54,19 +63,43 @@ export default function MatchesPage() {
             <span className="gradient-brand text-white text-xs font-bold px-2 py-0.5 rounded-full">{likedMe.length}</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-            {likedMe.map(u => (
-              <div key={u.id} className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                <div className="relative">
-                  <UserAvatar src={u.photo} name={u.name} size={68} online={u.is_online} />
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gradient-brand flex items-center justify-center border-2 border-white">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                    </svg>
+            {likedMe.map(u => {
+              const blurred = !isPremium || (u as any).blurred
+              return (
+                <button
+                  key={u.id}
+                  onClick={() => { if (blurred) triggerPlanModal('like') }}
+                  className="flex flex-col items-center gap-1.5 flex-shrink-0 group focus:outline-none"
+                >
+                  <div className="relative">
+                    {/* Avatar with blur for free users */}
+                    <div className={blurred ? 'blur-sm pointer-events-none select-none' : ''}>
+                      <UserAvatar src={u.photo} name={u.name} size={68} online={u.is_online} />
+                    </div>
+                    {/* Heart badge */}
+                    <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gradient-brand flex items-center justify-center border-2 border-white z-10">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                      </svg>
+                    </div>
+                    {/* Lock overlay for blurred */}
+                    {blurred && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/20">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <span className="text-xs font-medium text-gray-700 text-center max-w-[64px] truncate">{u.name.split(' ')[0]}</span>
-              </div>
-            ))}
+                  <span className={`text-xs font-medium text-center max-w-[64px] truncate ${blurred ? 'blur-sm text-gray-400 select-none' : 'text-gray-700'}`}>
+                    {blurred ? '••••' : u.name.split(' ')[0]}
+                  </span>
+                  {blurred && (
+                    <span className="text-[10px] text-pink-500 font-semibold -mt-1">Upgrade</span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </section>
       )}
@@ -90,7 +123,13 @@ export default function MatchesPage() {
         ) : (
           <div className="space-y-3">
             {matches.map(u => (
-              <Link key={u.id} href="/chat" className="flex items-center gap-4 bg-white rounded-2xl p-4 hover:shadow-md transition-shadow" style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}>
+              <Link
+                key={u.id}
+                href="/chat"
+                onClick={e => { if (!isPremium) { e.preventDefault(); triggerPlanModal('chat') } }}
+                className="flex items-center gap-4 bg-white rounded-2xl p-4 hover:shadow-md transition-shadow"
+                style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}
+              >
                 <UserAvatar src={u.photo} name={u.name} size={52} online={u.is_online} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

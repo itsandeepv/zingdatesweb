@@ -64,7 +64,7 @@ export default function LoginPage() {
         const dest = verifyRes.is_new_user ? '/register'
           : (verifyRes.user?.role && ['admin', 'super_admin', 'moderator'].includes(verifyRes.user.role)) ? '/admin'
           : '/discover'
-        window.location.href = dest
+        setTimeout(() => { window.location.href = dest }, 100)
         return
       }
       toast.success('OTP sent to your mobile number')
@@ -86,7 +86,7 @@ export default function LoginPage() {
       const dest = res.is_new_user ? '/register'
         : (res.user?.role && ['admin', 'super_admin', 'moderator'].includes(res.user.role)) ? '/admin'
         : '/discover'
-      window.location.href = dest
+      setTimeout(() => { window.location.href = dest }, 100)
     } catch (err: any) {
       toast.error(err.message || 'Invalid OTP')
     } finally {
