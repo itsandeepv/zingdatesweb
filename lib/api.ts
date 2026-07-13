@@ -348,6 +348,11 @@ export const blogApi = {
   categories: () => req<any>('/blog/categories'),
 }
 
+/* ─── Public Static Pages (no auth) ─────────────────────────── */
+export const pagesApi = {
+  get: (key: string) => req<any>(`/pages/${key}`),
+}
+
 /* ─── Public Podcasts (no auth) ───────────────────────────────── */
 export const podcastApi = {
   list: (params: Record<string, string> = {}) =>

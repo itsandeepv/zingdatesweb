@@ -1,6 +1,19 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import { pagesApi } from '@/lib/api'
 import { SITE_URL } from '@/lib/site'
+
+export const dynamic = 'force-dynamic'
+
+async function getCmsContent(key: string): Promise<string | null> {
+  try {
+    const res = await pagesApi.get(key)
+    const page = res?.data ?? res
+    return page?.content || null
+  } catch {
+    return null
+  }
+}
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -9,12 +22,14 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  const cmsContent = await getCmsContent('terms')
   return (
     <LegalPage
       title="Terms of Service"
       subtitle="Please read these terms carefully before using zingDates."
       updated="July 5, 2026"
+      htmlContent={cmsContent ?? undefined}
     >
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the zingDates
