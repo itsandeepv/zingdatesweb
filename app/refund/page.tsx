@@ -34,8 +34,10 @@ export default async function RefundPage() {
       <p>
         This Refund &amp; Cancellation Policy explains when payments made on zingDates may be refunded. By
         purchasing Coins, subscribing to a plan, or making a booking, you agree to this policy. All amounts
-        are processed through our payment partners (such as Razorpay) in Indian Rupees (₹) unless stated
-        otherwise.
+        are processed through our payment partner <strong>Razorpay Software Pvt. Ltd.</strong> in Indian
+        Rupees (₹) unless stated otherwise. This service is operated by{' '}
+        <strong>S&amp;S Tech</strong>, Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1,
+        Gurugram, Haryana – 122 002, India.
       </p>
 
       <h2>1. Coins &amp; Wallet Recharges</h2>
@@ -114,7 +116,13 @@ export default async function RefundPage() {
       <h2>10. Contact Us</h2>
       <p>
         For refund or billing questions, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a>.
+        <a href="mailto:support@zingdates.com">support@zingdates.com</a> or call us at{' '}
+        <a href="tel:+919466440136">+91 94664 40136</a> (Monday – Saturday, 10 AM – 7 PM IST).
+        You can also visit our <a href="/contact">Contact page</a>.
+      </p>
+      <p>
+        <strong>Registered Address:</strong> S&amp;S Tech, Unit No. 7, 3rd Floor, JMD Regent Arcade Mall,
+        A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India
       </p>
     </LegalPage>
   )

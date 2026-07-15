@@ -32,7 +32,9 @@ export default async function PrivacyPage() {
       htmlContent={cmsContent ?? undefined}
     >
       <p>
-        This Privacy Policy explains how zingDates (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) collects, uses, shares,
+        This Privacy Policy explains how <strong>S&amp;S Tech</strong> (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;),
+        the operator of zingDates (registered at Unit No. 7, 3rd Floor, JMD Regent Arcade Mall,
+        A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India), collects, uses, shares,
         and safeguards your information when you use our website, mobile applications, and related services
         (the &ldquo;Service&rdquo;). By using zingDates, you consent to the practices described here.
       </p>
@@ -129,7 +131,27 @@ export default async function PrivacyPage() {
       <h2>12. Contact Us</h2>
       <p>
         For any privacy questions or requests, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a>.
+        <a href="mailto:support@zingdates.com">support@zingdates.com</a> or visit our{' '}
+        <a href="/contact">Contact page</a>.
+      </p>
+
+      <h2>13. Grievance Officer</h2>
+      <p>
+        In accordance with the Information Technology Act, 2000 and the IT (Intermediary Guidelines and
+        Digital Media Ethics Code) Rules, 2021, if you have any concerns or complaints about the handling
+        of your personal data, you may contact our Grievance Officer:
+      </p>
+      <ul>
+        <li><strong>Name:</strong> Sachin Rao</li>
+        <li><strong>Designation:</strong> Grievance Officer</li>
+        <li><strong>Company:</strong> S&amp;S Tech</li>
+        <li><strong>Address:</strong> Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India</li>
+        <li><strong>Email:</strong> <a href="mailto:support@zingdates.com">support@zingdates.com</a></li>
+        <li><strong>Phone:</strong> +91 94664 40136</li>
+      </ul>
+      <p>
+        Grievances are acknowledged within <strong>24 hours</strong> and resolved within{' '}
+        <strong>30 days</strong> as required by applicable law.
       </p>
     </LegalPage>
   )

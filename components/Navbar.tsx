@@ -243,6 +243,7 @@ export default function Navbar() {
             { label: 'About', href: '/about' },
             { label: 'Features', href: '/#features' },
             { label: 'How It Works', href: '/#how-it-works' },
+            { label: 'Contact Us', href: '/contact' },
           ].map(l => (
             <Link key={l.label} href={l.href} onClick={() => setMobileOpen(false)}
               className="block px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-pink-50 hover:text-pink-600">

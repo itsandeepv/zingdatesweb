@@ -50,9 +50,13 @@ export default function LegalPage({
             : children}
         </div>
 
-        <div className="mt-12 rounded-2xl gradient-brand-soft p-5 text-sm text-gray-600">
-          Questions about this policy? Email us at{' '}
-          <a href="mailto:support@zingdates.com" className="text-pink-600 font-semibold">support@zingdates.com</a>.
+        <div className="mt-12 rounded-2xl gradient-brand-soft p-5 text-sm text-gray-600 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <span>Questions about this policy? We&rsquo;re happy to help.</span>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <a href="mailto:support@zingdates.com" className="text-pink-600 font-semibold hover:underline">support@zingdates.com</a>
+            <span className="text-gray-300">|</span>
+            <a href="/contact" className="text-pink-600 font-semibold hover:underline">Contact Us →</a>
+          </div>
         </div>
       </main>
 

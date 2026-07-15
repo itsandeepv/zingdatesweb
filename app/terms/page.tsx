@@ -34,8 +34,10 @@ export default async function TermsPage() {
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the zingDates
         website, mobile applications, and related services (together, the &ldquo;Service&rdquo;),
-        operated by zingDates (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;). By creating an account or using the
-        Service, you agree to be bound by these Terms. If you do not agree, please do not use zingDates.
+        operated by <strong>S&amp;S Tech</strong> (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), registered at
+        Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India.
+        By creating an account or using the Service, you agree to be bound by these Terms.
+        If you do not agree, please do not use zingDates.
       </p>
 
       <h2>1. Eligibility</h2>
@@ -153,7 +155,26 @@ export default async function TermsPage() {
       <h2>15. Contact Us</h2>
       <p>
         Questions about these Terms? Contact us at{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a>.
+        <a href="mailto:support@zingdates.com">support@zingdates.com</a> or visit our{' '}
+        <a href="/contact">Contact page</a>.
+      </p>
+
+      <h2>16. Grievance Officer</h2>
+      <p>
+        In accordance with the Information Technology Act, 2000 and the IT (Intermediary Guidelines and
+        Digital Media Ethics Code) Rules, 2021, the details of the Grievance Officer are:
+      </p>
+      <ul>
+        <li><strong>Name:</strong> Sachin Rao</li>
+        <li><strong>Designation:</strong> Grievance Officer</li>
+        <li><strong>Company:</strong> S&amp;S Tech</li>
+        <li><strong>Address:</strong> Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India</li>
+        <li><strong>Email:</strong> <a href="mailto:support@zingdates.com">support@zingdates.com</a></li>
+        <li><strong>Phone:</strong> +91 94664 40136</li>
+      </ul>
+      <p>
+        Grievances are acknowledged within <strong>24 hours</strong> and resolved within{' '}
+        <strong>30 days</strong> as required by applicable law.
       </p>
     </LegalPage>
   )

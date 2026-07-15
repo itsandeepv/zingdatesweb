@@ -12,14 +12,14 @@ export default function SiteFooter() {
     { title: 'Company', links: [
       { label: 'About', href: '/#how-it-works' },
       { label: 'Testimonials', href: '/#testimonials' },
-      { label: 'Get Started', href: '/register' },
+      { label: 'Contact Us', href: '/contact' },
       { label: 'Sign In', href: '/login' },
     ]},
     { title: 'Legal', links: [
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Terms of Service', href: '/terms' },
       { label: 'Refund Policy', href: '/refund' },
-      { label: 'Safety', href: '/terms' },
+      { label: 'Contact Us', href: '/contact' },
     ]},
   ]
 
