@@ -1,4 +1,4 @@
-const BASE = 'http://zingdates.com/api'
+const BASE = 'https://zingdates.com/api'
 // http://localhost:8000/api
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
@@ -37,10 +37,30 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
 /* ─── Auth ────────────────────────────────────────────────────── */
 export const authApi = {
   sendOtp: (phone: string, countryCode: string) =>
-    req<{ message: string; otp?: string; dev_mode?: boolean }>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode }) }),
+    req<any>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode }) })
+      .then((res: any) => {
+        // Normalise: some backends wrap in { data: {...} }
+        const d = res?.data ?? res
+        return {
+          message:  d.message  ?? '',
+          otp:      d.otp      ?? res?.otp,
+          dev_mode: d.dev_mode ?? res?.dev_mode ?? false,
+        } as { message: string; otp?: string; dev_mode?: boolean }
+      }),
 
-  verifyOtp: (phone: string, countryCode: string, otp: string) =>
-    req<{ token: string; user: any; is_new_user: boolean }>('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode, otp }) }),
+  verifyOtp: async (phone: string, countryCode: string, otp: string) => {
+    const res = await req<any>('/auth/verify-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode, otp }) })
+    // Normalise: handle { data:{...} } wrapper and alternate field names
+    const d = res?.data ?? res
+    const token = d.token ?? d.access_token ?? d.auth_token ?? d.authToken
+    const user  = d.user  ?? d.profile ?? d.userData
+    if (!token) throw new ApiError(401, 'Verification failed — no token received')
+    return {
+      token,
+      user,
+      is_new_user: d.is_new_user ?? d.isNewUser ?? d.new_user ?? false,
+    } as { token: string; user: any; is_new_user: boolean }
+  },
 
   adminLogin: (email: string, password: string) =>
     req<{ token: string; user: any }>('/auth/admin/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
@@ -328,6 +348,11 @@ export const blogApi = {
   categories: () => req<any>('/blog/categories'),
 }
 
+/* ─── Public Static Pages (no auth) ─────────────────────────── */
+export const pagesApi = {
+  get: (key: string) => req<any>(`/pages/${key}`),
+}
+
 /* ─── Public Podcasts (no auth) ───────────────────────────────── */
 export const podcastApi = {
   list: (params: Record<string, string> = {}) =>
@@ -513,8 +538,8 @@ export const orderApi = {
       method: 'POST',
       body: JSON.stringify({ plan }),
     }, token),
-  verify: (token: string, data: { order_id: string; payment_id: string; signature: string; plan: string }) =>
-    req<{ message: string; user: any }>('/wallet/verify-payment', {
+  verify: (token: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; plan: string }) =>
+    req<{ success: boolean; message: string; user?: any }>('/wallet/verify-payment', {
       method: 'POST',
       body: JSON.stringify(data),
     }, token),

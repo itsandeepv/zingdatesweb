@@ -25,6 +25,7 @@ export const metadata: Metadata = {
   },
 }
 
+
 const STATS = [
   { value: '5M+',  label: 'Active Members',   icon: '👥' },
   { value: '150+', label: 'Countries',         icon: '🌍' },

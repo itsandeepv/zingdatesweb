@@ -1,6 +1,19 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import { pagesApi } from '@/lib/api'
 import { SITE_URL } from '@/lib/site'
+
+export const dynamic = 'force-dynamic'
+
+async function getCmsContent(key: string): Promise<string | null> {
+  try {
+    const res = await pagesApi.get(key)
+    const page = res?.data ?? res
+    return page?.content || null
+  } catch {
+    return null
+  }
+}
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -9,12 +22,14 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const cmsContent = await getCmsContent('privacy')
   return (
     <LegalPage
       title="Privacy Policy"
       subtitle="How we collect, use, and protect your information."
       updated="July 5, 2026"
+      htmlContent={cmsContent ?? undefined}
     >
       <p>
         This Privacy Policy explains how zingDates (&ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;) collects, uses, shares,

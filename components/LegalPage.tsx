@@ -9,12 +9,14 @@ export default function LegalPage({
   title,
   subtitle,
   updated,
+  htmlContent,
   children,
 }: {
   title: string
   subtitle?: string
   updated: string
-  children: React.ReactNode
+  htmlContent?: string
+  children?: React.ReactNode
 }) {
   return (
     <div className="min-h-screen bg-white">
@@ -43,7 +45,9 @@ export default function LegalPage({
             [&_th]:text-left [&_th]:font-semibold [&_th]:text-gray-900 [&_th]:border-b [&_th]:border-gray-200 [&_th]:py-2 [&_th]:pr-4
             [&_td]:border-b [&_td]:border-gray-100 [&_td]:py-2 [&_td]:pr-4"
         >
-          {children}
+          {htmlContent
+            ? <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+            : children}
         </div>
 
         <div className="mt-12 rounded-2xl gradient-brand-soft p-5 text-sm text-gray-600">

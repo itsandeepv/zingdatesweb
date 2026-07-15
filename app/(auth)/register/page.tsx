@@ -21,7 +21,9 @@ const STEPS = [
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { token, setAuth } = useAuthStore(useShallow(s => ({ token: s.token, setAuth: s.setAuth })))
+  const { token, setAuth, _hasHydrated } = useAuthStore(
+    useShallow(s => ({ token: s.token, setAuth: s.setAuth, _hasHydrated: s._hasHydrated }))
+  )
 
   const [step, setStep]       = useState<1 | 2 | 3>(1)
   const [loading, setLoading] = useState(false)
@@ -32,8 +34,9 @@ export default function RegisterPage() {
   })
 
   useEffect(() => {
+    if (!_hasHydrated) return   // wait for Zustand to rehydrate from localStorage
     if (!token) router.replace('/login')
-  }, [token, router])
+  }, [_hasHydrated, token, router])
 
   function set(key: keyof typeof form, val: string | string[]) {
     setForm(f => ({ ...f, [key]: val }))
@@ -60,7 +63,7 @@ export default function RegisterPage() {
       })
       setAuth(token!, res.user ?? res)
       toast.success('Welcome to zingDates!')
-      router.push('/discover')
+      window.location.href = '/discover'
     } catch (err: any) {
       toast.error(err.message || 'Failed to save profile. Please try again.')
     } finally {

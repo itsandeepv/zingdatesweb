@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { callApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { triggerPlanModal } from '@/components/NoPlanModal'
 
 type CallStatus = 'loading' | 'ringing' | 'connecting' | 'connected' | 'ended' | 'failed'
 
@@ -74,11 +75,17 @@ export default function CallPage() {
     } catch (err: any) {
       if (err?.name === 'NotAllowedError') {
         toast.error('Camera/microphone permission denied')
+        setStatus('failed')
+        setStatusText('Permission denied — allow camera/mic and try again')
+      } else if (err?.status === 402 || err?.needPlan) {
+        triggerPlanModal('call')
+        router.back()
+        return
       } else {
         toast.error('Failed to start call')
+        setStatus('failed')
+        setStatusText('Something went wrong')
       }
-      setStatus('failed')
-      setStatusText('Could not access camera/microphone')
     }
   }
 

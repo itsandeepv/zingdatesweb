@@ -1,6 +1,19 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
+import { pagesApi } from '@/lib/api'
 import { SITE_URL } from '@/lib/site'
+
+export const dynamic = 'force-dynamic'
+
+async function getCmsContent(key: string): Promise<string | null> {
+  try {
+    const res = await pagesApi.get(key)
+    const page = res?.data ?? res
+    return page?.content || null
+  } catch {
+    return null
+  }
+}
 
 export const metadata: Metadata = {
   title: 'Refund & Cancellation Policy',
@@ -9,12 +22,14 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 }
 
-export default function RefundPage() {
+export default async function RefundPage() {
+  const cmsContent = await getCmsContent('refund')
   return (
     <LegalPage
       title="Refund & Cancellation Policy"
       subtitle="Our terms for Coins, subscriptions, bookings, and event tickets."
       updated="July 5, 2026"
+      htmlContent={cmsContent ?? undefined}
     >
       <p>
         This Refund &amp; Cancellation Policy explains when payments made on zingDates may be refunded. By
