@@ -5,42 +5,25 @@ import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
 import CountUp from '@/components/CountUp'
-import { SITE_URL, SITE_NAME } from '@/lib/site'
+import { SITE_URL } from '@/lib/site'
+import JsonLd from '@/components/JsonLd'
+import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
 
 export const metadata: Metadata = {
-  title: 'zingDates — The Best Place to Meet Your Future Partner',
-  description: 'Connect with millions of people near you. Find meaningful relationships, attend local events, and build real connections on zingDates — the social networking app.',
-  alternates: { canonical: 'https://zingdates.com' },
+  title: 'zingDates — Dating App to Meet, Chat & Video Call Nearby',
+  description: 'zingDates is the free dating & social app to meet people near you, match, chat, and connect over HD video calls — or book a verified companion. Find your perfect match today.',
+  alternates: { canonical: SITE_URL },
   openGraph: {
-    title: 'zingDates — The Best Place to Meet Your Future Partner',
-    description: 'Connect with millions of people near you. Find meaningful relationships, attend local events, and build real connections.',
-    url: 'https://zingdates.com',
+    title: 'zingDates — Dating App to Meet, Chat & Video Call Nearby',
+    description: 'Meet people near you, match, chat, and connect over HD video calls — or book a verified companion. Download zingDates free.',
+    url: SITE_URL,
     images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'zingDates — Find Your Perfect Match' }],
   },
 }
 
-// Structured data — gives Google the brand name + logo for rich results / knowledge panel.
-const structuredData = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'Organization',
-      '@id': `${SITE_URL}/#organization`,
-      name: SITE_NAME,
-      url: SITE_URL,
-      logo: `${SITE_URL}/logo-full.png`,
-      image: `${SITE_URL}/og-image.jpg`,
-      description: 'zingDates is a social networking platform to meet your future partner through local events, real-time chat, and video calls.',
-    },
-    {
-      '@type': 'WebSite',
-      '@id': `${SITE_URL}/#website`,
-      url: SITE_URL,
-      name: SITE_NAME,
-      publisher: { '@id': `${SITE_URL}/#organization` },
-    },
-  ],
-}
+// Brand + website + app rich-result markup. Built from the shared helpers so it
+// stays consistent with every other page.
+const structuredData = graph(organizationSchema(), websiteSchema(), mobileAppSchema())
 
 const FEATURES = [
   { icon: '💝', title: 'Smart AI Matching', desc: 'Our AI algorithm learns your preferences and connects you with people who truly match your personality and interests.' },
@@ -83,7 +66,7 @@ const PROFILES = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      <JsonLd data={structuredData} />
 
       {/* ── Navbar ─────────────────────────────────────── */}
       <Navbar />

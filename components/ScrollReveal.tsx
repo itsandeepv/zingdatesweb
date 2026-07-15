@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useRef } from 'react'
+import { ReactNode, useEffect, useRef, type JSX } from 'react'
 
 interface Props {
   children: ReactNode

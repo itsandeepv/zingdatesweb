@@ -5,6 +5,8 @@ import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import { blogApi } from '@/lib/api'
 import { SITE_URL, SITE_NAME, fmtDate, readingTime } from '@/lib/site'
+import JsonLd from '@/components/JsonLd'
+import { graph, breadcrumbSchema } from '@/lib/seo'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,25 +69,34 @@ export default async function BlogPostPage({
 
   const body: string = post.body ?? post.content ?? ''
   const date = fmtDate(post.published_at ?? post.created_at)
+  const postUrl = `${SITE_URL}/blog/${post.slug ?? slug}`
 
-  // JSON-LD structured data helps Google render a rich result for the article.
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.meta_description || post.excerpt || '',
-    image: post.cover_image ? [post.cover_image] : undefined,
-    datePublished: post.published_at ?? post.created_at,
-    dateModified: post.updated_at ?? post.published_at ?? post.created_at,
-    author: { '@type': 'Organization', name: SITE_NAME },
-    publisher: { '@type': 'Organization', name: SITE_NAME },
-    mainEntityOfPage: `${SITE_URL}/blog/${post.slug ?? slug}`,
-  }
+  // JSON-LD structured data helps Google render a rich result for the article,
+  // plus a breadcrumb trail (Home › Blog › Post) in the SERP.
+  const jsonLd = graph(
+    {
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: post.meta_description || post.excerpt || '',
+      image: post.cover_image ? [post.cover_image] : undefined,
+      datePublished: post.published_at ?? post.created_at,
+      dateModified: post.updated_at ?? post.published_at ?? post.created_at,
+      author: { '@type': 'Organization', name: SITE_NAME },
+      publisher: { '@type': 'Organization', name: SITE_NAME },
+      mainEntityOfPage: postUrl,
+      keywords: Array.isArray(post.tags) ? post.tags.join(', ') : undefined,
+    },
+    breadcrumbSchema([
+      { name: 'Home', url: SITE_URL },
+      { name: 'Blog', url: `${SITE_URL}/blog` },
+      { name: post.title, url: postUrl },
+    ]),
+  )
 
   return (
     <div className="min-h-screen bg-white">
       <Navbar />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <JsonLd data={jsonLd} />
 
       <article className="pt-24 pb-16">
         {/* Header */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+import { Heart, HeartHandshake, MessageCircle, Phone, Megaphone, Bell, type LucideIcon } from 'lucide-react'
 import { notifApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { AppNotification } from '@/lib/types'
@@ -17,12 +18,12 @@ function timeAgo(dateStr: string) {
   return d.toLocaleDateString('en', { day: 'numeric', month: 'short' })
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  like: '❤️',
-  match: '💞',
-  message: '💬',
-  call: '📞',
-  system: '📢',
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  like: Heart,
+  match: HeartHandshake,
+  message: MessageCircle,
+  call: Phone,
+  system: Megaphone,
 }
 
 export default function NotificationsPage() {
@@ -94,7 +95,9 @@ export default function NotificationsPage() {
 
       {notifs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center space-y-3 px-6">
-          <div className="text-5xl">🔔</div>
+          <div className="w-16 h-16 rounded-full bg-pink-50 flex items-center justify-center">
+            <Bell size={30} className="text-pink-400" />
+          </div>
           <p className="font-bold text-gray-800 text-lg">All caught up!</p>
           <p className="text-sm text-gray-500">We'll let you know when something happens</p>
         </div>
@@ -102,8 +105,7 @@ export default function NotificationsPage() {
         <div className="divide-y divide-gray-100">
           {notifs.map(n => {
             const fromUser = n.from ?? n.from_user
-            const initials = fromUser?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-            const icon = TYPE_ICONS[n.type] ?? '🔔'
+            const Icon = TYPE_ICONS[n.type] ?? Bell
             return (
               <button
                 key={n.id}
@@ -112,7 +114,9 @@ export default function NotificationsPage() {
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <UserAvatar src={fromUser?.photo} name={fromUser?.name} size={48} />
-                  <div className="absolute -bottom-0.5 -right-0.5 text-base leading-none">{icon}</div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow ring-1 ring-gray-100">
+                    <Icon size={12} className="text-pink-500" />
+                  </div>
                 </div>
 
                 {/* Content */}

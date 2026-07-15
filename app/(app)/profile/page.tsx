@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { Crown, Star, UserRound, Wallet } from 'lucide-react'
 import { meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 
@@ -165,7 +166,7 @@ export default function ProfilePage() {
   const comp = profile ? completeness({ ...profile, ...form }) : { pct: 0, missing: [] }
   const age  = calcAge(form.dob || profile?.dob)
   const planLabel = profile?.plan_type === 'vip' ? 'VIP' : profile?.is_premium ? 'Premium' : 'Free'
-  const planIcon  = profile?.plan_type === 'vip' ? '👑' : profile?.is_premium ? '⭐' : '🆓'
+  const PlanIcon  = profile?.plan_type === 'vip' ? Crown : profile?.is_premium ? Star : UserRound
 
   /* ── Loading ── */
   if (loading) return (
@@ -273,8 +274,8 @@ export default function ProfilePage() {
       <div className="grid grid-cols-2 gap-3">
         {/* Plan card */}
         <div className="bg-white rounded-2xl p-4 flex items-center gap-3" style={{ boxShadow: '0 2px 16px rgba(0,0,0,0.07)' }}>
-          <div className="w-10 h-10 rounded-xl gradient-brand flex items-center justify-center text-xl flex-shrink-0">
-            {planIcon}
+          <div className="w-10 h-10 rounded-xl gradient-brand flex items-center justify-center flex-shrink-0">
+            <PlanIcon size={20} className="text-white" />
           </div>
           <div className="min-w-0">
             <p className="text-xs text-gray-400 font-medium">Plan</p>
@@ -289,7 +290,9 @@ export default function ProfilePage() {
 
         {/* Wallet card */}
         <div className="bg-white rounded-2xl p-4 flex items-center gap-3" style={{ boxShadow: '0 2px 16px rgba(0,0,0,0.07)' }}>
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-xl flex-shrink-0">💰</div>
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+            <Wallet size={20} className="text-amber-600" />
+          </div>
           <div className="min-w-0">
             <p className="text-xs text-gray-400 font-medium">Wallet</p>
             <p className="font-bold text-gray-900 text-sm">₹{Number(profile?.wallet_balance ?? 0).toFixed(2)}</p>
@@ -475,7 +478,7 @@ export default function ProfilePage() {
             className="flex items-center justify-between py-3 border-b border-gray-100 group"
           >
             <div className="flex items-center gap-3">
-              <span className="text-lg">⭐</span>
+              <Star size={18} className="text-amber-500" />
               <div>
                 <p className="text-sm font-semibold text-gray-800">Upgrade Plan</p>
                 <p className="text-xs text-gray-400">Get more likes, calls & features</p>

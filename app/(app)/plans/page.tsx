@@ -101,9 +101,9 @@ export default function PlansPage() {
         handler: async (response: any) => {
           try {
             const res = await orderApi.verify(token!, {
-              order_id: order.order_id,
-              payment_id: response.razorpay_payment_id,
-              signature: response.razorpay_signature,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
               plan: planId,
             })
             if (res.user) {

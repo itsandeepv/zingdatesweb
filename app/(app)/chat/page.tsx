@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import { Search, CheckCheck, Globe, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { chatApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
@@ -39,7 +40,7 @@ function SkeletonItem() {
 function ChatItem({ chat, isPremium }: { chat: Chat; isPremium: boolean }) {
   const preview = chat.last_message?.trim().length ? chat.last_message : 'Start a conversation…'
   const hasUnread = (chat.unread ?? 0) > 0
-  const t = timeAgo(chat.last_time)
+  const t = timeAgo(chat.last_time ?? null)
 
   function handleClick(e: React.MouseEvent) {
     if (!isPremium) {
@@ -253,8 +254,11 @@ export default function ChatListPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center px-8">
-            <div className="w-20 h-20 rounded-full gradient-brand-soft flex items-center justify-center text-4xl mb-4 shadow-sm">
-              {search ? '🔍' : filter === 'unread' ? '✅' : filter === 'online' ? '🌐' : '💬'}
+            <div className="w-20 h-20 rounded-full gradient-brand-soft flex items-center justify-center mb-4 shadow-sm">
+              {(() => {
+                const EmptyIcon = search ? Search : filter === 'unread' ? CheckCheck : filter === 'online' ? Globe : MessageCircle
+                return <EmptyIcon size={34} className="text-pink-500" />
+              })()}
             </div>
             <p className="font-bold text-gray-800 text-lg mb-1.5">
               {search ? 'No results found' : filter === 'unread' ? 'All caught up!' : filter === 'online' ? 'Nobody online right now' : 'No conversations yet'}

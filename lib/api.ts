@@ -538,8 +538,8 @@ export const orderApi = {
       method: 'POST',
       body: JSON.stringify({ plan }),
     }, token),
-  verify: (token: string, data: { order_id: string; payment_id: string; signature: string; plan: string }) =>
-    req<{ message: string; user: any }>('/wallet/verify-payment', {
+  verify: (token: string, data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; plan: string }) =>
+    req<{ success: boolean; message: string; user?: any }>('/wallet/verify-payment', {
       method: 'POST',
       body: JSON.stringify(data),
     }, token),

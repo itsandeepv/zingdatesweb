@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { Bell, Video, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { discoverApi, meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
@@ -173,13 +174,13 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
           {/* Feature pills */}
           <div className="grid grid-cols-3 gap-2 mb-6">
             {[
-              { icon: '🔔', label: 'Instant alerts' },
-              { icon: '📹', label: 'Video calls'    },
-              { icon: '💌', label: 'Fast chat'      },
-            ].map(f => (
-              <div key={f.label} className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-pink-50">
-                <span className="text-xl">{f.icon}</span>
-                <span className="text-[10px] font-semibold text-pink-700 text-center leading-tight">{f.label}</span>
+              { Icon: Bell,          label: 'Instant alerts' },
+              { Icon: Video,         label: 'Video calls'    },
+              { Icon: MessageCircle, label: 'Fast chat'      },
+            ].map(({ Icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-pink-50">
+                <Icon size={20} className="text-pink-600" />
+                <span className="text-[10px] font-semibold text-pink-700 text-center leading-tight">{label}</span>
               </div>
             ))}
           </div>
