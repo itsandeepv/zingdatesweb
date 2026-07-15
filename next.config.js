@@ -8,6 +8,15 @@ const nextConfig = {
   },
   output: 'standalone',
 
+  async rewrites() {
+    return [
+      {
+        source: '/backend/:path*',
+        destination: 'https://zingdates.com/api/:path*',
+      },
+    ]
+  },
+
   images: {
     unoptimized: true,
     remotePatterns: [

@@ -1,9 +1,9 @@
 // Server Components call the backend directly.
-// Browser calls /api/proxy/* (a Next.js Route Handler) so iPhones on a local
-// network never make cross-origin requests — avoids iOS "Load Failed" errors.
+// Browser calls /backend/* which next.config.js rewrites to https://zingdates.com/api/*.
+// This keeps all browser requests same-origin, avoiding iOS "Load Failed" cross-origin errors.
 const BASE = typeof window === 'undefined'
-  ? 'https://zingdates.com/api'  // server-side: direct
-  : '/api/proxy'                  // client-side: through app/api/proxy/[...path]/route.ts
+  ? 'https://zingdates.com/api'  // server-side: direct to cPanel backend
+  : '/backend'                    // client-side: rewritten by Next.js to zingdates.com/api
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
 // Register a callback in the app layout so any 401 clears auth and redirects.
