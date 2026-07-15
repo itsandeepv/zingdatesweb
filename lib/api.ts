@@ -1,9 +1,9 @@
-// Server Components (SSR) call the backend directly.
-// Browser (client) routes through the Next.js proxy (/api/zd/*) so iPhones
-// on a local network never make cross-origin requests to an external host.
+// Server Components call the backend directly.
+// Browser calls /api/proxy/* (a Next.js Route Handler) so iPhones on a local
+// network never make cross-origin requests — avoids iOS "Load Failed" errors.
 const BASE = typeof window === 'undefined'
-  ? 'https://zingdates.com/api'   // server-side: direct
-  : '/api/zd'                      // client-side: proxied via next.config.js rewrites
+  ? 'https://zingdates.com/api'  // server-side: direct
+  : '/api/proxy'                  // client-side: through app/api/proxy/[...path]/route.ts
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
 // Register a callback in the app layout so any 401 clears auth and redirects.
