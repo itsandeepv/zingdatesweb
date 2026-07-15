@@ -1,5 +1,9 @@
-const BASE = 'https://zingdates.com/api'
-// http://localhost:8000/api
+// Server Components (SSR) call the backend directly.
+// Browser (client) routes through the Next.js proxy (/api/zd/*) so iPhones
+// on a local network never make cross-origin requests to an external host.
+const BASE = typeof window === 'undefined'
+  ? 'https://zingdates.com/api'   // server-side: direct
+  : '/api/zd'                      // client-side: proxied via next.config.js rewrites
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
 // Register a callback in the app layout so any 401 clears auth and redirects.

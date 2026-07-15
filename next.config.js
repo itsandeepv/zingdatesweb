@@ -7,6 +7,19 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   output: 'standalone',
+
+  // Proxy /api/zd/* → backend so the browser never makes a cross-origin request.
+  // Fixes "Load Failed" on iPhone (iOS Safari blocks cross-origin fetches from
+  // HTTP local-IP pages to external HTTPS servers).
+  async rewrites() {
+    return [
+      {
+        source: '/api/zd/:path*',
+        destination: 'https://zingdates.com/api/:path*',
+      },
+    ]
+  },
+
   images: {
     unoptimized: true,
     remotePatterns: [
