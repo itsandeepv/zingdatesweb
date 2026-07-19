@@ -7,6 +7,7 @@ import { discoverApi, meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { AppUser } from '@/lib/types'
+import { getAvatarUri } from '@/lib/avatars'
 
 // Resolve coordinates for the nearby query: try the browser, then the user's
 // saved profile location, then a sensible default so the feed always loads.
@@ -39,15 +40,12 @@ function ProfileCard({ user, onLike, onSkip, actioning }: {
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-brand transition-shadow duration-300 group">
       {/* Photo */}
       <div className="relative overflow-hidden" style={{ height: 280 }}>
-        {user.photo ? (
-          <img src={user.photo} alt={user.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-        ) : (
-          <div className="w-full h-full gradient-brand flex items-center justify-center">
-            <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-24 h-24">
-              <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-          </div>
-        )}
+        {/* No photo → gender-matched default illustration */}
+        <img
+          src={getAvatarUri({ photo: user.photo, gender: (user as any).gender })}
+          alt={user.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
 
         {/* Gradient overlay */}
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 55%)' }} />

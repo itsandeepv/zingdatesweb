@@ -7,6 +7,7 @@ import { notifApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import type { AppNotification } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
+import { useBadgeStore } from '@/lib/store/badges'
 
 function timeAgo(dateStr: string) {
   const d = new Date(dateStr)
@@ -31,6 +32,8 @@ export default function NotificationsPage() {
   const [notifs, setNotifs] = useState<AppNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [marking, setMarking] = useState(false)
+  // Keep the nav badge in step with what's read here.
+  const { clearNotifications, refresh: refreshBadges } = useBadgeStore()
 
   useEffect(() => { if (token) load() }, [token])
 
@@ -51,6 +54,7 @@ export default function NotificationsPage() {
     try {
       await notifApi.markAllRead(token)
       setNotifs(prev => prev.map(n => ({ ...n, is_read: true })))
+      clearNotifications()
     } catch {
       toast.error('Failed to mark all read')
     } finally {
@@ -62,6 +66,7 @@ export default function NotificationsPage() {
     try {
       await notifApi.markRead(token, id)
       setNotifs(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
+      refreshBadges(token)
     } catch {}
   }
 
@@ -113,7 +118,7 @@ export default function NotificationsPage() {
                 className={`w-full flex items-center gap-4 px-4 py-4 text-left transition-colors hover:bg-gray-50 ${!n.is_read ? 'bg-pink-50/50' : ''}`}>
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  <UserAvatar src={fromUser?.photo} name={fromUser?.name} size={48} />
+                  <UserAvatar src={fromUser?.photo} name={fromUser?.name} gender={(fromUser as any)?.gender} size={48} />
                   <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow ring-1 ring-gray-100">
                     <Icon size={12} className="text-pink-500" />
                   </div>

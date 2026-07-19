@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Crown, Star, UserRound, Wallet } from 'lucide-react'
 import { meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { getAvatarUri } from '@/lib/avatars'
 
 /* ─── Helpers ─────────────────────────────────────────── */
 function completeness(p: any): { pct: number; missing: string[] } {
@@ -192,23 +193,13 @@ export default function ProfilePage() {
         {/* Avatar overlapping banner */}
         <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: -52 }}>
           <div className="relative">
-            {profile?.photo ? (
-              <img
-                src={profile.photo}
-                alt={profile.name ?? 'Profile'}
-                className="w-28 h-28 rounded-full object-cover border-4 border-white"
-                style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
-              />
-            ) : (
-              <div
-                className="w-28 h-28 rounded-full gradient-brand border-4 border-white flex items-center justify-center"
-                style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-14 h-14">
-                  <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                </svg>
-              </div>
-            )}
+            {/* No photo → gender-matched default illustration */}
+            <img
+              src={getAvatarUri({ photo: profile?.photo, gender: profile?.gender })}
+              alt={profile?.name ?? 'Profile'}
+              className="w-28 h-28 rounded-full object-cover border-4 border-white"
+              style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}
+            />
             {/* Camera button */}
             <button
               onClick={() => fileRef.current?.click()}

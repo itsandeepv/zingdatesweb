@@ -74,7 +74,7 @@ export default function MatchesPage() {
                   <div className="relative">
                     {/* Avatar with blur for free users */}
                     <div className={blurred ? 'blur-sm pointer-events-none select-none' : ''}>
-                      <UserAvatar src={u.photo} name={u.name} size={68} online={u.is_online} />
+                      <UserAvatar src={u.photo} name={u.name} gender={(u as any).gender} size={68} online={u.is_online} />
                     </div>
                     {/* Heart badge */}
                     <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full gradient-brand flex items-center justify-center border-2 border-white z-10">
@@ -130,7 +130,7 @@ export default function MatchesPage() {
                 className="flex items-center gap-4 bg-white rounded-2xl p-4 hover:shadow-md transition-shadow"
                 style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.06)' }}
               >
-                <UserAvatar src={u.photo} name={u.name} size={52} online={u.is_online} />
+                <UserAvatar src={u.photo} name={u.name} gender={(u as any).gender} size={52} online={u.is_online} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-gray-900 truncate">{u.name}</p>

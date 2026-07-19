@@ -64,7 +64,7 @@ function ChatItem({ chat, isPremium }: { chat: Chat; isPremium: boolean }) {
       <div className="relative flex-shrink-0">
         <div className={`rounded-full p-0.5 ${hasUnread ? 'bg-gradient-to-br from-pink-400 to-purple-500' : 'bg-transparent'}`}>
           <div className="rounded-full bg-white p-0.5">
-            <UserAvatar src={chat.photo} name={chat.name} size={50} />
+            <UserAvatar src={chat.photo} name={chat.name} gender={(chat as any).gender} size={50} />
           </div>
         </div>
         {chat.is_online && (
@@ -232,7 +232,7 @@ export default function ChatListPage() {
                 <div className="relative">
                   <div className="rounded-full p-0.5 bg-gradient-to-br from-pink-400 to-purple-500">
                     <div className="rounded-full bg-white p-0.5">
-                      <UserAvatar src={c.photo} name={c.name} size={42} />
+                      <UserAvatar src={c.photo} name={c.name} gender={(c as any).gender} size={42} />
                     </div>
                   </div>
                   <span className="absolute bottom-0.5 right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white" />

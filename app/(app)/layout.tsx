@@ -5,19 +5,29 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { callApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
+import { useBadgeStore, isProfileComplete } from '@/lib/store/badges'
 import NoPlanModal from '@/components/NoPlanModal'
+import { getAvatarUri } from '@/lib/avatars'
 
-function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
-  const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
-  const iconSize = px * 0.52
-  if (src) return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0" style={{ width: px, height: px }} />
+/** Count pill / plain dot for a nav item. Positioned against the icon wrapper. */
+function NavBadge({ count = 0, dot = false, className = '' }: { count?: number; dot?: boolean; className?: string }) {
+  if (!dot && !(count > 0)) return null
+  if (dot) {
+    return (
+      <span className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white ${className}`} />
+    )
+  }
   return (
-    <div className="rounded-full gradient-brand flex items-center justify-center flex-shrink-0" style={{ width: px, height: px }}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ width: iconSize, height: iconSize }}>
-        <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-      </svg>
-    </div>
+    <span className={`absolute -top-1.5 -right-2 min-w-[17px] h-[17px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-[17px] text-center ring-2 ring-white ${className}`}>
+      {count > 99 ? '99+' : count}
+    </span>
   )
+}
+
+function Avatar({ name, src, gender, size = 'sm' }: { name: string; src?: string | null; gender?: string | null; size?: 'sm' | 'md' | 'lg' }) {
+  const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
+  // No photo → gender-matched default illustration.
+  return <img src={getAvatarUri({ photo: src, gender })} alt={name} className="rounded-full object-cover flex-shrink-0" style={{ width: px, height: px }} />
 }
 
 function NavIcon({ name, active }: { name: string; active: boolean }) {
@@ -62,22 +72,25 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
   )
 }
 
-const NAV = [
+// `badge` names which live count (if any) rides on the item — resolved at render.
+type BadgeKey = 'notifications' | 'chats' | 'companionRequests' | 'profileIncomplete'
+
+const NAV: { href: string; label: string; icon: string; badge?: BadgeKey }[] = [
   { href: '/discover',      label: 'Discover',      icon: 'discover'  },
   { href: '/matches',       label: 'Matches',        icon: 'heart'     },
-  { href: '/companion',     label: 'Companion',      icon: 'companion' },
-  { href: '/chat',          label: 'Chat',           icon: 'chat'      },
-  { href: '/notifications', label: 'Alerts',         icon: 'bell'      },
-  { href: '/profile',       label: 'Profile',        icon: 'person'    },
+  { href: '/companion',     label: 'Companion',      icon: 'companion', badge: 'companionRequests' },
+  { href: '/chat',          label: 'Chat',           icon: 'chat',      badge: 'chats' },
+  { href: '/notifications', label: 'Alerts',         icon: 'bell',      badge: 'notifications' },
+  { href: '/profile',       label: 'Profile',        icon: 'person',    badge: 'profileIncomplete' },
 ]
 
-// Bottom nav shows only 5 items on mobile
-const BOTTOM_NAV = [
+// Bottom nav shows only 5 items on mobile (no Companion — its badge lives on the sidebar)
+const BOTTOM_NAV: { href: string; label: string; icon: string; badge?: BadgeKey }[] = [
   { href: '/discover',      label: 'Discover',  icon: 'discover' },
   { href: '/matches',       label: 'Matches',   icon: 'heart'    },
-  { href: '/chat',          label: 'Chat',      icon: 'chat'     },
-  { href: '/notifications', label: 'Alerts',    icon: 'bell'     },
-  { href: '/profile',       label: 'Profile',   icon: 'person'   },
+  { href: '/chat',          label: 'Chat',      icon: 'chat',    badge: 'chats' },
+  { href: '/notifications', label: 'Alerts',    icon: 'bell',    badge: 'notifications' },
+  { href: '/profile',       label: 'Profile',   icon: 'person',  badge: 'profileIncomplete' },
 ]
 
 const PAGE_TITLES: Record<string, string> = {
@@ -94,7 +107,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const { token, user, _hasHydrated, clearAuth } = useAuthStore()
+  const { notifications, chats, companionRequests, refresh: refreshBadges, reset: resetBadges } = useBadgeStore()
   const [incomingCall, setIncomingCall] = useState<any>(null)
+
+  // Resolves a nav item's `badge` key into what NavBadge should render.
+  const badgeProps = (key?: BadgeKey) => {
+    if (key === 'notifications')      return { count: notifications }
+    if (key === 'chats')              return { count: chats }
+    if (key === 'companionRequests')  return { dot: companionRequests > 0 }
+    if (key === 'profileIncomplete')  return { dot: !isProfileComplete(user) }
+    return {}
+  }
 
   const isCallPage    = pathname?.startsWith('/call')
   const isConvoPage   = /^\/chat\//.test(pathname ?? '')
@@ -119,6 +142,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!_hasHydrated) return
     if (!token) router.replace('/login')
   }, [_hasHydrated, token])
+
+  // Nav badge counts: refresh on every navigation (so a count clears as soon as
+  // the user visits that section) and poll while the tab is visible.
+  useEffect(() => {
+    if (!token) { resetBadges(); return }
+
+    refreshBadges(token)
+    const iv = setInterval(() => {
+      if (document.visibilityState === 'visible') refreshBadges(token)
+    }, 30000)
+    return () => clearInterval(iv)
+  }, [token, pathname])
 
   useEffect(() => {
     if (!token || isCallPage) return
@@ -183,11 +218,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full"
                     style={{ background: 'linear-gradient(180deg, #E91E8C 0%, #9C27B0 100%)' }} />
                 )}
-                <span className={`flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
+                <span className={`relative flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
                   active ? 'bg-white/12' : 'group-hover:bg-white/6'
                 }`}
                   style={{ color: active ? 'white' : 'rgba(255,255,255,0.45)' }}>
                   <NavIcon name={item.icon} active={active} />
+                  {/* ring matches the sidebar background, not white */}
+                  <NavBadge {...badgeProps(item.badge)} className="ring-[#1a1235]" />
                 </span>
                 <span className={`text-[13.5px] font-semibold leading-none ${
                   active ? 'text-white' : 'text-white/50 group-hover:text-white/80'
@@ -222,7 +259,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <Link href="/profile"
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/8 transition-colors group">
             <div className="relative flex-shrink-0">
-              <Avatar name={user?.name ?? 'U'} src={user?.photo} size="lg" />
+              <Avatar name={user?.name ?? 'U'} src={user?.photo} gender={user?.gender} size="lg" />
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2"
                 style={{ borderColor: '#1a1235' }} />
             </div>
@@ -261,7 +298,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           )}
 
           <Link href="/profile" className="relative">
-            <Avatar name={user?.name ?? 'U'} src={user?.photo} size="sm" />
+            <Avatar name={user?.name ?? 'U'} src={user?.photo} gender={user?.gender} size="sm" />
             <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#1a1235]" />
           </Link>
         </header>
@@ -280,7 +317,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </svg>
             </Link>
             <Link href="/profile" className="flex items-center gap-2.5 pl-1.5 pr-2 py-1.5 rounded-xl hover:bg-gray-100 transition-colors">
-              <Avatar name={user?.name ?? 'U'} src={user?.photo} />
+              <Avatar name={user?.name ?? 'U'} src={user?.photo} gender={user?.gender} />
               <div className="hidden md:block text-left leading-tight">
                 <p className="text-sm font-semibold text-gray-800">{user?.name ?? 'User'}</p>
                 <p className="text-xs text-gray-400">{user?.email ?? user?.phone ?? ''}</p>
@@ -310,8 +347,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link key={item.href} href={item.href}
                 className="flex flex-col items-center gap-1 px-3 py-1.5 rounded-2xl transition-all min-w-0"
                 style={{ color: active ? '#E91E8C' : '#9CA3AF' }}>
-                <span className={`transition-transform ${active ? 'scale-110' : ''}`}>
+                <span className={`relative transition-transform ${active ? 'scale-110' : ''}`}>
                   <NavIcon name={item.icon} active={active} />
+                  <NavBadge {...badgeProps(item.badge)} />
                 </span>
                 <span className={`text-[10px] font-semibold leading-none ${active ? 'text-pink-500' : 'text-gray-400'}`}>
                   {item.label}
