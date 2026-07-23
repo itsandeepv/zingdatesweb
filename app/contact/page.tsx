@@ -2,8 +2,10 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import { contactApi, ApiError } from '@/lib/api'
 
 const COMPANY_LEGAL_NAME  = 'S&S Tech'
 const REGISTERED_ADDRESS  = 'Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India'
@@ -14,20 +16,56 @@ const GRIEVANCE_EMAIL     = 'support@zingdates.com'
 const GRIEVANCE_PHONE     = '+91 94664 40136'
 const BUSINESS_HOURS      = 'Monday – Saturday, 10:00 AM – 7:00 PM IST'
 
+const EMPTY = { name: '', email: '', subject: '', message: '' }
+
 function ContactForm() {
-  const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [form, setForm] = useState(EMPTY)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+    const { name, value } = e.target
+    setForm(f => ({ ...f, [name]: value }))
+    // Clear the field-level error as the user edits it.
+    setErrors(prev => (prev[name] ? { ...prev, [name]: '' } : prev))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function validate() {
+    const next: Record<string, string> = {}
+    if (!form.name.trim())    next.name = 'Please enter your name'
+    if (!form.email.trim())   next.email = 'Please enter your email'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) next.email = 'Enter a valid email address'
+    if (!form.subject.trim()) next.subject = 'Please choose a subject'
+    if (form.message.trim().length < 10) next.message = 'Message must be at least 10 characters'
+    return next
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const body = encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`)
-    const subject = encodeURIComponent(form.subject || 'Contact from zingDates website')
-    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`
-    setSent(true)
+    const found = validate()
+    if (Object.keys(found).length) { setErrors(found); return }
+
+    setSubmitting(true)
+    setErrors({})
+    try {
+      await contactApi.submit(form)
+      setSent(true)
+      toast.success('Message sent — thank you!')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // Surface Laravel field validation errors (422) inline.
+        const fieldErrors = err.body?.errors as Record<string, string[]> | undefined
+        if (fieldErrors) {
+          setErrors(Object.fromEntries(Object.entries(fieldErrors).map(([k, v]) => [k, v[0]])))
+        }
+        toast.error(err.message || 'Could not send your message')
+      } else {
+        toast.error('Network error — please try again')
+      }
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (sent) {
@@ -38,38 +76,45 @@ function ContactForm() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-2">Message ready!</h3>
-        <p className="text-gray-500 mb-6">Your email client should have opened. If not, email us directly at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-pink-600 font-medium">{SUPPORT_EMAIL}</a></p>
-        <button onClick={() => setSent(false)} className="text-sm text-gray-500 underline">Send another message</button>
+        <h3 className="text-xl font-bold text-gray-900 mb-2">Message sent!</h3>
+        <p className="text-gray-500 mb-6">Thanks for reaching out — our team typically responds within 1–2 business days. You can also email us anytime at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-pink-600 font-medium">{SUPPORT_EMAIL}</a></p>
+        <button onClick={() => { setForm(EMPTY); setSent(false) }} className="text-sm text-gray-500 underline">Send another message</button>
       </div>
     )
   }
 
+  const fieldClass = (name: string) =>
+    `w-full px-4 py-2.5 rounded-xl border focus:outline-none focus:ring-2 text-sm text-gray-800 ${
+      errors[name]
+        ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+        : 'border-gray-200 focus:ring-pink-300 focus:border-pink-400'
+    }`
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Your Name <span className="text-pink-500">*</span></label>
           <input
-            name="name" required value={form.name} onChange={handleChange}
-            placeholder="Rahul Sharma"
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 text-sm text-gray-800"
+            name="name" value={form.name} onChange={handleChange}
+            placeholder="Rahul Sharma" className={fieldClass('name')}
           />
+          {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email Address <span className="text-pink-500">*</span></label>
           <input
-            name="email" type="email" required value={form.email} onChange={handleChange}
-            placeholder="you@example.com"
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 text-sm text-gray-800"
+            name="email" type="email" value={form.email} onChange={handleChange}
+            placeholder="you@example.com" className={fieldClass('email')}
           />
+          {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
         </div>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Subject <span className="text-pink-500">*</span></label>
         <select
-          name="subject" required value={form.subject} onChange={handleChange}
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 text-sm text-gray-800 bg-white"
+          name="subject" value={form.subject} onChange={handleChange}
+          className={`${fieldClass('subject')} bg-white`}
         >
           <option value="">Select a topic…</option>
           <option value="Account Issue">Account Issue</option>
@@ -81,17 +126,21 @@ function ContactForm() {
           <option value="Partnership / Business">Partnership / Business</option>
           <option value="Other">Other</option>
         </select>
+        {errors.subject && <p className="text-xs text-red-500 mt-1">{errors.subject}</p>}
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Message <span className="text-pink-500">*</span></label>
         <textarea
-          name="message" required rows={5} value={form.message} onChange={handleChange}
+          name="message" rows={5} value={form.message} onChange={handleChange}
           placeholder="Describe your issue or question in detail…"
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pink-300 focus:border-pink-400 text-sm text-gray-800 resize-none"
+          className={`${fieldClass('message')} resize-none`}
         />
+        {errors.message && <p className="text-xs text-red-500 mt-1">{errors.message}</p>}
       </div>
-      <button type="submit" className="w-full gradient-brand text-white font-semibold py-3 rounded-xl shadow-brand hover:opacity-90 transition-opacity text-sm">
-        Send Message
+      <button type="submit" disabled={submitting}
+        className="w-full gradient-brand text-white font-semibold py-3 rounded-xl shadow-brand hover:opacity-90 transition-opacity text-sm disabled:opacity-60 flex items-center justify-center gap-2">
+        {submitting && <span className="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin" />}
+        {submitting ? 'Sending…' : 'Send Message'}
       </button>
       <p className="text-xs text-gray-400 text-center">We typically respond within 1–2 business days.</p>
     </form>

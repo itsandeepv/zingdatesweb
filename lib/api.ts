@@ -182,6 +182,22 @@ export const supportApi = {
     req<any>(`/admin/tickets/${id}/assign`, { method: 'POST', body: JSON.stringify({ agent_id: agentId }) }, token),
 }
 
+/* ─── Contact Us ──────────────────────────────────────────────── */
+export const contactApi = {
+  // Public: submit a message from the Contact page (no auth).
+  submit: (data: { name: string; email: string; subject: string; message: string }) =>
+    req<any>('/contact', { method: 'POST', body: JSON.stringify(data) }),
+  // Admin: list submissions, optionally filtered by status/search.
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/contact?${new URLSearchParams(params)}`, {}, token),
+  get: (token: string, id: number) =>
+    req<any>(`/admin/contact/${id}`, {}, token),
+  updateStatus: (token: string, id: number, status: string) =>
+    req<any>(`/admin/contact/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/contact/${id}`, { method: 'DELETE' }, token),
+}
+
 /* ─── Admin SEO ───────────────────────────────────────────────── */
 export const seoApi = {
   pages: (token: string) => req<any>('/admin/seo/pages', {}, token),

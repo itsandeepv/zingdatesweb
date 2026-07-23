@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const BACKEND = 'https://zingdates.com/api'
+const BACKEND = 'https://api.zingdates.com/api'
 
 async function handler(
   req: NextRequest,

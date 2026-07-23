@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useAuthStore } from '@/lib/store/auth'
 import { dashboardApi } from '@/lib/api'
 
@@ -126,6 +127,7 @@ export default function AdminDashboardPage() {
   const revenueGrowth = stats?.revenue_growth ?? stats?.revenueGrowth ?? 0
   const activeEvents = stats?.active_events ?? stats?.activeEvents ?? 0
   const pendingTickets = stats?.pending_tickets ?? stats?.pendingTickets ?? 0
+  const newContactMessages = stats?.new_contact_messages ?? stats?.newContactMessages ?? 0
   const newUsersToday = stats?.new_users_today ?? stats?.newUsersToday ?? 0
   const newUsersThisMonth = stats?.new_users_this_month ?? stats?.newUsersThisMonth ?? 0
   const activeUsers = stats?.active_users ?? stats?.activeUsers ?? 0
@@ -144,6 +146,23 @@ export default function AdminDashboardPage() {
           <span className="text-xs font-medium text-gray-500">Live data</span>
         </div>
       </div>
+
+      {newContactMessages > 0 && (
+        <Link href="/admin/contact"
+          className="flex items-center gap-4 bg-white rounded-2xl p-4 border border-pink-200 hover:border-pink-300 transition-colors group"
+          style={{ boxShadow: '0 1px 8px rgba(233,30,140,0.12)' }}>
+          <div className="w-11 h-11 rounded-xl gradient-brand flex items-center justify-center shrink-0">
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z" /><path strokeLinecap="round" strokeLinejoin="round" d="M22 6l-10 7L2 6" /></svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">
+              {newContactMessages} new contact {newContactMessages === 1 ? 'message' : 'messages'} awaiting review
+            </p>
+            <p className="text-xs text-gray-500">Submitted through the website contact form</p>
+          </div>
+          <span className="text-sm font-semibold gradient-brand-text group-hover:underline shrink-0">Review →</span>
+        </Link>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard title="Total Users" value={fmt(totalUsers)} trend={8.4} accent="#E91E8C"

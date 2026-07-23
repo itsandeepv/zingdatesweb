@@ -34,6 +34,7 @@ const ICONS = {
   logout:   ['M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
   chevron:  'M9 18l6-6-6-6',
   menu:     ['M3 12h18', 'M3 6h18', 'M3 18h18'],
+  mail:     ['M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z', 'M22 6l-10 7L2 6'],
 }
 
 /* ─── Nav structure ─────────────────────────────────── */
@@ -65,6 +66,7 @@ const NAV: NavGroup[] = [
   ]},
   { label: 'Operations', items: [
     { href: '/admin/support',  label: 'Support',  icon: 'ticket' },
+    { href: '/admin/contact',  label: 'Contact',  icon: 'mail' },
     { href: '/admin/staff',    label: 'Staff',    icon: 'shield', soon: true },
     { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
   ]},
