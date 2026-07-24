@@ -12,7 +12,7 @@ const nextConfig = {
     return [
       {
         source: '/backend/:path*',
-        destination: 'https://zingdates.com/api/:path*',
+        destination: 'https://api.zingdates.com/api/:path*',
       },
     ]
   },
