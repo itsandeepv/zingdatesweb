@@ -4,19 +4,35 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/admin/Sidebar'
 import { useAuthStore } from '@/lib/store/auth'
+import { registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [collapsed, setCollapsed] = useState(false)
   const [checked, setChecked] = useState(false)
+  const _hasHydrated = useAuthStore(s => s._hasHydrated)
   const isLoggedIn = useAuthStore(s => s.isLoggedIn)
   const isAdmin    = useAuthStore(s => s.isAdmin)
+  const clearAuth  = useAuthStore(s => s.clearAuth)
 
+  // Any admin API call that 401s (e.g. a stale/expired token that no longer
+  // exists on the backend) clears auth and forces a fresh sign-in — otherwise
+  // the user stays "logged in" while every request fails as unauthenticated.
   useEffect(() => {
-    if (!isLoggedIn()) { router.replace('/admin-login'); return }
-    if (!isAdmin())    { router.replace('/admin-login'); return }
-    setChecked(true)
+    registerUnauthorizedHandler(() => {
+      clearAuth()
+      router.replace('/admin-login')
+    })
+    return () => unregisterUnauthorizedHandler()
   }, [])
+
+  // Wait for Zustand to rehydrate the persisted token before deciding auth,
+  // otherwise a refresh or deep-link bounces to login before it is restored.
+  useEffect(() => {
+    if (!_hasHydrated) return
+    if (!isLoggedIn() || !isAdmin()) { router.replace('/admin-login'); return }
+    setChecked(true)
+  }, [_hasHydrated])
 
   if (!checked) return (
     <div className="flex h-screen items-center justify-center bg-gray-50">

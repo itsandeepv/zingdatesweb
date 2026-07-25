@@ -1,9 +1,9 @@
 // Server Components call the backend directly.
-// Browser calls /backend/* which next.config.js rewrites to https://zingdates.com/api/*.
+// Browser calls /backend/* which next.config.js rewrites to https://api.zingdates.com/api/*.
 // This keeps all browser requests same-origin, avoiding iOS "Load Failed" cross-origin errors.
 const BASE = typeof window === 'undefined'
   ? 'https://api.zingdates.com/api'  // server-side: direct to cPanel backend
-  : '/backend'                    // client-side: rewritten by Next.js to zingdates.com/api
+  : '/backend'                    // client-side: rewritten by Next.js to api.zingdates.com/api
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
 // Register a callback in the app layout so any 401 clears auth and redirects.
