@@ -80,7 +80,7 @@ export default async function RefundPage() {
 
       <h2>6. How to Request a Refund</h2>
       <p>To request a refund or report a payment issue, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a> with:
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a> with:
       </p>
       <ul>
         <li>Your registered phone number or email;</li>
@@ -116,8 +116,8 @@ export default async function RefundPage() {
       <h2>10. Contact Us</h2>
       <p>
         For refund or billing questions, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a> or call us at{' '}
-        <a href="tel:+919466440136">+91 94664 40136</a> (Monday – Saturday, 10 AM – 7 PM IST).
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a> or call us at{' '}
+        <a href="tel:+918796687927">+91 8796687927</a> (Monday – Saturday, 10 AM – 7 PM IST).
         You can also visit our <a href="/contact">Contact page</a>.
       </p>
       <p>

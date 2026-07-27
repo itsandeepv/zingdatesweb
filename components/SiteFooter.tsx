@@ -12,7 +12,7 @@ export default function SiteFooter() {
     { title: 'Company', links: [
       { label: 'About', href: '/#how-it-works' },
       { label: 'Testimonials', href: '/#testimonials' },
-      { label: 'Contact Us', href: '/contact' },
+      // { label: 'Contact Us', href: '/contact' },
       { label: 'Sign In', href: '/login' },
     ]},
     { title: 'Legal', links: [

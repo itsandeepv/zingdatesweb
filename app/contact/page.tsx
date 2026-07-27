@@ -9,11 +9,11 @@ import { contactApi, ApiError } from '@/lib/api'
 
 const COMPANY_LEGAL_NAME  = 'S&S Tech'
 const REGISTERED_ADDRESS  = 'Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India'
-const SUPPORT_EMAIL       = 'support@zingdates.com'
-const SUPPORT_PHONE       = '+91 94664 40136'
+const SUPPORT_EMAIL       = 'zingdates2026@gmail.com'
+const SUPPORT_PHONE       = '+91 8796687927'
 const GRIEVANCE_OFFICER   = 'Sachin Rao'
-const GRIEVANCE_EMAIL     = 'support@zingdates.com'
-const GRIEVANCE_PHONE     = '+91 94664 40136'
+const GRIEVANCE_EMAIL     = 'zingdates2026@gmail.com'
+const GRIEVANCE_PHONE     = '+91 8796687927'
 const BUSINESS_HOURS      = 'Monday – Saturday, 10:00 AM – 7:00 PM IST'
 
 const EMPTY = { name: '', email: '', subject: '', message: '' }
@@ -118,7 +118,7 @@ function ContactForm() {
         >
           <option value="">Select a topic…</option>
           <option value="Account Issue">Account Issue</option>
-          <option value="Payment / Refund">Payment / Refund</option>
+          {/* <option value="Payment / Refund">Payment / Refund</option> */}
           <option value="Report a User">Report a User</option>
           <option value="Companion Booking">Companion Booking</option>
           <option value="Technical Support">Technical Support</option>

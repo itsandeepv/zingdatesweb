@@ -94,7 +94,7 @@ export default async function PrivacyPage() {
         <li>Withdraw permissions (such as location or notifications) via device settings;</li>
         <li>Opt out of marketing communications.</li>
       </ul>
-      <p>To exercise these rights, contact <a href="mailto:support@zingdates.com">support@zingdates.com</a>.</p>
+      <p>To exercise these rights, contact <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a>.</p>
 
       <h2>7. Security</h2>
       <p>
@@ -131,7 +131,7 @@ export default async function PrivacyPage() {
       <h2>12. Contact Us</h2>
       <p>
         For any privacy questions or requests, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a> or visit our{' '}
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a> or visit our{' '}
         <a href="/contact">Contact page</a>.
       </p>
 
@@ -146,7 +146,7 @@ export default async function PrivacyPage() {
         <li><strong>Designation:</strong> Grievance Officer</li>
         <li><strong>Company:</strong> S&amp;S Tech</li>
         <li><strong>Address:</strong> Unit No. 7, 3rd Floor, JMD Regent Arcade Mall, A Block, DLF Phase 1, Gurugram, Haryana – 122 002, India</li>
-        <li><strong>Email:</strong> <a href="mailto:support@zingdates.com">support@zingdates.com</a></li>
+        <li><strong>Email:</strong> <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a></li>
         <li><strong>Phone:</strong> +91 94664 40136</li>
       </ul>
       <p>
