@@ -410,6 +410,9 @@ export const meApi = {
     }
     return res.json()
   },
+  // Permanent self-service account deletion (Google Play requirement).
+  deleteAccount: (token: string, reason?: string) =>
+    req<any>('/profile', { method: 'DELETE', body: JSON.stringify({ reason }) }, token),
 }
 
 /* ─── Discovery ───────────────────────────────────────── */

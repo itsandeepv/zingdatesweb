@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Crown, Star, UserRound, Wallet } from 'lucide-react'
+import { Crown, Star, Trash2, UserRound, Wallet } from 'lucide-react'
 import { meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import { getAvatarUri } from '@/lib/avatars'
@@ -79,6 +79,10 @@ export default function ProfilePage() {
     name: '', bio: '', about: '', gender: '', dob: '', languages: '', city: '', state: '',
   })
   const [dnd, setDnd] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleteReason, setDeleteReason] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { if (token) load() }, [token])
@@ -161,6 +165,27 @@ export default function ProfilePage() {
   function logout() {
     clearAuth()
     router.push('/login')
+  }
+
+  function closeDelete() {
+    if (deleting) return
+    setShowDelete(false)
+    setDeleteConfirm('')
+    setDeleteReason('')
+  }
+
+  async function deleteAccount() {
+    if (deleteConfirm.trim().toUpperCase() !== 'DELETE') return
+    setDeleting(true)
+    try {
+      await meApi.deleteAccount(token!, deleteReason.trim() || undefined)
+      clearAuth()
+      toast.success('Your account has been deleted')
+      router.replace('/login')
+    } catch {
+      toast.error('Failed to delete account. Please try again.')
+      setDeleting(false)
+    }
   }
 
   /* ── Derived ── */
@@ -489,7 +514,7 @@ export default function ProfilePage() {
             <span className="text-xs text-emerald-500 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">Verified</span>
           </div>
 
-          <div className="flex items-center justify-between py-3">
+          <div className="flex items-center justify-between py-3 border-b border-gray-100">
             <div className="flex items-center gap-3">
               <span className="text-lg">🆔</span>
               <div>
@@ -502,6 +527,22 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Google Play requires an in-app path to permanently delete the account. */}
+          <button
+            type="button"
+            onClick={() => setShowDelete(true)}
+            className="w-full flex items-center justify-between py-3 text-left group"
+          >
+            <div className="flex items-center gap-3">
+              <Trash2 size={18} className="text-red-500" />
+              <div>
+                <p className="text-sm font-semibold text-red-500">Delete Account</p>
+                <p className="text-xs text-gray-400">Permanently erase your profile, photos &amp; chats</p>
+              </div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+          </button>
         </div>
       </SectionCard>
 
@@ -515,6 +556,76 @@ export default function ProfilePage() {
         </svg>
         Log Out
       </button>
+
+      {/* ── Delete confirmation modal ────────────────── */}
+      {showDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4"
+          onClick={closeDelete}
+        >
+          <div
+            className="bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5 space-y-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center gap-2">
+              <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                <Trash2 size={22} className="text-red-500" />
+              </div>
+              <h3 className="font-bold text-gray-900">Delete your account?</h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                This permanently deletes your profile, photos, likes, matches and chat history.
+                Any remaining wallet balance and active plan are forfeited and cannot be restored.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Why are you leaving? <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <input
+                type="text" value={deleteReason} maxLength={300} disabled={deleting}
+                onChange={e => setDeleteReason(e.target.value)}
+                placeholder="Tell us what went wrong"
+                className={inputCls}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5">
+                Type <span className="font-bold text-gray-700">DELETE</span> to confirm
+              </label>
+              <input
+                type="text" value={deleteConfirm} disabled={deleting}
+                onChange={e => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                autoCapitalize="characters" autoCorrect="off" spellCheck={false}
+                className={inputCls}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                type="button" onClick={closeDelete} disabled={deleting}
+                className="flex-1 py-3.5 rounded-2xl border border-gray-200 text-sm font-bold text-gray-600 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button" onClick={deleteAccount}
+                disabled={deleting || deleteConfirm.trim().toUpperCase() !== 'DELETE'}
+                className="flex-1 py-3.5 rounded-2xl bg-red-500 text-white text-sm font-bold disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {deleting ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    Deleting…
+                  </>
+                ) : 'Delete forever'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
