@@ -1,4 +1,4 @@
-const BASE = 'https://zingdates.com/api'
+const BASE = 'https://api.zingdates.com/api'
 // Origin that serves the hosted Razorpay checkout page (/api/razorpay-checkout).
 export const CHECKOUT_ORIGIN = BASE.replace(/\/api\/?$/, '')
 // http://localhost:8000/api
