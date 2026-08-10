@@ -1,4 +1,6 @@
 const BASE = 'https://zingdates.com/api'
+// Origin that serves the hosted Razorpay checkout page (/api/razorpay-checkout).
+export const CHECKOUT_ORIGIN = BASE.replace(/\/api\/?$/, '')
 // http://localhost:8000/api
 
 /* ─── Global 401 handler ──────────────────────────────────────── */
@@ -570,9 +572,11 @@ export const companionApi = {
   saveSettings: (token: string, data: Record<string, any>) =>
     req<any>('/companion/settings', { method: 'PUT', body: JSON.stringify(data) }, token),
 
-  // Bookings (client)
-  quote: (token: string, companionId: number, durationMin: number) =>
-    req<any>('/companion/bookings/quote', { method: 'POST', body: JSON.stringify({ companion_id: companionId, duration_min: durationMin }) }, token),
+  // Bookings (client) — hourly rupee pricing
+  quote: (token: string, companionId: number, hours: number) =>
+    req<any>('/companion/bookings/quote', { method: 'POST', body: JSON.stringify({ companion_id: companionId, hours }) }, token),
+  slots: (token: string, companionId: number, date: string) =>
+    req<any>(`/companion/profile/${companionId}/slots?date=${encodeURIComponent(date)}`, {}, token),
   book: (token: string, data: Record<string, any>) =>
     req<any>('/companion/bookings', { method: 'POST', body: JSON.stringify(data) }, token),
   upcoming: (token: string, page = 1) => req<any>(`/companion/bookings/upcoming?page=${page}`, {}, token),
@@ -580,6 +584,10 @@ export const companionApi = {
   incoming: (token: string, page = 1) => req<any>(`/companion/bookings/incoming?page=${page}`, {}, token),
   booking: (token: string, id: number) => req<any>(`/companion/bookings/${id}`, {}, token),
   invoice: (token: string, id: number) => req<any>(`/companion/bookings/${id}/invoice`, {}, token),
+  // Payment opens only once the companion has accepted.
+  payOrder: (token: string, id: number) => req<any>(`/companion/bookings/${id}/pay`, { method: 'POST' }, token),
+  verifyPayment: (token: string, id: number, data: Record<string, any>) =>
+    req<any>(`/companion/bookings/${id}/verify-payment`, { method: 'POST', body: JSON.stringify(data) }, token),
   accept: (token: string, id: number) => req<any>(`/companion/bookings/${id}/accept`, { method: 'POST' }, token),
   reject: (token: string, id: number, reason?: string) => req<any>(`/companion/bookings/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
   cancel: (token: string, id: number, reason?: string) => req<any>(`/companion/bookings/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, token),

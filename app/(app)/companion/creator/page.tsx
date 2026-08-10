@@ -25,8 +25,8 @@ function WithdrawModal({ available, onClose, onDone }: { available: number; onCl
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-3xl p-6 w-full max-w-sm space-y-4" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-bold text-gray-900">Request Withdrawal</h3>
-        <p className="text-sm text-gray-500">Available: <span className="font-bold text-purple-700">{available} coins</span></p>
-        <input value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Amount in coins" inputMode="decimal"
+        <p className="text-sm text-gray-500">Available: <span className="font-bold text-purple-700">₹{Number(available ?? 0).toFixed(2)}</span></p>
+        <input value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="Amount in ₹" inputMode="decimal"
           className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200" />
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="Payout note (optional)"
           className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-purple-200" />
@@ -71,7 +71,7 @@ export default function CreatorDashboardPage() {
 
       <div className="gradient-brand rounded-3xl p-6 text-white shadow-brand-lg">
         <p className="text-white/80 text-sm">Withdrawable balance</p>
-        <p className="text-4xl font-extrabold mt-1">{available} <span className="text-lg font-bold text-white/80">coins</span></p>
+        <p className="text-4xl font-extrabold mt-1">₹{Number(available ?? 0).toFixed(2)}</p>
         <div className="grid grid-cols-3 gap-2 mt-5 mb-5">
           <div><p className="text-white/70 text-xs">Today</p><p className="font-bold text-lg">{stats?.today_earnings ?? 0}</p></div>
           <div><p className="text-white/70 text-xs">Total earned</p><p className="font-bold text-lg">{stats?.total_earnings ?? 0}</p></div>
@@ -106,7 +106,7 @@ export default function CreatorDashboardPage() {
             {withdraws.map(w => (
               <div key={w.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div>
-                  <p className="font-bold text-gray-800">{Math.round(w.amount)} coins</p>
+                  <p className="font-bold text-gray-800">₹{Number(w.amount ?? 0).toFixed(2)}</p>
                   <p className="text-xs text-gray-400">{new Date(w.created_at).toDateString()}</p>
                 </div>
                 <span className={`text-xs font-bold capitalize ${WITHDRAW_STATUS[w.status] ?? 'text-gray-500'}`}>{w.status}</span>

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { companionApi } from '@/lib/api'
+import { companionApi, CHECKOUT_ORIGIN } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 
 const TABS = [
@@ -85,6 +85,29 @@ export default function MyBookingsPage() {
     finally { setBusy(null) }
   }
 
+  // Payment opens only for an accepted booking. The hosted Razorpay page
+  // redirects to /api/companion/booking-callback, which verifies the signature
+  // and marks the booking paid server-side — so we just refresh on return.
+  async function payForBooking(b: any) {
+    setBusy(b.id)
+    try {
+      const res = await companionApi.payOrder(token, b.id)
+      const { order_id, key, amount } = res.order ?? {}
+      if (!order_id || !key) throw new Error('Could not start the payment')
+
+      const url = `${CHECKOUT_ORIGIN}/api/razorpay-checkout?flow=booking`
+        + `&key=${encodeURIComponent(key)}&order_id=${encodeURIComponent(order_id)}`
+        + `&amount=${Math.round(Number(amount) * 100)}`
+        + `&name=${encodeURIComponent('ZingDates')}`
+        + `&description=${encodeURIComponent(`${b.hours}h session`)}`
+
+      window.location.href = url
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Could not start the payment')
+      setBusy(null)
+    }
+  }
+
   async function startSession(b: any) {
     setBusy(b.id)
     try {
@@ -127,11 +150,14 @@ export default function MyBookingsPage() {
                     <div className="w-12 h-12 rounded-full gradient-brand flex items-center justify-center text-white font-bold">{other.name?.[0]?.toUpperCase() ?? 'C'}</div>}
                   <div className="flex-1">
                     <p className="font-bold text-gray-900">{other.name ?? 'Companion'}</p>
-                    <p className="text-xs text-purple-600 font-medium capitalize">{b.session_type} · {b.duration_label || `${b.duration_min} min`}</p>
+                    <p className="text-xs text-purple-600 font-medium capitalize">{b.session_type} · {b.hours}h</p>
+                    {b.starts_at ? <p className="text-[11px] text-gray-400">{new Date(b.starts_at).toLocaleString()}</p> : null}
                   </div>
                   <div className="text-right">
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta.cls}`}>{meta.label}</span>
-                    <p className="text-sm font-bold text-gray-800 mt-1">{Math.round(b.coins_total || 0)} coins</p>
+                    <p className="text-sm font-bold text-gray-800 mt-1">₹{Number(b.total_amount ?? 0).toFixed(0)}</p>
+                    {b.payment_status === 'paid' ? <p className="text-[10px] text-emerald-600 font-semibold">paid</p>
+                      : b.status === 'accepted' ? <p className="text-[10px] text-amber-600 font-semibold">payment due</p> : null}
                     {b.refunded ? <p className="text-[10px] text-emerald-600 font-semibold">refunded</p> : null}
                   </div>
                 </div>
@@ -146,7 +172,11 @@ export default function MyBookingsPage() {
                 ) : tab === 'upcoming' ? (
                   <div className="mt-3 flex gap-2">
                     <button onClick={() => act(b.id, () => companionApi.cancel(token, b.id))} className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">Cancel</button>
-                    {(b.status === 'accepted' || b.status === 'in_progress') ? (
+                    {b.status === 'accepted' && b.payment_status !== 'paid' ? (
+                      <button onClick={() => payForBooking(b)} className="flex-1 py-2 rounded-xl gradient-brand text-white text-sm font-semibold shadow-brand hover:opacity-90">
+                        Pay ₹{Number(b.total_amount ?? 0).toFixed(0)}
+                      </button>
+                    ) : ((b.status === 'accepted' && b.payment_status === 'paid') || b.status === 'in_progress') ? (
                       <button onClick={() => startSession(b)} className="flex-1 py-2 rounded-xl gradient-brand text-white text-sm font-semibold shadow-brand hover:opacity-90">Start session</button>
                     ) : (
                       <div className="flex-1 py-2 rounded-xl bg-purple-50 text-purple-400 text-sm font-semibold text-center">Waiting for accept…</div>

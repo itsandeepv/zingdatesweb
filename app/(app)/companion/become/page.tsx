@@ -25,7 +25,7 @@ export default function BecomeCompanionPage() {
   const [categories, setCategories] = useState<any[]>([])
 
   const [form, setForm] = useState({
-    headline: '', about: '', coins_per_min: '1', languages: '',
+    headline: '', about: '', price_per_hour: '100', languages: '',
     categories: [] as string[], available_days: [] as number[],
     working_hours_start: '', working_hours_end: '', max_daily_bookings: '',
     auto_accept: false, is_available_now: false,
@@ -35,7 +35,7 @@ export default function BecomeCompanionPage() {
     if (!p) return
     setProfile(p)
     setForm({
-      headline: p.headline ?? '', about: p.about ?? '', coins_per_min: String(p.coins_per_min ?? '1'),
+      headline: p.headline ?? '', about: p.about ?? '', price_per_hour: String(p.price_per_hour ?? '100'),
       languages: p.languages ?? '', categories: p.categories ?? [], available_days: p.available_days ?? [],
       working_hours_start: p.working_hours_start ? String(p.working_hours_start).slice(0, 5) : '',
       working_hours_end: p.working_hours_end ? String(p.working_hours_end).slice(0, 5) : '',
@@ -74,7 +74,7 @@ export default function BecomeCompanionPage() {
     try {
       const payload: any = {
         headline: form.headline, about: form.about, languages: form.languages,
-        coins_per_min: parseFloat(form.coins_per_min) || undefined,
+        price_per_hour: parseFloat(form.price_per_hour) || undefined,
         categories: form.categories, available_days: form.available_days,
         auto_accept: form.auto_accept, is_available_now: form.is_available_now,
       }
@@ -122,9 +122,9 @@ export default function BecomeCompanionPage() {
             <div><label className={label}>Headline</label><input className={input} value={form.headline} onChange={e => setForm(f => ({ ...f, headline: e.target.value }))} placeholder="Friendly gamer & language buddy" /></div>
             <div><label className={label}>About you</label><textarea className={`${input} h-24`} value={form.about} onChange={e => setForm(f => ({ ...f, about: e.target.value }))} placeholder="What a session with you is like" /></div>
             <div>
-              <label className={label}>Price (coins per minute)</label>
-              <input className={input} value={form.coins_per_min} onChange={e => setForm(f => ({ ...f, coins_per_min: e.target.value.replace(/[^0-9.]/g, '') }))} inputMode="decimal" />
-              <p className="text-xs text-purple-500 mt-1">A 1-day rental costs {Math.round((parseFloat(form.coins_per_min) || 0) * 1440)} coins · 8 hours {Math.round((parseFloat(form.coins_per_min) || 0) * 480)} coins.</p>
+              <label className={label}>Your rate (₹ per hour)</label>
+              <input className={input} value={form.price_per_hour} onChange={e => setForm(f => ({ ...f, price_per_hour: e.target.value.replace(/[^0-9.]/g, '') }))} inputMode="decimal" />
+              <p className="text-xs text-purple-500 mt-1">A 2-hour session earns you ₹{Math.round((parseFloat(form.price_per_hour) || 0) * 2)} before commission · 8 hours ₹{Math.round((parseFloat(form.price_per_hour) || 0) * 8)}.</p>
             </div>
             <div>
               <label className={label}>Available for</label>

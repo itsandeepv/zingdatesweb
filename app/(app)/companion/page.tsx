@@ -9,8 +9,11 @@ import { useAuthStore } from '@/lib/store/auth'
 interface Companion {
   id: number; user_id: number; name: string; age?: number; city?: string
   photo?: string; cover_image?: string; languages?: string; headline?: string; about?: string
-  categories?: string[]; coins_per_min: number; rating_avg: number; rating_count: number
+  categories?: string[]; price_per_hour: number; rating_avg: number; rating_count: number
   total_sessions: number; is_online: boolean; is_available_now: boolean; is_verified: boolean
+  // Server-computed: 'booked' while a session covers right now, else
+  // 'available' / 'offline'. Booked always wins over the profile flag.
+  is_booked_now?: boolean; availability_status?: 'booked' | 'available' | 'offline'
 }
 
 const QUICK_CATS = [
@@ -33,7 +36,8 @@ function Stars({ value }: { value: number }) {
 }
 
 function CompanionCard({ c }: { c: Companion }) {
-  const from = Math.round((c.coins_per_min || 0) * 15)
+  const perHour = Math.round(c.price_per_hour || 0)
+  const status = c.availability_status ?? (c.is_available_now ? 'available' : 'offline')
   const cover = c.cover_image || c.photo
   const initials = c.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
@@ -56,11 +60,15 @@ function CompanionCard({ c }: { c: Companion }) {
                 Verified
               </span>
             )}
-            {c.is_available_now && (
-              <span className="flex items-center gap-1 bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Available
+            {status === 'booked' ? (
+              <span className="flex items-center gap-1 bg-red-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Booked
               </span>
-            )}
+            ) : status === 'available' ? (
+              <span className="flex items-center gap-1 bg-emerald-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-white" /> Available
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-4">
@@ -83,10 +91,12 @@ function CompanionCard({ c }: { c: Companion }) {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-gray-400 uppercase tracking-wide">from</span>
-            <p className="text-lg font-extrabold text-gray-900 leading-none">{from} <span className="text-xs text-purple-600 font-bold">coins</span></p>
+            <span className="text-[10px] text-gray-400 uppercase tracking-wide">rate</span>
+            <p className="text-lg font-extrabold text-gray-900 leading-none">₹{perHour} <span className="text-xs text-purple-600 font-bold">/hour</span></p>
           </div>
-          <span className="gradient-brand text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-brand group-hover:opacity-90">Book</span>
+          <span className="gradient-brand text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-brand group-hover:opacity-90">
+            {status === 'booked' ? 'Book later' : 'Book'}
+          </span>
         </div>
       </div>
     </Link>
