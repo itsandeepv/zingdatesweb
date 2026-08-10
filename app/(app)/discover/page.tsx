@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Bell, Video, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { discoverApi, meApi } from '@/lib/api'
+import { chatApi, discoverApi, meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { AppUser } from '@/lib/types'
@@ -28,13 +29,15 @@ async function resolveCoords(token: string): Promise<{ lat: number; lng: number 
   return { lat: 28.6139, lng: 77.209 } // New Delhi fallback
 }
 
-function ProfileCard({ user, onLike, onSkip, actioning }: {
+function ProfileCard({ user, onLike, onSkip, onChat, onCall, actioning, connecting }: {
   user: AppUser
   onLike: () => void
   onSkip: () => void
+  onChat: () => void
+  onCall: (type: 'audio' | 'video') => void
   actioning: boolean
+  connecting: boolean
 }) {
-  const initials = user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
   return (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-brand transition-shadow duration-300 group">
       {/* Photo */}
@@ -100,11 +103,41 @@ function ProfileCard({ user, onLike, onSkip, actioning }: {
               {user.languages}
             </span>
           )}
-          {user.call_rate > 0 && (
+          {/* {user.call_rate > 0 && (
             <span className="text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-medium">
               ₹{user.call_rate}/min
             </span>
-          )}
+          )} */}
+        </div>
+
+        {/* Connect actions — chat / voice / video */}
+        <div className="flex gap-2 mb-2">
+          <button
+            onClick={onChat}
+            disabled={connecting}
+            title={`Chat with ${user.name}`}
+            className="flex-1 py-2.5 rounded-xl border border-pink-200 bg-pink-50 text-sm font-semibold text-pink-600 hover:bg-pink-100 active:scale-95 transition-all disabled:opacity-40 flex items-center justify-center gap-1.5">
+            {connecting ? (
+              <div className="w-4 h-4 rounded-full border-2 border-pink-400 border-t-transparent animate-spin" />
+            ) : (
+              <MessageCircle size={15} />
+            )}
+            Chat
+          </button>
+          <button
+            onClick={() => onCall('audio')}
+            title={`Voice call ${user.name}`}
+            className="w-11 flex-shrink-0 rounded-xl border border-gray-200 text-gray-500 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 active:scale-95 transition-all flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 10.8 19.79 19.79 0 0 1 .22 2.18 2 2 0 0 1 2.18 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.18 6.18l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onCall('video')}
+            title={`Video call ${user.name}`}
+            className="w-11 flex-shrink-0 rounded-xl border border-gray-200 text-gray-500 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-600 active:scale-95 transition-all flex items-center justify-center">
+            <Video size={16} />
+          </button>
         </div>
 
         {/* Actions */}
@@ -216,8 +249,10 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
 }
 
 export default function DiscoverPage() {
+  const router = useRouter()
   const { token, user } = useAuthStore()
   const safeToken = token ?? ''
+  const [connecting, setConnecting] = useState<number | null>(null)
   const [profiles, setProfiles] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [actioning, setActioning] = useState<number | null>(null)
@@ -299,6 +334,38 @@ export default function DiscoverPage() {
 
   function handleSkip(skippedUser: AppUser) {
     setSkipped(s => new Set([...s, skippedUser.id]))
+  }
+
+  // Open (or create) a 1-to-1 chat thread with this profile.
+  async function handleChat(target: AppUser) {
+    if (!user?.is_premium) {
+      triggerPlanModal('chat')
+      return
+    }
+    if (connecting !== null) return
+    setConnecting(target.id)
+    try {
+      // `/chats/start/{id}` may reply with the chat nested or flat
+      const res = await chatApi.startWith(safeToken, target.id) as
+        { id?: number; chat_id?: number; chat?: { id?: number } }
+      const chatId = res?.chat?.id ?? res?.id ?? res?.chat_id
+      if (!chatId) throw new Error('no chat id')
+      router.push(`/chat/${chatId}`)
+    } catch (err) {
+      const e = err as { status?: number; needPlan?: boolean }
+      if (e?.status === 402 || e?.needPlan) triggerPlanModal('chat')
+      else toast.error('Failed to open chat')
+    } finally {
+      setConnecting(null)
+    }
+  }
+
+  function handleCall(target: AppUser, type: 'audio' | 'video') {
+    if (!user?.is_premium) {
+      triggerPlanModal('call')
+      return
+    }
+    router.push(`/call/new?to=${target.id}&type=${type}`)
   }
 
   function dismissNudge() {
@@ -423,7 +490,10 @@ export default function DiscoverPage() {
               user={user}
               onLike={() => handleLike(user)}
               onSkip={() => handleSkip(user)}
+              onChat={() => handleChat(user)}
+              onCall={(type) => handleCall(user, type)}
               actioning={actioning === user.id}
+              connecting={connecting === user.id}
             />
           ))}
         </div>
