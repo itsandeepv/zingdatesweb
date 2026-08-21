@@ -105,6 +105,7 @@ function CompanionCard({ c }: { c: Companion }) {
 
 export default function CompanionFeedPage() {
   const token = useAuthStore(s => s.token) ?? ''
+  const myId = useAuthStore(s => s.user?.id)
   const [items, setItems] = useState<Companion[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -114,10 +115,13 @@ export default function CompanionFeedPage() {
     setLoading(true)
     try {
       const data = await companionApi.feed(token, { q: search, category: cat })
-      setItems(data.companions ?? [])
+      // Never show a user their own companion card. The API already excludes
+      // it; this is the second line of defence, and covers an app talking to a
+      // backend that predates that exclusion.
+      setItems((data.companions ?? []).filter((c: Companion) => !myId || c.user_id !== myId))
     } catch { toast.error('Failed to load companions') }
     finally { setLoading(false) }
-  }, [token, search, cat])
+  }, [token, search, cat, myId])
 
   useEffect(() => { load() }, [cat]) // eslint-disable-line
   useEffect(() => {
