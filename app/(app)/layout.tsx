@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
@@ -153,13 +154,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Logo */}
         <div className="px-5 pt-6 pb-5">
           <Link href="/discover" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 gradient-brand rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ boxShadow: '0 4px 14px rgba(233,30,140,0.4)' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1.5">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            </div>
-            <span className="text-[17px] font-extrabold text-white tracking-tight">zingDates</span>
+            <Image src="/logo-mark.png" alt="ZingDates" width={36} height={36} priority className="w-9 h-9 object-contain flex-shrink-0" />
+            <span className="text-[17px] font-extrabold text-white tracking-tight">Zing<span className="gradient-brand-text">Dates</span></span>
           </Link>
         </div>
 
@@ -247,13 +243,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <header className={`lg:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 ${isFullScreen ? 'hidden' : ''}`}
           style={{ background: 'linear-gradient(180deg, #1a1235 0%, #0f0a24 100%)' }}>
           <Link href="/discover" className="flex items-center gap-2">
-            <div className="w-7 h-7 gradient-brand rounded-lg flex items-center justify-center"
-              style={{ boxShadow: '0 2px 8px rgba(233,30,140,0.4)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" strokeWidth="1.5">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-              </svg>
-            </div>
-            <span className="text-white font-bold text-base tracking-tight">zingDates</span>
+            <Image src="/logo-mark.png" alt="ZingDates" width={28} height={28} priority className="w-7 h-7 object-contain flex-shrink-0" />
+            <span className="text-white font-bold text-base tracking-tight">Zing<span className="gradient-brand-text">Dates</span></span>
           </Link>
 
           {pageTitle && (

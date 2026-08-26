@@ -6,7 +6,7 @@
  * IMPORTANT: only mark up what is actually visible on the page — never fabricate
  * ratings/reviews (Google penalises self-serving or invisible review markup).
  */
-import { SITE_URL, SITE_NAME } from './site'
+import { SITE_URL, SITE_NAME, PLAY_STORE_URL } from './site'
 
 const ORG_ID = `${SITE_URL}/#organization`
 const WEBSITE_ID = `${SITE_URL}/#website`
@@ -49,6 +49,8 @@ export function mobileAppSchema() {
     operatingSystem: 'Android, iOS',
     applicationCategory: 'SocialNetworkingApplication',
     url: SITE_URL,
+    installUrl: PLAY_STORE_URL,
+    downloadUrl: PLAY_STORE_URL,
     image: `${SITE_URL}/og-image.jpg`,
     description:
       'Meet new people nearby, match, chat, and connect over HD voice & video calls — or book a verified companion. Free to download.',

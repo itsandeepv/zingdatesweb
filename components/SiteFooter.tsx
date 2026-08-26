@@ -11,7 +11,7 @@ export default function SiteFooter() {
     ]},
     { title: 'Company', links: [
       { label: 'About', href: '/#how-it-works' },
-      { label: 'Testimonials', href: '/#testimonials' },
+      { label: 'App Screens',  href: '/#screens' },
       { label: 'Get Started', href: '/register' },
       { label: 'Sign In', href: '/login' },
     ]},

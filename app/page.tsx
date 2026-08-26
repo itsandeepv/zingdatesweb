@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
-import CountUp from '@/components/CountUp'
-import { SITE_URL } from '@/lib/site'
+import AppScreens, { PhoneFrame } from '@/components/AppScreens'
+import { screen } from '@/lib/screens'
+import { SITE_URL, PLAY_STORE_URL } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
 
@@ -38,29 +38,13 @@ const STEPS = [
   { n: '03', title: 'Start Connecting', desc: 'Chat, call, and meet up. Build real connections that truly last.' },
 ]
 
-const STATS = [
-  { n: 5,   suffix: 'M+', l: 'Active Users' },
-  { n: 150, suffix: '+',  l: 'Countries' },
-  { n: 1,   suffix: 'M+', l: 'Connections' },
-  { n: 4.9, suffix: '★',  l: 'App Rating', isFloat: true },
-]
-
-const REVIEWS = [
-  { name: 'Priya S.', loc: 'Mumbai, India',   img: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=120&h=120&fit=crop&crop=face&q=85', text: 'I found my life partner on zingDates! The matching algorithm is incredible — it knew exactly what I was looking for.' },
-  { name: 'James W.', loc: 'New York, USA',   img: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face&q=85', text: 'The events feature is amazing. I met so many interesting people at local meetups organised through the app.' },
-  { name: 'Sofia R.', loc: 'Barcelona, Spain', img: 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=face&q=85', text: "zingDates changed my social life completely. It's not just dating — it's a whole community of genuine people." },
-]
-
-const PROFILES = [
-  { name: 'Aria', age: 24, online: true,  img: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Maya', age: 26, online: false, img: 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Zoe',  age: 22, online: true,  img: 'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Nina', age: 28, online: true,  img: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Luna', age: 23, online: false, img: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Sara', age: 25, online: true,  img: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Kate', age: 27, online: true,  img: 'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Emma', age: 21, online: false, img: 'https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?w=400&h=500&fit=crop&crop=top&q=85' },
-  { name: 'Lily', age: 29, online: true,  img: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=500&fit=crop&crop=top&q=85' },
+// Product facts, not invented metrics. Every line here is something the app
+// actually does, so nothing on this page has to be walked back later.
+const HIGHLIGHTS = [
+  { v: '100%', l: 'Free to join' },
+  { v: 'HD',   l: 'Voice & video' },
+  { v: 'OTP',  l: 'Verified sign-in' },
+  { v: '24/7', l: 'Support' },
 ]
 
 export default function LandingPage() {
@@ -89,7 +73,7 @@ export default function LandingPage() {
                   <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-60" />
                   <span className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#E91E8C' }} />
                 </span>
-                <span className="text-sm font-medium" style={{ color: '#E91E8C' }}>5 Million+ Active Members</span>
+                <span className="text-sm font-medium" style={{ color: '#E91E8C' }}>Real people, real connections</span>
               </div>
 
               <h1 className="hero-h1 text-5xl sm:text-6xl font-bold text-gray-900 leading-tight">
@@ -118,76 +102,40 @@ export default function LandingPage() {
               </div>
 
               <div className="hero-stats grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
-                {STATS.map(s => (
-                  <div key={s.l} className="group">
+                {HIGHLIGHTS.map(h => (
+                  <div key={h.l} className="group">
                     <p className="text-2xl font-bold gradient-brand-text group-hover:scale-110 transition-transform duration-200 inline-block">
-                      {s.isFloat ? `${s.n}${s.suffix}` : <CountUp end={s.n} suffix={s.suffix} />}
+                      {h.v}
                     </p>
-                    <p className="text-sm text-gray-500 mt-1">{s.l}</p>
+                    <p className="text-sm text-gray-500 mt-1">{h.l}</p>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Right: Profile Grid */}
-            <div className="relative hidden lg:block">
-              <div className="grid grid-cols-3 gap-3 p-4">
-                {PROFILES.map((p, i) => (
-                  <div
-                    key={i}
-                    className={`profile-card group relative aspect-square rounded-2xl overflow-hidden shadow-lg cursor-pointer ${i === 4 ? 'scale-110 z-10 shadow-xl ring-2 ring-pink-300/60' : ''}`}
-                  >
-                    <Image
-                      src={p.img} alt={p.name} fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      sizes="140px"
-                    />
-                    {/* Overlay on hover */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
-                    <div className="absolute inset-x-0 bottom-0 px-2 py-2 translate-y-0">
-                      <p className="text-white text-xs font-semibold text-center drop-shadow">{p.name}, {p.age}</p>
-                    </div>
-                    {p.online && (
-                      <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60" />
-                        <span className="relative w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-white" />
-                      </span>
-                    )}
-                    {/* Like button on hover */}
-                    <div className="absolute top-2 left-2 w-7 h-7 rounded-full gradient-brand flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-brand scale-75 group-hover:scale-100">
-                      ❤️
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Right: real app screens */}
+            <div className="relative hidden lg:flex justify-center items-end gap-5 pt-4">
+              <PhoneFrame screen={screen('login')} width={214} className="translate-y-6" />
+              <PhoneFrame screen={screen('getstarted')} width={230} />
 
               {/* Floating match notification */}
-              <div className="absolute -bottom-4 left-0 glass rounded-2xl shadow-xl p-4 flex items-center gap-3 border border-pink-100 animate-float" style={{ animationDelay: '0.5s' }}>
+              <div className="absolute -bottom-4 -left-2 glass rounded-2xl shadow-xl p-4 flex items-center gap-3 border border-pink-100 animate-float" style={{ animationDelay: '0.5s' }}>
                 <div className="w-10 h-10 rounded-full gradient-brand flex items-center justify-center text-lg animate-heartbeat">💝</div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-800">New Match!</p>
-                  <p className="text-xs text-gray-500">Maya liked your profile</p>
+                  <p className="text-sm font-semibold text-gray-800">It&apos;s a Match!</p>
+                  <p className="text-xs text-gray-500">You both liked each other</p>
                 </div>
               </div>
 
               {/* Floating call notification */}
-              <div className="absolute -top-4 right-0 glass rounded-2xl shadow-xl p-3 flex items-center gap-2 border border-purple-100 animate-float2">
+              <div className="absolute -top-2 -right-4 glass rounded-2xl shadow-xl p-3 flex items-center gap-2 border border-purple-100 animate-float2">
                 <div className="relative w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm">
                   📞
                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-white" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-800">Incoming call</p>
-                  <p className="text-xs text-gray-500">From Aria</p>
-                </div>
-              </div>
-
-              {/* New message notification */}
-              <div className="absolute top-1/2 -right-4 glass rounded-2xl shadow-lg p-3 flex items-center gap-2 border border-pink-100 animate-float" style={{ animationDelay: '1.5s' }}>
-                <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-sm">💬</div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-800">Zoe sent a message</p>
-                  <p className="text-xs text-gray-400">just now</p>
+                  <p className="text-xs text-gray-500">HD video, in-app</p>
                 </div>
               </div>
             </div>
@@ -301,38 +249,26 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Testimonials ───────────────────────────────── */}
-      <section id="testimonials" className="py-20 overflow-hidden" style={{ background: 'linear-gradient(160deg,#fff5f8 0%,#fdf4ff 100%)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <ScrollReveal className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">
-              Love stories from <span className="gradient-brand-text-anim">zingDates</span>
+      {/* ── Inside the app ─────────────────────── */}
+      <section id="screens" className="py-20 overflow-hidden relative" style={{ background: 'linear-gradient(160deg,#0c0720 0%,#1d0940 45%,#280c3a 75%,#0c0720 100%)' }}>
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-20 left-1/3 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(233,30,140,0.25),transparent 70%)' }} />
+          <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(156,39,176,0.2),transparent 70%)' }} />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ScrollReveal className="text-center mb-14">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Take a look <span className="gradient-brand-text-anim">inside</span>
             </h2>
+            <p className="text-white/55 text-lg max-w-2xl mx-auto">
+              Sign up in under a minute — mobile number, one OTP, a few details about you, and you’re in.
+            </p>
           </ScrollReveal>
-          <div className="grid md:grid-cols-3 gap-8">
-            {REVIEWS.map((r, i) => (
-              <ScrollReveal key={i} delay={i * 120} direction="up">
-                <div className="h-full p-8 rounded-3xl bg-white border border-pink-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
-                  <div className="flex gap-1 mb-4">
-                    {[...Array(5)].map((_, j) => (
-                      <span key={j} className="text-yellow-400 text-lg" style={{ animationDelay: `${j * 80}ms` }}>★</span>
-                    ))}
-                  </div>
-                  <p className="text-gray-700 leading-relaxed mb-6 italic">"{r.text}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-pink-100">
-                      <Image src={r.img} alt={r.name} fill className="object-cover" sizes="48px" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{r.name}</p>
-                      <p className="text-sm text-gray-500">{r.loc}</p>
-                    </div>
-                    <div className="ml-auto text-pink-400 text-xl">💬</div>
-                  </div>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
+
+          <ScrollReveal direction="up" delay={120}>
+            <AppScreens />
+          </ScrollReveal>
         </div>
       </section>
 
@@ -363,18 +299,18 @@ export default function LandingPage() {
                 for real.
               </h2>
               <p className="text-white/60 text-lg leading-relaxed mb-8 max-w-lg">
-                Thousands of real people near you are waiting. Download the zingDates app and carry every match, message, and moment right in your pocket — wherever life takes you.
+                Carry every match, message, and call right in your pocket. Download the ZingDates app and pick up wherever you left off — on any device, wherever life takes you.
               </p>
 
               {/* Trust badges */}
               <div className="flex flex-wrap gap-6 mb-10">
                 <div className="flex items-center gap-2">
-                  <div className="flex gap-0.5">{[1,2,3,4,5].map(i=><span key={i} className="text-yellow-400 text-base">★</span>)}</div>
-                  <span className="text-white/70 text-sm font-medium">4.9 App Rating</span>
+                  <span className="text-pink-400 text-base">📞</span>
+                  <span className="text-white/70 text-sm font-medium">HD Voice &amp; Video</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-pink-400 text-base">👥</span>
-                  <span className="text-white/70 text-sm font-medium">5 Million+ Users</span>
+                  <span className="text-pink-400 text-base">💬</span>
+                  <span className="text-white/70 text-sm font-medium">Instant Chat</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-green-400 text-base">🔒</span>
@@ -384,7 +320,7 @@ export default function LandingPage() {
 
               {/* Store buttons */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <a href="#" className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105">
+                <a href={PLAY_STORE_URL} target="_blank" rel="noopener" aria-label="Get ZingDates on Google Play" className="group flex items-center gap-3 bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-200 hover:scale-105">
                   <svg className="w-7 h-7 flex-shrink-0 fill-current" viewBox="0 0 24 24">
                     <path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z"/>
                   </svg>
@@ -405,86 +341,19 @@ export default function LandingPage() {
               </div>
             </ScrollReveal>
 
-            {/* Right — phone mockup */}
+            {/* Right — the real app splash screen */}
             <ScrollReveal direction="right" delay={120} className="relative flex justify-center lg:justify-end">
-              {/* Phone frame */}
-              <div className="relative w-64 animate-float2">
-                <div className="relative w-64 rounded-[44px] overflow-hidden border-[6px] border-white/20 shadow-2xl"
-                     style={{ background: '#1a0b30', boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.08)' }}>
-                  {/* Status bar */}
-                  <div className="flex items-center justify-between px-5 py-2 bg-black/30">
-                    <span className="text-white/70 text-[10px] font-semibold">9:41</span>
-                    <div className="w-16 h-4 rounded-full bg-black absolute left-1/2 -translate-x-1/2 top-0" />
-                    <div className="flex items-center gap-1">
-                      <svg className="w-3 h-3 fill-white/70" viewBox="0 0 24 24"><path d="M1.5 8.5C5.5 4.5 18.5 4.5 22.5 8.5"/><path d="M5 12c2.5-2.5 12-2.5 14 0"/><path d="M8.5 15.5c1.5-1.5 6-1.5 7 0"/><circle cx="12" cy="19" r="1"/></svg>
-                      <svg className="w-3 h-3 fill-white/70" viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>
-                    </div>
-                  </div>
-
-                  {/* App header */}
-                  <div className="px-4 py-3 flex items-center justify-between" style={{ background: 'linear-gradient(135deg,#E91E8C,#9C27B0)' }}>
-                    <div>
-                      <p className="text-white text-xs opacity-70">Good evening 👋</p>
-                      <p className="text-white font-bold text-sm">Discover</p>
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                      <span className="text-white text-sm">🔔</span>
-                    </div>
-                  </div>
-
-                  {/* Profile cards stack */}
-                  <div className="px-3 py-3 space-y-2.5" style={{ background: '#0f0828' }}>
-                    {[
-                      { name: 'Priya', age: 24, city: 'Mumbai', online: true, color: '#E91E8C' },
-                      { name: 'Asha',  age: 26, city: 'Delhi',  online: false, color: '#9C27B0' },
-                    ].map((u, i) => (
-                      <div key={i} className="rounded-2xl overflow-hidden relative" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                        <div className="h-20 flex items-end p-3" style={{ background: `linear-gradient(135deg,${u.color}40,${u.color}20)` }}>
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                               style={{ background: u.color }}>
-                            {u.name[0]}
-                          </div>
-                          <div className="ml-2">
-                            <p className="text-white text-xs font-bold">{u.name}, {u.age}</p>
-                            <p className="text-white/50 text-[10px]">{u.city}</p>
-                          </div>
-                          {u.online && <span className="ml-auto w-2 h-2 rounded-full bg-green-400 ring-2 ring-green-400/30" />}
-                        </div>
-                        <div className="flex gap-2 px-3 py-2">
-                          <button className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-white/50 border border-white/10">Skip</button>
-                          <button className="flex-1 py-1.5 rounded-xl text-[10px] font-bold text-white" style={{ background: u.color }}>❤ Like</button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Match notification */}
-                    <div className="rounded-2xl p-3 flex items-center gap-2.5" style={{ background: 'linear-gradient(135deg,rgba(233,30,140,0.25),rgba(156,39,176,0.25))', border: '1px solid rgba(233,30,140,0.3)' }}>
-                      <span className="text-xl animate-heartbeat">💖</span>
-                      <div>
-                        <p className="text-white text-[11px] font-bold">It&apos;s a Match!</p>
-                        <p className="text-white/50 text-[10px]">You and Priya liked each other</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bottom nav bar */}
-                  <div className="flex justify-around py-3 px-4" style={{ background: '#0a061e', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    {['🏠','💝','💬','👤'].map((icon, i) => (
-                      <button key={i} className={`w-8 h-8 flex items-center justify-center text-base rounded-xl ${i === 1 ? 'gradient-brand' : ''}`}>
-                        {icon}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="relative animate-float2">
+                <PhoneFrame screen={screen('splash')} width={264} />
 
                 {/* Floating elements around the phone */}
                 <div className="absolute -top-4 -right-8 glass rounded-2xl px-3 py-2 border border-pink-200/30 shadow-xl animate-float" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)' }}>
                   <p className="text-white text-[11px] font-bold">💬 New message</p>
-                  <p className="text-white/60 text-[10px]">Asha: Hey there! 👋</p>
+                  <p className="text-white/60 text-[10px]">Straight to your phone</p>
                 </div>
                 <div className="absolute -bottom-2 -left-10 glass rounded-2xl px-3 py-2 border border-purple-200/30 shadow-xl animate-float2">
                   <p className="text-white text-[11px] font-bold">📞 Incoming call</p>
-                  <p className="text-white/60 text-[10px]">from Priya</p>
+                  <p className="text-white/60 text-[10px]">HD audio &amp; video</p>
                 </div>
               </div>
             </ScrollReveal>
@@ -503,18 +372,18 @@ export default function LandingPage() {
         <div className="relative max-w-4xl mx-auto px-4 text-center">
           <ScrollReveal direction="scale">
             <h2 className="text-4xl font-bold text-white mb-4">Ready to find your match?</h2>
-            <p className="text-pink-100 text-xl mb-10">Join 5 million+ people already on zingDates. Free to download.</p>
+            <p className="text-pink-100 text-xl mb-10">Create your profile in under a minute. Free to download, free to join.</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {[
-                { store: 'Google Play', sub: 'Get it on', icon: (<path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z" />) },
+                { store: 'Google Play', sub: 'Get it on', href: PLAY_STORE_URL, icon: (<path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z" />) },
               ].map(b => (
-                <button key={b.store} className="flex items-center gap-3 bg-black/90 hover:bg-black hover:scale-105 text-white px-7 py-4 rounded-2xl font-semibold transition-all duration-200 mx-auto sm:mx-0 shadow-xl">
+                <a key={b.store} href={b.href} target="_blank" rel="noopener" aria-label={`${b.sub} ${b.store}`} className="flex items-center gap-3 bg-black/90 hover:bg-black hover:scale-105 text-white px-7 py-4 rounded-2xl font-semibold transition-all duration-200 mx-auto sm:mx-0 shadow-xl">
                   <svg className="w-7 h-7 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">{b.icon}</svg>
                   <div className="text-left">
                     <p className="text-xs text-gray-400">{b.sub}</p>
                     <p className="font-bold">{b.store}</p>
                   </div>
-                </button>
+                </a>
               ))}
               <Link href="/register"
                 className="flex items-center justify-center gap-2 bg-white text-pink-600 font-bold px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-200 shadow-xl mx-auto sm:mx-0">

@@ -3,6 +3,13 @@
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { useAuthStore } from '@/lib/store/auth'
+
+/** "super_admin" -> "Super Admin" */
+function roleLabel(role?: string | null) {
+  if (!role) return 'Admin'
+  return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+}
 
 const TITLES: Record<string, string> = {
   '/admin':              'Dashboard',
@@ -33,6 +40,7 @@ const NOTIFICATIONS = [
 
 export default function AdminHeader() {
   const pathname = usePathname()
+  const admin = useAuthStore(s => s.user)
   const [showNotif, setShowNotif] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
   const [search, setSearch] = useState('')
@@ -115,10 +123,12 @@ export default function AdminHeader() {
             onClick={() => { setShowProfile(v => !v); setShowNotif(false) }}
             className="flex items-center gap-2 hover:bg-gray-100 rounded-xl p-1.5 transition-colors"
           >
-            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-white text-sm font-bold">R</div>
+            <div className="w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-white text-sm font-bold">
+              {(admin?.name?.[0] ?? 'A').toUpperCase()}
+            </div>
             <div className="hidden sm:block text-left">
-              <p className="text-sm font-semibold text-gray-900 leading-none">Rahul Mehta</p>
-              <p className="text-xs text-gray-500 mt-0.5">Super Admin</p>
+              <p className="text-sm font-semibold text-gray-900 leading-none">{admin?.name ?? 'Admin'}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{roleLabel(admin?.role)}</p>
             </div>
             <svg className="w-4 h-4 text-gray-400 hidden sm:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />

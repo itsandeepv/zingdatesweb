@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
@@ -97,17 +98,13 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       <div className="flex items-center justify-between px-4 py-5 border-b border-white/10">
         {!collapsed && (
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center shadow-brand flex-shrink-0">
-              <span className="text-white font-bold text-sm">Z</span>
-            </div>
-            <span className="font-bold text-lg">zingDates</span>
+            <Image src="/logo-mark.png" alt="ZingDates" width={32} height={32} className="w-8 h-8 object-contain flex-shrink-0" />
+            <span className="font-bold text-lg">Zing<span className="gradient-brand-text">Dates</span></span>
             <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-pink-300">Admin</span>
           </div>
         )}
         {collapsed && (
-          <div className="w-8 h-8 rounded-xl gradient-brand flex items-center justify-center shadow-brand mx-auto">
-            <span className="text-white font-bold text-sm">Z</span>
-          </div>
+          <Image src="/logo-mark.png" alt="ZingDates" width={32} height={32} className="w-8 h-8 object-contain mx-auto" />
         )}
         <button
           onClick={onToggle}

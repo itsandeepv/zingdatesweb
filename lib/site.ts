@@ -8,6 +8,10 @@ export const SITE_URL = (
 
 export const SITE_NAME = 'zingDates'
 
+/** Google Play listing for the ZingDates Android app. */
+export const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.zingdates.app'
+
 /** Turn a title into a URL-safe slug (mirrors the admin CMS slug preview). */
 export function slugify(str: string) {
   return (str || '')

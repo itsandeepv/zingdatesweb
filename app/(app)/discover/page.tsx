@@ -8,6 +8,7 @@ import { chatApi, discoverApi, meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { AppUser } from '@/lib/types'
+import { PLAY_STORE_URL } from '@/lib/site'
 
 // Resolve coordinates for the nearby query: try the browser, then the user's
 // saved profile location, then a sensible default so the feed always loads.
@@ -182,10 +183,11 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
           <div className="absolute -bottom-4 left-1/4 w-24 h-24 rounded-full" style={{ background: 'radial-gradient(circle,rgba(156,39,176,0.3),transparent 70%)' }} />
           {/* Phone icon + brand */}
           <div className="relative z-10 flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl gradient-brand flex items-center justify-center shadow-brand-lg text-2xl">📱</div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="ZingDates" className="w-14 h-14 object-contain" />
             <div>
-              <p className="text-white font-black text-xl leading-none">zingDates</p>
-              <p className="text-pink-300 text-xs mt-0.5 font-medium">The App Experience</p>
+              <p className="text-white font-black text-xl leading-none">Zing<span className="gradient-brand-text">Dates</span></p>
+              <p className="text-pink-300 text-[10px] mt-1 font-medium uppercase tracking-[0.15em]">Real people, real connections</p>
             </div>
           </div>
           {/* Close */}
@@ -221,7 +223,9 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
           {/* CTA buttons */}
           <div className="space-y-2.5">
             <a
-              href="#"
+              href={PLAY_STORE_URL}
+              target="_blank"
+              rel="noopener"
               className="flex items-center justify-center gap-2.5 w-full gradient-brand text-white font-bold py-3.5 rounded-2xl shadow-brand hover:opacity-90 active:scale-[.98] transition-all text-sm"
             >
               <svg className="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
@@ -237,11 +241,10 @@ function AppDownloadNudge({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          {/* Rating */}
-          <div className="flex items-center justify-center gap-1.5 mt-4">
-            {[1,2,3,4,5].map(i => <span key={i} className="text-yellow-400 text-sm">★</span>)}
-            <span className="text-xs text-gray-400 ml-1">4.9 · 50k+ reviews</span>
-          </div>
+          {/* Reassurance */}
+          <p className="text-center text-xs text-gray-400 mt-4">
+            Free to download · Your data stays private
+          </p>
         </div>
       </div>
     </div>
