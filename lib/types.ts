@@ -370,7 +370,8 @@ export interface Chat {
   is_online?: boolean
   last_seen?: string | null
   last_message?: string    // preview text (list rows)
-  last_time?: string       // humanised time (list rows)
+  last_time?: string       // Laravel diffForHumans() text, e.g. "2 hours ago" — NOT parseable
+  last_at?: string | null  // ISO 8601 timestamp of the last message/call — parse this one
   unread?: number
   is_typing?: boolean
   other_user?: AppUser     // present in the thread view

@@ -10,9 +10,32 @@ import { triggerPlanModal } from '@/components/NoPlanModal'
 import type { Chat } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
 
-function timeAgo(dateStr: string | null) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
+const HUMAN_UNITS: [RegExp, string][] = [
+  [/second/i, 's'], [/minute/i, 'm'], [/hour/i, 'h'],
+  [/day/i, 'd'], [/week/i, 'w'], [/month/i, 'mo'], [/year/i, 'y'],
+]
+
+/** Shorten Laravel's "2 hours ago" to "2h" so it fits the row's time column. */
+function compactHuman(text?: string | null) {
+  const s = text?.trim()
+  if (!s) return ''
+  if (/^(just )?now$|moments? ago/i.test(s)) return 'now'
+  const n = s.match(/\d+/)?.[0]
+  const unit = HUMAN_UNITS.find(([re]) => re.test(s))?.[1]
+  return n && unit ? `${n}${unit}` : s
+}
+
+/**
+ * Compact "last activity" label for a chat row.
+ *
+ * The API sends two time fields: `last_at` (ISO 8601) and `last_time` (Laravel
+ * diffForHumans output, e.g. "2 hours ago"). Only the first is parseable —
+ * passing the humanised string to `new Date()` is what rendered "Invalid Date".
+ */
+function timeAgo(chat: Chat) {
+  const d = chat.last_at ? new Date(chat.last_at) : null
+  if (!d || Number.isNaN(d.getTime())) return compactHuman(chat.last_time)
+
   const diff = (Date.now() - d.getTime()) / 1000
   if (diff < 60) return 'now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m`
@@ -40,7 +63,7 @@ function SkeletonItem() {
 function ChatItem({ chat, isPremium }: { chat: Chat; isPremium: boolean }) {
   const preview = chat.last_message?.trim().length ? chat.last_message : 'Start a conversation…'
   const hasUnread = (chat.unread ?? 0) > 0
-  const t = timeAgo(chat.last_time ?? null)
+  const t = timeAgo(chat)
 
   function handleClick(e: React.MouseEvent) {
     if (!isPremium) {

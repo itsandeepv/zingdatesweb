@@ -8,8 +8,10 @@ import { useAuthStore } from '@/lib/store/auth'
 import type { AppNotification } from '@/lib/types'
 import UserAvatar from '@/components/UserAvatar'
 
-function timeAgo(dateStr: string) {
-  const d = new Date(dateStr)
+function timeAgo(dateStr?: string | null) {
+  const d = dateStr ? new Date(dateStr) : null
+  // Never render "Invalid Date" at the user — an unusable timestamp shows nothing.
+  if (!d || Number.isNaN(d.getTime())) return ''
   const diff = (Date.now() - d.getTime()) / 1000
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
