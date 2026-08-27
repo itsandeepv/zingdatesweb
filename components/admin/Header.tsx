@@ -24,6 +24,7 @@ const TITLES: Record<string, string> = {
   '/admin/marketing':    'Marketing Automation',
   '/admin/analytics':    'Reports & Analytics',
   '/admin/support':      'Support & Tickets',
+  '/admin/verifications': 'ID Verification',
   '/admin/staff':        'Staff Management',
   '/admin/security':     'Security & Compliance',
   '/admin/mobile':       'Mobile App Management',

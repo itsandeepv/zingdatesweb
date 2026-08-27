@@ -78,7 +78,7 @@ export default async function RefundPage() {
 
       <h2>6. How to Request a Refund</h2>
       <p>To request a refund or report a payment issue, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a> with:
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a> with:
       </p>
       <ul>
         <li>Your registered phone number or email;</li>
@@ -114,7 +114,7 @@ export default async function RefundPage() {
       <h2>10. Contact Us</h2>
       <p>
         For refund or billing questions, email{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a>.
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a>.
       </p>
     </LegalPage>
   )

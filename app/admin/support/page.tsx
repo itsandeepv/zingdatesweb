@@ -107,11 +107,23 @@ export default function SupportPage() {
                   </div>
                   <h3 className="font-semibold text-gray-900 mt-1">{ticket.subject}</h3>
                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">{ticket.message ?? ticket.description}</p>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 flex-wrap">
                     <span>{ticket.user_name ?? ticket.userName ?? 'Unknown User'}</span>
+                    {ticket.user_phone && <><span>·</span><span>{ticket.user_phone}</span></>}
+                    {ticket.category && (
+                      <><span>·</span>
+                      <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-medium capitalize">
+                        {String(ticket.category).replace('_', ' ')}
+                      </span></>
+                    )}
                     <span>·</span>
                     <span>{ticket.created_at ?? ticket.createdAt}</span>
                   </div>
+                  {/* Platform/build the user was on — attached by the app so a
+                      version-specific bug is obvious without a back-and-forth. */}
+                  {ticket.device_info && (
+                    <p className="text-[11px] text-gray-400 font-mono mt-1.5">{ticket.device_info}</p>
+                  )}
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={() => { setReplyingTo(replyingTo === ticket.id ? null : ticket.id); setReplyText('') }}

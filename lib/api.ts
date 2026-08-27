@@ -166,6 +166,30 @@ export const staffApi = {
 }
 
 /* ─── Admin Support ───────────────────────────────────────────── */
+// User-facing support ("Customer Queries") — the signed-in user's own tickets.
+export const userSupportApi = {
+  categories: (token: string) => req<any>('/support/categories', {}, token),
+  list:   (token: string) => req<any>('/support/tickets', {}, token),
+  get:    (token: string, id: number) => req<any>(`/support/tickets/${id}`, {}, token),
+  create: (token: string, data: Record<string, any>) =>
+    req<any>('/support/tickets', { method: 'POST', body: JSON.stringify(data) }, token),
+  reply:  (token: string, id: number, body: string) =>
+    req<any>(`/support/tickets/${id}/reply`, { method: 'POST', body: JSON.stringify({ body }) }, token),
+}
+
+// Admin KYC review queue.
+export const kycApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/verifications?${new URLSearchParams(params)}`, {}, token),
+  approve: (token: string, id: number) =>
+    req<any>(`/admin/verifications/${id}/approve`, { method: 'POST' }, token),
+  reject: (token: string, id: number, reason: string) =>
+    req<any>(`/admin/verifications/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  recheck: (token: string, id: number) =>
+    req<any>(`/admin/verifications/${id}/recheck`, { method: 'POST' }, token),
+}
+
+// Admin-side ticket queue.
 export const supportApi = {
   list: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/tickets?${new URLSearchParams(params)}`, {}, token),

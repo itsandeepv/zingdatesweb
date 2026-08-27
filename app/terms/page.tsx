@@ -153,7 +153,7 @@ export default async function TermsPage() {
       <h2>15. Contact Us</h2>
       <p>
         Questions about these Terms? Contact us at{' '}
-        <a href="mailto:support@zingdates.com">support@zingdates.com</a>.
+        <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a>.
       </p>
     </LegalPage>
   )

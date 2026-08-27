@@ -52,7 +52,7 @@ export default function LegalPage({
 
         <div className="mt-12 rounded-2xl gradient-brand-soft p-5 text-sm text-gray-600">
           Questions about this policy? Email us at{' '}
-          <a href="mailto:support@zingdates.com" className="text-pink-600 font-semibold">support@zingdates.com</a>.
+          <a href="mailto:zingdates2026@gmail.com" className="text-pink-600 font-semibold">zingdates2026@gmail.com</a>.
         </div>
       </main>
 

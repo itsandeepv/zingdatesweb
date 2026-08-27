@@ -40,6 +40,15 @@ const STEPS = [
 
 // Product facts, not invented metrics. Every line here is something the app
 // actually does, so nothing on this page has to be walked back later.
+// Mirrors WalletController::PLANS on the API — the only things the product
+// actually sells. `POST /wallet/create-order` accepts trial | monthly | vip and
+// nothing else, so there is no coin pack or gift to advertise here.
+const PLANS = [
+  { name: '1 Day Free Trial', price: '\u20b91',   duration: '1 day',   features: 'Chat, likes & search',                    featured: false },
+  { name: 'Monthly Premium',  price: '\u20b999',  duration: '30 days', features: 'Chat, likes & search',                    featured: false },
+  { name: 'VIP Plan',         price: '\u20b9199', duration: '30 days', features: 'Chat, likes, search + audio & video calls', featured: true  },
+]
+
 const HIGHLIGHTS = [
   { v: '100%', l: 'Free to join' },
   { v: 'HD',   l: 'Voice & video' },
@@ -201,7 +210,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Coin / Calls promo ─────────────────────────── */}
+      {/* ── Plans promo ────────────────────────────────── */}
       <section className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-3xl gradient-brand p-12 grid md:grid-cols-2 gap-10 items-center relative overflow-hidden">
@@ -210,40 +219,68 @@ export default function LandingPage() {
             <div className="pointer-events-none absolute -bottom-8 left-1/3 w-48 h-48 rounded-full bg-white/5 animate-blob2" />
 
             <ScrollReveal direction="left" className="relative z-10">
-              <h2 className="text-3xl font-bold text-white mb-4">Connect deeper with zingDates Coins</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">Unlimited chat and calls, on a plan</h2>
               <p className="text-pink-100 text-lg mb-6 leading-relaxed">
-                Use zingDates Coins to unlock audio and video calls with your matches. Recharge anytime — starting from just ₹149.
+                Every new member gets a few free coins to try ZingDates out. Once they run out, a plan
+                takes the limits off &mdash; and VIP adds audio and video calls.
               </p>
-              <div className="grid grid-cols-3 gap-4">
-                {[{ coins: 100, price: '₹149' }, { coins: 250, price: '₹349' }, { coins: 500, price: '₹599' }].map((c, i) => (
-                  <div key={c.coins}
-                    className="bg-white/20 hover:bg-white/30 rounded-2xl p-4 text-center cursor-pointer transition-all duration-200 hover:scale-105 hover:-translate-y-1"
-                    style={{ transitionDelay: `${i * 60}ms` }}>
-                    <p className="text-2xl font-bold text-white">{c.coins}</p>
-                    <p className="text-pink-100 text-xs mt-1">Coins</p>
-                    <p className="text-white font-semibold mt-2">{c.price}</p>
-                  </div>
+
+              {/* How the free coins work */}
+              <div className="rounded-2xl bg-white/15 p-5 space-y-2.5">
+                <p className="text-white font-semibold text-sm">How the free coins work</p>
+                {[
+                  '10 free coins the day you sign up',
+                  '5 coins per message \u00b7 5 coins per call',
+                  'Calls stop at 60 seconds without a plan',
+                ].map(line => (
+                  <p key={line} className="flex items-start gap-2 text-pink-100 text-sm leading-relaxed">
+                    <span className="text-white/70 mt-0.5">&bull;</span>
+                    {line}
+                  </p>
                 ))}
+                <p className="text-white/70 text-xs pt-1 leading-relaxed">
+                  Coins are a one-time trial allowance, not a product &mdash; they are never topped up.
+                  On any active plan you are not charged coins at all.
+                </p>
               </div>
             </ScrollReveal>
 
             <ScrollReveal direction="right" delay={100} className="relative z-10 flex flex-col gap-4">
-              {[
-                { icon: '🎙️', label: 'Audio Call', cost: '10 coins / min' },
-                { icon: '📹', label: 'Video Call', cost: '25 coins / min' },
-                { icon: '🎁', label: 'Send Gift',  cost: 'From 5 coins' },
-              ].map((item, i) => (
-                <div key={item.label}
-                  className="flex items-center gap-4 bg-white/15 hover:bg-white/25 rounded-2xl p-4 transition-all duration-200 hover:translate-x-2 cursor-pointer"
+              {PLANS.map((plan, i) => (
+                <div
+                  key={plan.name}
+                  className={`flex items-center gap-4 rounded-2xl p-4 transition-all duration-200 hover:translate-x-2 ${
+                    plan.featured
+                      ? 'bg-white/25 ring-2 ring-white/60 hover:bg-white/30'
+                      : 'bg-white/15 hover:bg-white/25'
+                  }`}
                   style={{ transitionDelay: `${i * 80}ms` }}>
-                  <span className="text-2xl">{item.icon}</span>
-                  <div>
-                    <p className="font-semibold text-white">{item.label}</p>
-                    <p className="text-pink-100 text-sm">{item.cost}</p>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-white">{plan.name}</p>
+                      {plan.featured && (
+                        <span className="bg-white text-pink-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
+                          Includes calls
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-pink-100 text-sm mt-0.5">{plan.features}</p>
                   </div>
-                  <svg className="ml-auto w-4 h-4 text-white/50" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-2xl font-bold text-white leading-none">{plan.price}</p>
+                    <p className="text-pink-100 text-xs mt-1">{plan.duration}</p>
+                  </div>
                 </div>
               ))}
+
+              <Link
+                href="/register"
+                className="mt-1 bg-white text-pink-600 font-bold text-center px-6 py-3.5 rounded-2xl hover:scale-[1.02] transition-transform duration-200 shadow-xl">
+                Get a plan
+              </Link>
+              <p className="text-white/70 text-xs text-center leading-relaxed">
+                Upgrade or renew any time. While a higher plan is running you cannot drop to a lower one.
+              </p>
             </ScrollReveal>
           </div>
         </div>

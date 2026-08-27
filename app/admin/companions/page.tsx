@@ -17,6 +17,51 @@ const STATUS_CLS: Record<string, string> = {
   failed: 'bg-red-100 text-red-600', expired: 'bg-gray-100 text-gray-500',
 }
 
+/**
+ * The destination for this payout, with copy buttons — an admin is about to
+ * retype these into a banking app, and a mistyped account number sends real
+ * money to a stranger.
+ */
+function PayoutCell({ payout, note }: { payout: any; note?: string }) {
+  const copy = (v: string) => {
+    navigator.clipboard?.writeText(v)
+    toast.success('Copied')
+  }
+
+  if (!payout) {
+    return (
+      <div className="text-xs">
+        <span className="text-red-600 font-semibold">No payout details</span>
+        {note ? <p className="text-gray-400 mt-0.5">note: {note}</p> : null}
+      </div>
+    )
+  }
+
+  if (payout.method === 'upi') {
+    return (
+      <button onClick={() => copy(payout.upi)}
+        className="text-left text-xs font-mono text-gray-800 hover:text-pink-600" title="Click to copy">
+        <span className="block text-[10px] font-sans font-bold text-gray-400 uppercase">UPI</span>
+        {payout.upi}
+      </button>
+    )
+  }
+
+  return (
+    <div className="text-xs space-y-0.5">
+      <p className="text-gray-700 font-semibold">{payout.account_name}</p>
+      <button onClick={() => copy(payout.account_number)}
+        className="font-mono text-gray-800 hover:text-pink-600 block" title="Click to copy">
+        {payout.account_number}
+      </button>
+      <button onClick={() => copy(payout.ifsc)}
+        className="font-mono text-gray-500 hover:text-pink-600 block" title="Click to copy">
+        {payout.ifsc}
+      </button>
+    </div>
+  )
+}
+
 function Badge({ s }: { s: string }) {
   return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${STATUS_CLS[s] ?? 'bg-gray-100 text-gray-500'}`}>{s?.replace('_', ' ')}</span>
 }
@@ -228,6 +273,7 @@ export default function AdminCompanionsPage() {
                   <tr key={w.id} className="border-t border-gray-50">
                     <td className="px-4 py-3"><p className="font-semibold text-gray-800">{w.user}</p><p className="text-xs text-gray-400">{w.email}</p></td>
                     <td className="px-4 py-3 font-semibold">₹{Number(w.amount ?? 0).toFixed(2)}</td>
+                    <td className="px-4 py-3"><PayoutCell payout={w.payout} note={w.note} /></td>
                     <td className="px-4 py-3"><Badge s={w.status} /></td>
                     <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
                       {['pending', 'approved'].includes(w.status) && <>
