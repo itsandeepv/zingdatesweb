@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
 import { pagesApi } from '@/lib/api'
-import { SITE_URL } from '@/lib/site'
+import { pageMetadata } from '@/lib/seo-meta'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,11 +15,16 @@ async function getCmsContent(key: string): Promise<string | null> {
   }
 }
 
-export const metadata: Metadata = {
-  title: 'Terms of Service',
-  description: 'The terms governing your use of zingDates — accounts, coins, subscriptions, calls, companion bookings, and community conduct.',
-  alternates: { canonical: `${SITE_URL}/terms` },
-  robots: { index: true, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...(await pageMetadata('terms', {
+      title: 'Terms of Service',
+      description:
+        'The terms governing your use of zingDates — accounts, coins, subscriptions, calls, companion bookings, and community conduct.',
+      path: '/terms',
+    })),
+    robots: { index: true, follow: true },
+  }
 }
 
 export default async function TermsPage() {

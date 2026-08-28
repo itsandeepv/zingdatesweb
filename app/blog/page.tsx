@@ -3,22 +3,19 @@ import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import { blogApi } from '@/lib/api'
-import { SITE_URL, fmtDate, readingTime, slugify, toList } from '@/lib/site'
+import { fmtDate, readingTime, slugify, toList } from '@/lib/site'
+import { pageMetadata } from '@/lib/seo-meta'
 
 // Rendered per-request so newly published posts appear without a rebuild.
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Blog — Dating Tips, Stories & Guides',
-  description:
-    'Read the zingDates blog for dating advice, real connection stories, event guides, and tips to help you meet your future partner.',
-  alternates: { canonical: `${SITE_URL}/blog` },
-  openGraph: {
-    title: 'zingDates Blog',
-    description: 'Dating advice, connection stories, and guides from zingDates.',
-    url: `${SITE_URL}/blog`,
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata('blog', {
+    title: 'Blog — Dating Tips, Stories & Guides',
+    description:
+      'Read the zingDates blog for dating advice, real connection stories, event guides, and tips to help you meet your future partner.',
+    path: '/blog',
+  })
 }
 
 async function getData(category?: string) {

@@ -3,21 +3,18 @@ import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import { podcastApi } from '@/lib/api'
-import { SITE_URL, fmtDate, fmtDuration, slugify, toList } from '@/lib/site'
+import { fmtDate, fmtDuration, slugify, toList } from '@/lib/site'
+import { pageMetadata } from '@/lib/seo-meta'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata: Metadata = {
-  title: 'Podcasts — Conversations on Dating & Connection',
-  description:
-    'Listen to the zingDates podcast: honest conversations about dating, relationships, and building real connections. New episodes every week.',
-  alternates: { canonical: `${SITE_URL}/podcasts` },
-  openGraph: {
-    title: 'zingDates Podcasts',
-    description: 'Conversations on dating, relationships, and real connection.',
-    url: `${SITE_URL}/podcasts`,
-    type: 'website',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata('podcasts', {
+    title: 'Podcasts — Conversations on Dating & Connection',
+    description:
+      'Listen to the zingDates podcast: honest conversations about dating, relationships, and building real connections. New episodes every week.',
+    path: '/podcasts',
+  })
 }
 
 async function getData(category?: string) {

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import LegalPage from '@/components/LegalPage'
 import { pagesApi } from '@/lib/api'
-import { SITE_URL } from '@/lib/site'
+import { pageMetadata } from '@/lib/seo-meta'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,11 +15,16 @@ async function getCmsContent(key: string): Promise<string | null> {
   }
 }
 
-export const metadata: Metadata = {
-  title: 'Privacy Policy',
-  description: 'How zingDates collects, uses, shares, and protects your personal information — profile data, location, device info, and payments.',
-  alternates: { canonical: `${SITE_URL}/privacy` },
-  robots: { index: true, follow: true },
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    ...(await pageMetadata('privacy', {
+      title: 'Privacy Policy',
+      description:
+        'How zingDates collects, uses, shares, and protects your personal information — profile data, location, device info, and payments.',
+      path: '/privacy',
+    })),
+    robots: { index: true, follow: true },
+  }
 }
 
 export default async function PrivacyPage() {

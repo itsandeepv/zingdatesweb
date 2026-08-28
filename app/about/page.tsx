@@ -4,26 +4,16 @@ import Navbar from '@/components/Navbar'
 import { PhoneFrame } from '@/components/AppScreens'
 import { screen } from '@/lib/screens'
 import SiteFooter from '@/components/SiteFooter'
-import { SITE_URL, SITE_NAME } from '@/lib/site'
+import { SITE_NAME } from '@/lib/site'
+import { pageMetadata } from '@/lib/seo-meta'
 
-export const metadata: Metadata = {
-  title: `About ${SITE_NAME} — Our Story, Mission & Values`,
-  description:
-    'Learn how ZingDates started, what drives us, and how we help people find meaningful connections. Real people, real connections — built on trust.',
-  alternates: { canonical: `${SITE_URL}/about` },
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata('about', {
     title: `About ${SITE_NAME} — Our Story, Mission & Values`,
     description:
-      'Learn how ZingDates started, what drives us, and how we help people find meaningful connections.',
-    url: `${SITE_URL}/about`,
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'About zingDates' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: `About ${SITE_NAME}`,
-    description: 'The story behind the app built for real people and real connections.',
-    images: ['/og-image.jpg'],
-  },
+      'Learn how ZingDates started, what drives us, and how we help people find meaningful connections. Real people, real connections — built on trust.',
+    path: '/about',
+  })
 }
 
 

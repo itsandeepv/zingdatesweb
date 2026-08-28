@@ -5,20 +5,18 @@ import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
 import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import { screen } from '@/lib/screens'
-import { SITE_URL, PLAY_STORE_URL } from '@/lib/site'
+import { PLAY_STORE_URL } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
+import { pageMetadata } from '@/lib/seo-meta'
 
-export const metadata: Metadata = {
-  title: 'zingDates — Dating App to Meet, Chat & Video Call Nearby',
-  description: 'zingDates is the free dating & social app to meet people near you, match, chat, and connect over HD video calls — or book a verified companion. Find your perfect match today.',
-  alternates: { canonical: SITE_URL },
-  openGraph: {
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata('home', {
     title: 'zingDates — Dating App to Meet, Chat & Video Call Nearby',
-    description: 'Meet people near you, match, chat, and connect over HD video calls — or book a verified companion. Download zingDates free.',
-    url: SITE_URL,
-    images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'zingDates — Find Your Perfect Match' }],
-  },
+    description:
+      'zingDates is the free dating & social app to meet people near you, match, chat, and connect over HD video calls — or book a verified companion. Find your perfect match today.',
+    path: '/',
+  })
 }
 
 // Brand + website + app rich-result markup. Built from the shared helpers so it
