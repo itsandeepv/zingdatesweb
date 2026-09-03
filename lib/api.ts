@@ -360,6 +360,9 @@ export const companionAdminApi = {
     req<any>('/admin/booking-categories', { method: 'POST', body: JSON.stringify(data) }, token),
   toggleCategory: (token: string, id: number) =>
     req<any>(`/admin/booking-categories/${id}/toggle`, { method: 'POST' }, token),
+  // sort_order decides what users see first in the app's category row.
+  moveCategory: (token: string, id: number, direction: 'up' | 'down') =>
+    req<any>(`/admin/booking-categories/${id}/move`, { method: 'POST', body: JSON.stringify({ direction }) }, token),
 }
 
 /* ─── Admin Messaging ─────────────────────────────────────────── */

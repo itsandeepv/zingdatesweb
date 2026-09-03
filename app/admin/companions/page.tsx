@@ -152,6 +152,9 @@ export default function AdminCompanionsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [commission, setCommission] = useState({ commission_percent: '', gst_percent: '', min_withdraw: '' })
   const [newCat, setNewCat] = useState({ label: '', icon: '' })
+  // Icon names the app can actually draw, served with the list so the picker
+  // and the server's validator can never drift apart.
+  const [icons, setIcons] = useState<string[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -160,7 +163,11 @@ export default function AdminCompanionsPage() {
       if (tab === 'companions') setRows((await companionAdminApi.list(token, params)).data ?? [])
       else if (tab === 'bookings') setRows((await companionAdminApi.bookings(token, params)).data ?? [])
       else if (tab === 'withdrawals') setRows((await companionAdminApi.withdrawals(token, params)).data ?? [])
-      else if (tab === 'categories') setRows((await companionAdminApi.categories(token)).data ?? [])
+      else if (tab === 'categories') {
+        const res = await companionAdminApi.categories(token)
+        setRows(res.data ?? [])
+        setIcons(res.icons ?? [])
+      }
       else {
         const s = await companionAdminApi.settings(token)
         setCommission({
@@ -278,13 +285,15 @@ export default function AdminCompanionsPage() {
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
               </div>
               <div className="flex-1 min-w-[12rem]">
-                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Ionicons name</label>
-                <input value={newCat.icon} onChange={e => setNewCat(c => ({ ...c, icon: e.target.value }))}
-                  placeholder="dice-outline"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Icon</label>
+                <select value={newCat.icon} onChange={e => setNewCat(c => ({ ...c, icon: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-pink-200">
+                  <option value="">Default (plain tag)</option>
+                  {icons.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
                 <p className="text-[11px] text-gray-400 mt-1.5">
-                  From <a className="text-pink-600 underline" href="https://ionic.io/ionicons" target="_blank" rel="noreferrer">ionicons</a>.
-                  An unknown name falls back to a plain tag rather than breaking the row.
+                  Only names the app can draw. This panel uses a different icon set, so it
+                  cannot preview the glyph — the list is the guarantee instead.
                 </p>
               </div>
               <button onClick={saveCategory} disabled={!newCat.label.trim()}
@@ -304,7 +313,7 @@ export default function AdminCompanionsPage() {
                   <th className="text-left px-4 py-3">Icon</th><th className="text-left px-4 py-3">Companions</th>
                   <th className="text-left px-4 py-3">Status</th><th className="text-right px-4 py-3">Actions</th>
                 </tr></thead>
-                <tbody>{rows.map(c => (
+                <tbody>{rows.map((c, i) => (
                   <tr key={c.id} className="border-t border-gray-50">
                     <td className="px-4 py-3 font-semibold text-gray-800">{c.label}</td>
                     <td className="px-4 py-3"><code className="text-xs text-gray-500">{c.key}</code></td>
@@ -316,6 +325,13 @@ export default function AdminCompanionsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                      {/* Order here is the order users see in the app. */}
+                      <button disabled={busy === c.id || i === 0} title="Move up"
+                        onClick={() => act(c.id, () => companionAdminApi.moveCategory(token, c.id, 'up'), 'Moved up')}
+                        className="px-2 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold disabled:opacity-30">↑</button>
+                      <button disabled={busy === c.id || i === rows.length - 1} title="Move down"
+                        onClick={() => act(c.id, () => companionAdminApi.moveCategory(token, c.id, 'down'), 'Moved down')}
+                        className="px-2 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold disabled:opacity-30">↓</button>
                       <button onClick={() => { setNewCat({ label: c.label, icon: c.icon ?? '' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
                         className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold">Rename</button>
                       <button disabled={busy === c.id}
