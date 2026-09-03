@@ -351,6 +351,15 @@ export const companionAdminApi = {
   settings: (token: string) => req<any>('/admin/companion-settings', {}, token),
   updateSettings: (token: string, data: Record<string, any>) =>
     req<any>('/admin/companion-settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+
+  // Booking categories live in the database, so adding one reaches every app
+  // surface — the feed row, the booking sheet, a companion's "Available for"
+  // list and the filters — without an app release.
+  categories: (token: string) => req<any>('/admin/booking-categories', {}, token),
+  saveCategory: (token: string, data: { label: string; icon?: string; key?: string }) =>
+    req<any>('/admin/booking-categories', { method: 'POST', body: JSON.stringify(data) }, token),
+  toggleCategory: (token: string, id: number) =>
+    req<any>(`/admin/booking-categories/${id}/toggle`, { method: 'POST' }, token),
 }
 
 /* ─── Admin Messaging ─────────────────────────────────────────── */

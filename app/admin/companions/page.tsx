@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { companionAdminApi } from '@/lib/api'
 
-const TABS = ['companions', 'bookings', 'withdrawals', 'settings'] as const
+const TABS = ['companions', 'bookings', 'withdrawals', 'categories', 'settings'] as const
 type Tab = typeof TABS[number]
 
 const STATUS_CLS: Record<string, string> = {
@@ -101,6 +101,48 @@ function Line({ label, value, strong }: { label: string; value: string; strong?:
   )
 }
 
+/**
+ * How a session ended.
+ *
+ * Most rows are unremarkable — it ran its time, or the two of them finished
+ * early. The ones that matter are where someone stopped a session because they
+ * felt unsafe or the other person behaved badly. That report is the only signal
+ * anyone gets that something went wrong between two people, so it is loud here
+ * rather than folded into a status badge.
+ */
+function EndedCell({ b }: { b: any }) {
+  if (b.status !== 'completed' && !b.ended_early) {
+    return <span className="text-xs text-gray-400">—</span>
+  }
+
+  if (!b.ended_early) {
+    return (
+      <div className="text-xs">
+        <span className="text-gray-500">Ran full time</span>
+        <span className="block text-[10px] text-gray-400">
+          {b.ended_by === 'system' ? 'closed automatically' : `ended by ${b.ended_by ?? '—'}`}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="text-xs max-w-[15rem]">
+      <span className={`inline-block px-2 py-0.5 rounded-lg font-bold ${
+        b.flagged ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+      }`}>
+        {b.flagged ? '⚠ ' : ''}{b.end_reason_label ?? 'Ended early'}
+      </span>
+      <span className="block text-[10px] text-gray-400 mt-0.5">
+        cut short by {b.ended_by ?? '—'}
+      </span>
+      {b.end_remark ? (
+        <p className="text-gray-600 mt-1 leading-snug italic">“{b.end_remark}”</p>
+      ) : null}
+    </div>
+  )
+}
+
 export default function AdminCompanionsPage() {
   const token = useAuthStore(s => s.token) ?? ''
   const [tab, setTab] = useState<Tab>('companions')
@@ -109,6 +151,7 @@ export default function AdminCompanionsPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [commission, setCommission] = useState({ commission_percent: '', gst_percent: '', min_withdraw: '' })
+  const [newCat, setNewCat] = useState({ label: '', icon: '' })
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -117,6 +160,7 @@ export default function AdminCompanionsPage() {
       if (tab === 'companions') setRows((await companionAdminApi.list(token, params)).data ?? [])
       else if (tab === 'bookings') setRows((await companionAdminApi.bookings(token, params)).data ?? [])
       else if (tab === 'withdrawals') setRows((await companionAdminApi.withdrawals(token, params)).data ?? [])
+      else if (tab === 'categories') setRows((await companionAdminApi.categories(token)).data ?? [])
       else {
         const s = await companionAdminApi.settings(token)
         setCommission({
@@ -136,6 +180,17 @@ export default function AdminCompanionsPage() {
     try { await fn(); toast.success(msg); await load() }
     catch (e: any) { toast.error(e?.message ?? 'Action failed') }
     finally { setBusy(null) }
+  }
+
+  async function saveCategory() {
+    const label = newCat.label.trim()
+    if (!label) return
+    try {
+      await companionAdminApi.saveCategory(token, { label, icon: newCat.icon.trim() || undefined })
+      toast.success('Category saved — it is live in the app now')
+      setNewCat({ label: '', icon: '' })
+      await load()
+    } catch (e: any) { toast.error(e?.message ?? 'Failed') }
   }
 
   async function saveCommission() {
@@ -165,13 +220,17 @@ export default function AdminCompanionsPage() {
         ))}
       </div>
 
-      {tab !== 'settings' && (
+      {tab !== 'settings' && tab !== 'categories' && (
         <div className="flex gap-2 flex-wrap">
           {(tab === 'companions' ? ['all', 'pending', 'approved', 'suspended', 'rejected']
-            : tab === 'bookings' ? ['all', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
+            : tab === 'bookings' ? ['all', 'flagged', 'ended_early', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
             : ['all', 'pending', 'approved', 'paid', 'rejected']).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize ${statusFilter === s ? 'gradient-brand text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}>{s}</button>
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize ${
+                statusFilter === s ? 'gradient-brand text-white'
+                  : s === 'flagged' ? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}>{s.replace('_', ' ')}</button>
           ))}
         </div>
       )}
@@ -201,6 +260,75 @@ export default function AdminCompanionsPage() {
           <Split commission={parseFloat(commission.commission_percent) || 0} gst={parseFloat(commission.gst_percent) || 0} />
 
           <button onClick={saveCommission} className="gradient-brand text-white font-bold px-6 py-2.5 rounded-xl shadow-brand hover:opacity-90">Save</button>
+        </div>
+      ) : tab === 'categories' ? (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+            <h2 className="font-bold text-gray-800 mb-1">Add or rename a category</h2>
+            <p className="text-xs text-gray-400 mb-4">
+              Categories are stored server-side, so a new one appears in the app straight away —
+              in the feed row, the booking sheet, a companion&apos;s “Available for” list and the filters.
+              Renaming an existing label keeps its key, so companions who already picked it keep it.
+            </p>
+            <div className="flex flex-wrap gap-3 items-end">
+              <div className="flex-1 min-w-[12rem]">
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Label</label>
+                <input value={newCat.label} onChange={e => setNewCat(c => ({ ...c, label: e.target.value }))}
+                  placeholder="e.g. Board Games"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+              <div className="flex-1 min-w-[12rem]">
+                <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Ionicons name</label>
+                <input value={newCat.icon} onChange={e => setNewCat(c => ({ ...c, icon: e.target.value }))}
+                  placeholder="dice-outline"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  From <a className="text-pink-600 underline" href="https://ionic.io/ionicons" target="_blank" rel="noreferrer">ionicons</a>.
+                  An unknown name falls back to a plain tag rather than breaking the row.
+                </p>
+              </div>
+              <button onClick={saveCategory} disabled={!newCat.label.trim()}
+                className="gradient-brand text-white font-bold px-6 py-2.5 rounded-xl shadow-brand hover:opacity-90 disabled:opacity-40">
+                Save
+              </button>
+            </div>
+          </div>
+
+          {rows.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">No categories yet.</div>
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase"><tr>
+                  <th className="text-left px-4 py-3">Category</th><th className="text-left px-4 py-3">Key</th>
+                  <th className="text-left px-4 py-3">Icon</th><th className="text-left px-4 py-3">Companions</th>
+                  <th className="text-left px-4 py-3">Status</th><th className="text-right px-4 py-3">Actions</th>
+                </tr></thead>
+                <tbody>{rows.map(c => (
+                  <tr key={c.id} className="border-t border-gray-50">
+                    <td className="px-4 py-3 font-semibold text-gray-800">{c.label}</td>
+                    <td className="px-4 py-3"><code className="text-xs text-gray-500">{c.key}</code></td>
+                    <td className="px-4 py-3"><code className="text-xs text-gray-500">{c.icon ?? '—'}</code></td>
+                    <td className="px-4 py-3 text-gray-600">{c.companions}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-bold ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {c.is_active ? 'Live' : 'Hidden'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
+                      <button onClick={() => { setNewCat({ label: c.label, icon: c.icon ?? '' }); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
+                        className="px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold">Rename</button>
+                      <button disabled={busy === c.id}
+                        onClick={() => act(c.id, () => companionAdminApi.toggleCategory(token, c.id), c.is_active ? 'Hidden from the app' : 'Live in the app')}
+                        className={`px-3 py-1 rounded-lg text-xs font-bold ${c.is_active ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        {c.is_active ? 'Hide' : 'Show'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-16 text-gray-400">Nothing here.</div>
@@ -235,6 +363,7 @@ export default function AdminCompanionsPage() {
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase"><tr>
                   <th className="text-left px-4 py-3">#</th><th className="text-left px-4 py-3">Client</th><th className="text-left px-4 py-3">Companion</th>
                   <th className="text-left px-4 py-3">Slot</th><th className="text-left px-4 py-3">Client paid</th><th className="text-left px-4 py-3">Creator</th><th className="text-left px-4 py-3">Payment</th><th className="text-left px-4 py-3">Status</th>
+                  <th className="text-left px-4 py-3">How it ended</th>
                 </tr></thead>
                 <tbody>{rows.map(b => (
                   <tr key={b.id} className="border-t border-gray-50">
@@ -259,6 +388,7 @@ export default function AdminCompanionsPage() {
                       {b.refunded ? <span className="block text-[10px] text-green-600 mt-0.5">refunded</span> : null}
                     </td>
                     <td className="px-4 py-3"><Badge s={b.status} /></td>
+                    <td className="px-4 py-3"><EndedCell b={b} /></td>
                   </tr>
                 ))}</tbody>
               </>
@@ -267,6 +397,9 @@ export default function AdminCompanionsPage() {
               <>
                 <thead className="bg-gray-50 text-gray-500 text-xs uppercase"><tr>
                   <th className="text-left px-4 py-3">Creator</th><th className="text-left px-4 py-3">Amount</th>
+                  {/* This heading was missing, so every column below it read
+                      under the wrong title — amounts appeared under "Status". */}
+                  <th className="text-left px-4 py-3">Payout to</th>
                   <th className="text-left px-4 py-3">Status</th><th className="text-right px-4 py-3">Actions</th>
                 </tr></thead>
                 <tbody>{rows.map(w => (
