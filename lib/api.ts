@@ -204,6 +204,19 @@ export const supportApi = {
     req<any>(`/admin/tickets/${id}/assign`, { method: 'POST', body: JSON.stringify({ agent_id: agentId }) }, token),
 }
 
+// User reports queue — what "Report this profile" in the app now writes to.
+export const reportsApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/reports?${new URLSearchParams(params)}`, {}, token),
+  stats: (token: string) => req<any>('/admin/reports/stats', {}, token),
+  get: (token: string, id: number) => req<any>(`/admin/reports/${id}`, {}, token),
+  update: (
+    token: string,
+    id: number,
+    data: { status: string; admin_note?: string; suspend?: boolean },
+  ) => req<any>(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+}
+
 /* ─── Admin SEO ───────────────────────────────────────────────── */
 export const seoApi = {
   pages: (token: string) => req<any>('/admin/seo/pages', {}, token),
@@ -361,6 +374,12 @@ export const companionAdminApi = {
   toggleCategory: (token: string, id: number) =>
     req<any>(`/admin/booking-categories/${id}/toggle`, { method: 'POST' }, token),
   // sort_order decides what users see first in the app's category row.
+  // Refunds owed to clients are sent by hand, like creator payouts — this
+  // records that one actually went out.
+  settleRefund: (token: string, id: number, reference?: string) =>
+    req<any>(`/admin/companion-bookings/${id}/refund`, {
+      method: 'POST', body: JSON.stringify({ reference }),
+    }, token),
   moveCategory: (token: string, id: number, direction: 'up' | 'down') =>
     req<any>(`/admin/booking-categories/${id}/move`, { method: 'POST', body: JSON.stringify({ direction }) }, token),
 }

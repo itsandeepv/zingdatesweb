@@ -15,6 +15,7 @@ const STATUS_CLS: Record<string, string> = {
   accepted: 'bg-blue-100 text-blue-700', cancelled: 'bg-gray-100 text-gray-500',
   paid: 'bg-green-100 text-green-700', refunded: 'bg-blue-100 text-blue-700',
   failed: 'bg-red-100 text-red-600', expired: 'bg-gray-100 text-gray-500',
+  refund_pending: 'bg-red-100 text-red-700',
 }
 
 /**
@@ -230,12 +231,12 @@ export default function AdminCompanionsPage() {
       {tab !== 'settings' && tab !== 'categories' && (
         <div className="flex gap-2 flex-wrap">
           {(tab === 'companions' ? ['all', 'pending', 'approved', 'suspended', 'rejected']
-            : tab === 'bookings' ? ['all', 'flagged', 'ended_early', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
+            : tab === 'bookings' ? ['all', 'refund_pending', 'flagged', 'ended_early', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
             : ['all', 'pending', 'approved', 'paid', 'rejected']).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize ${
                 statusFilter === s ? 'gradient-brand text-white'
-                  : s === 'flagged' ? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'
+                  : s === 'flagged' || s === 'refund_pending' ? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'
                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}>{s.replace('_', ' ')}</button>
           ))}
@@ -402,9 +403,39 @@ export default function AdminCompanionsPage() {
                     <td className="px-4 py-3">
                       <Badge s={b.payment_status ?? 'pending'} />
                       {b.refunded ? <span className="block text-[10px] text-green-600 mt-0.5">refunded</span> : null}
+                      {/* The gateway would not return this money. The booking
+                          was cancelled regardless, so a human owes the client. */}
+                      {b.refund_pending ? (
+                        <div className="mt-1">
+                          <span className="block text-[10px] font-bold text-red-600">
+                            ⚠ refund owed: ₹{Number(b.refund_amount ?? b.total_amount ?? 0).toFixed(0)}
+                          </span>
+                          {b.refund_withheld ? (
+                            <span className="block text-[10px] text-gray-400">
+                              ₹{Number(b.refund_withheld).toFixed(0)} withheld (GST + fee)
+                            </span>
+                          ) : null}
+                          <button
+                            disabled={busy === b.id}
+                            onClick={() => {
+                              const ref = window.prompt('Reference for this refund (UTR / payment id) — optional:') ?? undefined
+                              act(b.id, () => companionAdminApi.settleRefund(token, b.id, ref || undefined), 'Refund recorded')
+                            }}
+                            className="mt-1 px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold">
+                            Mark refund sent
+                          </button>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3"><Badge s={b.status} /></td>
-                    <td className="px-4 py-3"><EndedCell b={b} /></td>
+                    <td className="px-4 py-3">
+                      <EndedCell b={b} />
+                      {b.status === 'cancelled' && b.cancel_reason ? (
+                        <p className="text-[10px] text-gray-500 italic mt-1 max-w-[14rem] leading-snug">
+                          “{b.cancel_reason}”
+                        </p>
+                      ) : null}
+                    </td>
                   </tr>
                 ))}</tbody>
               </>
