@@ -13,8 +13,9 @@
 import type { Metadata } from 'next'
 import { SITE_URL } from './site'
 
-// Overridable so a staging/local API can be pointed at without a code change.
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.zingdates.com/api'
+// Hardcoded for the same reason as lib/api.ts — see the note there before
+// making this configurable again.
+const API = 'https://api.zingdates.com/api'
 
 /** Minutes the fetched meta is cached before Next revalidates it in the background. */
 const REVALIDATE_SECONDS = 300

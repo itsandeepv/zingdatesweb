@@ -1,5 +1,9 @@
-// Overridable so a staging/local API can be pointed at without a code change.
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.zingdates.com/api'
+// Hardcoded on purpose. Do NOT reintroduce `process.env.NEXT_PUBLIC_API_URL ??`
+// here: the deployment environment still has that variable set to the legacy
+// `http://zingdates.com/api`, so a build picks it up and every browser call
+// goes to the wrong host over plain http (blocked as mixed content from the
+// https site). It was removed for that reason in "for aws deploy" (7c1aa82).
+const BASE = 'https://api.zingdates.com/api'
 // Origin that serves the hosted Razorpay checkout page (/api/razorpay-checkout).
 export const CHECKOUT_ORIGIN = BASE.replace(/\/api\/?$/, '')
 // http://localhost:8000/api
