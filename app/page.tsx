@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
 import AppScreens, { PhoneFrame } from '@/components/AppScreens'
+import CompanionsSection from '@/components/CompanionsSection'
 import { screen } from '@/lib/screens'
 import { PLAY_STORE_URL } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
@@ -306,6 +307,9 @@ export default function LandingPage() {
           </ScrollReveal>
         </div>
       </section>
+
+      {/* ── Companions ─────────────────────────────────── */}
+      <CompanionsSection />
 
       {/* ── App Download Bridge ────────────────────────── */}
       <section className="py-24 overflow-hidden relative" style={{ background: 'linear-gradient(160deg,#0c0720 0%,#1d0940 45%,#280c3a 75%,#0c0720 100%)' }}>

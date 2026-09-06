@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
@@ -18,8 +19,22 @@ const COUNTRY_CODES = [
 
 type Step = 'input' | 'otp'
 
-export default function LoginPage() {
+/**
+ * Where to land after a successful sign-in.
+ *
+ * `?next=` lets a page hand the user off here and get them back — e.g. the
+ * public companion cards, which need an account before a booking can start.
+ * Only same-site absolute paths are honoured: anything else (a full URL, a
+ * protocol-relative "//evil.com") is an open-redirect vector and is ignored.
+ */
+function safeNext(raw: string | null) {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null
+  return raw
+}
+
+function LoginForm() {
   const setAuth = useAuthStore(s => s.setAuth)
+  const next = safeNext(useSearchParams().get('next'))
 
   const [step, setStep]       = useState<Step>('input')
   const [phone, setPhone]     = useState('')
@@ -63,7 +78,7 @@ export default function LoginPage() {
         toast.success(verifyRes.is_new_user ? 'Welcome to zingDates!' : 'Welcome back!')
         const dest = verifyRes.is_new_user ? '/register'
           : (verifyRes.user?.role && ['admin', 'super_admin', 'moderator'].includes(verifyRes.user.role)) ? '/admin'
-          : '/discover'
+          : (next ?? '/discover')
         setTimeout(() => { window.location.href = dest }, 100)
         return
       }
@@ -85,7 +100,7 @@ export default function LoginPage() {
       toast.success(res.is_new_user ? 'Welcome to zingDates!' : 'Welcome back!')
       const dest = res.is_new_user ? '/register'
         : (res.user?.role && ['admin', 'super_admin', 'moderator'].includes(res.user.role)) ? '/admin'
-        : '/discover'
+        : (next ?? '/discover')
       setTimeout(() => { window.location.href = dest }, 100)
     } catch (err: any) {
       toast.error(err.message || 'Invalid OTP')
@@ -246,5 +261,17 @@ export default function LoginPage() {
         Create an account
       </Link>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-16">
+        <div className="w-8 h-8 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

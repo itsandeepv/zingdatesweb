@@ -1,4 +1,5 @@
-const BASE = 'https://api.zingdates.com/api'
+// Overridable so a staging/local API can be pointed at without a code change.
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.zingdates.com/api'
 // Origin that serves the hosted Razorpay checkout page (/api/razorpay-checkout).
 export const CHECKOUT_ORIGIN = BASE.replace(/\/api\/?$/, '')
 // http://localhost:8000/api
@@ -395,6 +396,62 @@ export const messagingApi = {
 export const plansApi = {
   info: (token: string) => req<any>('/plans', {}, token),
   list: (token?: string) => req<any>('/plans', {}, token),
+}
+
+/* ─── Public Companions (no auth) ─────────────────────────────── */
+// Powers the marketing site's companion section. Narrower payload than the
+// in-app `/companion/feed` — see PublicCompanionController on the API.
+export interface PublicCompanion {
+  id: number
+  name: string | null
+  age: number | null
+  gender: 'male' | 'female' | 'other' | null
+  city: string | null
+  photo: string | null
+  cover_image: string | null
+  headline: string | null
+  categories: string[]
+  price_per_hour: number
+  rating_avg: number
+  rating_count: number
+  total_sessions: number
+  is_verified: boolean
+  /** The companion's own "taking bookings" switch, not live presence. */
+  is_available_now: boolean
+}
+
+export interface CompanionCategory { key: string; label: string }
+
+// Fetched directly rather than through `req()` so these can be cached: the
+// listing is identical for every visitor, so it is revalidated on a timer
+// instead of hit on every page view.
+async function publicGet<T>(path: string, revalidate: number, pick: (j: any) => T, fallback: T): Promise<T> {
+  try {
+    const r = await fetch(`${BASE}${path}`, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate, tags: ['companions'] },
+    })
+    if (!r.ok) return fallback
+    return pick(await r.json()) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+export const publicCompanionApi = {
+  list: (params: { category?: string; city?: string; limit?: number } = {}) => {
+    const p = new URLSearchParams()
+    if (params.category) p.set('category', params.category)
+    if (params.city) p.set('city', params.city)
+    if (params.limit) p.set('limit', String(params.limit))
+    return publicGet<PublicCompanion[]>(`/public/companions?${p}`, 300, j => j?.companions, [])
+  },
+  categories: () =>
+    publicGet<CompanionCategory[]>('/public/companion-categories', 3600, j => j?.categories, []),
+  get: (id: number) =>
+    publicGet<(PublicCompanion & { about?: string; languages?: string }) | null>(
+      `/public/companions/${id}`, 300, j => j?.companion, null,
+    ),
 }
 
 /* ─── Public Blog (no auth) ───────────────────────────────────── */

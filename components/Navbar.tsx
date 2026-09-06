@@ -94,6 +94,7 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-7">
           <NavMenu label="Blog" href="/blog" loadCategories={blogCats} />
           <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} />
+          <Link href="/companions" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Companions</Link>
           <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">About</Link>
           <a href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Features</a>
         </div>
@@ -138,6 +139,7 @@ export default function Navbar() {
           {[
             { label: 'Blog', href: '/blog' },
             { label: 'Podcasts', href: '/podcasts' },
+            { label: 'Companions', href: '/companions' },
             { label: 'About', href: '/about' },
             { label: 'Features', href: '/#features' },
             { label: 'How It Works', href: '/#how-it-works' },

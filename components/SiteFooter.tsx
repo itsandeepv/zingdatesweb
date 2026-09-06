@@ -6,6 +6,7 @@ export default function SiteFooter() {
     { title: 'Explore', links: [
       { label: 'Blog', href: '/blog' },
       { label: 'Podcasts', href: '/podcasts' },
+      { label: 'Companions', href: '/companions' },
       { label: 'Events', href: '/#features' },
       { label: 'Pricing', href: '/#features' },
     ]},
