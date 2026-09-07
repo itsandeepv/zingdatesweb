@@ -10,6 +10,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: SITE_URL, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE_URL}/about`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/companions`, changeFrequency: 'daily', priority: 0.9 },
+    // Linked from the App Store / Play Store listings, so it must stay crawlable.
+    { url: `${SITE_URL}/help`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/blog`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/podcasts`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/register`, changeFrequency: 'monthly', priority: 0.6 },

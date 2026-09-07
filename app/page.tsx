@@ -5,7 +5,7 @@ import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
 import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import CompanionsSection from '@/components/CompanionsSection'
-import { screen } from '@/lib/screens'
+import { screen, POSTERS } from '@/lib/screens'
 import { PLAY_STORE_URL } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
@@ -123,8 +123,8 @@ export default function LandingPage() {
 
             {/* Right: real app screens */}
             <div className="relative hidden lg:flex justify-center items-end gap-5 pt-4">
-              <PhoneFrame screen={screen('login')} width={214} className="translate-y-6" />
-              <PhoneFrame screen={screen('getstarted')} width={230} />
+              <PhoneFrame screen={screen('chats')} width={214} className="translate-y-6" />
+              <PhoneFrame screen={screen('companions')} width={230} />
 
               {/* Floating match notification */}
               <div className="absolute -bottom-4 -left-2 glass rounded-2xl shadow-xl p-4 flex items-center gap-3 border border-pink-100 animate-float" style={{ animationDelay: '0.5s' }}>
@@ -298,12 +298,31 @@ export default function LandingPage() {
               Take a look <span className="gradient-brand-text-anim">inside</span>
             </h2>
             <p className="text-white/55 text-lg max-w-2xl mx-auto">
-              Sign up in under a minute — mobile number, one OTP, a few details about you, and you’re in.
+              Browse verified companions, see who liked you, chat privately, and get real help — every screen below is the app you’ll install.
             </p>
           </ScrollReveal>
 
           <ScrollReveal direction="up" delay={120}>
             <AppScreens />
+          </ScrollReveal>
+
+          {/* Store artwork — the same shots you see on the app listing */}
+          <ScrollReveal direction="up" delay={200} className="mt-16">
+            <p className="text-center text-white/40 text-xs font-semibold uppercase tracking-[0.2em] mb-6">
+              Straight from the app listing
+            </p>
+            <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 px-2 -mx-2 snap-x snap-mandatory">
+              {POSTERS.map(p => (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={p.key}
+                  src={p.src}
+                  alt={p.alt}
+                  loading="lazy"
+                  className="w-[200px] sm:w-[230px] flex-shrink-0 snap-center rounded-3xl border border-white/10 object-cover shadow-2xl"
+                />
+              ))}
+            </div>
           </ScrollReveal>
         </div>
       </section>
@@ -380,10 +399,10 @@ export default function LandingPage() {
               </div>
             </ScrollReveal>
 
-            {/* Right — the real app splash screen */}
+            {/* Right — a real app screen */}
             <ScrollReveal direction="right" delay={120} className="relative flex justify-center lg:justify-end">
               <div className="relative animate-float2">
-                <PhoneFrame screen={screen('splash')} width={264} />
+                <PhoneFrame screen={screen('likes')} width={264} />
 
                 {/* Floating elements around the phone */}
                 <div className="absolute -top-4 -right-8 glass rounded-2xl px-3 py-2 border border-pink-200/30 shadow-xl animate-float" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)' }}>
@@ -416,11 +435,11 @@ export default function LandingPage() {
               {[
                 { store: 'Google Play', sub: 'Get it on', href: PLAY_STORE_URL, icon: (<path d="M3.18 23.73c.3.16.66.17.99.04l13.5-7.74-2.85-2.86-11.64 10.56zM.5 1.5C.2 1.83.04 2.3.04 2.83v18.34c0 .53.16 1 .46 1.33l.08.08 10.27-10.26v-.24L.58 1.42.5 1.5zM20.99 10.22l-2.87-1.65-3.18 3.18 3.18 3.18 2.89-1.66c.83-.47.83-1.58-.02-2.05zM3.18.27L16.68 8c.28.16.52.36.71.6L7.12 9.12l-4.02 3.82V3.18c0-.53.16-.99.46-1.33L3.64.77l-.46-.5z" />) },
               ].map(b => (
-                <a key={b.store} href={b.href} target="_blank" rel="noopener" aria-label={`${b.sub} ${b.store}`} className="flex items-center gap-3 bg-black/90 hover:bg-black hover:scale-105 text-white px-7 py-4 rounded-2xl font-semibold transition-all duration-200 mx-auto sm:mx-0 shadow-xl">
+                <a key={b.store} href={b.href} target="_blank" rel="noopener" aria-label={`${b.sub} ${b.store}`} className="flex items-center gap-3 bg-gray-950 hover:bg-black hover:scale-105 text-white border border-white/15 px-7 py-4 rounded-2xl font-semibold transition-all duration-200 mx-auto sm:mx-0 shadow-xl">
                   <svg className="w-7 h-7 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">{b.icon}</svg>
                   <div className="text-left">
-                    <p className="text-xs text-gray-400">{b.sub}</p>
-                    <p className="font-bold">{b.store}</p>
+                    <p className="text-xs text-gray-300 leading-tight">{b.sub}</p>
+                    <p className="font-bold text-white leading-tight">{b.store}</p>
                   </div>
                 </a>
               ))}

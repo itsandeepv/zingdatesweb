@@ -20,10 +20,15 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; margin: 0; }
-a { color: inherit; text-decoration: none; }
+/* Base resets live in @layer base so Tailwind utilities (text-*, etc.) can override them.
+   Unlayered rules always beat layered utilities in Tailwind v4, which previously
+   forced every <a> to inherit color and ignore text-white / text-pink-600. */
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; margin: 0; }
+  a { color: inherit; text-decoration: none; }
+}
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -5,14 +5,14 @@
  * module, and every export a server component pulls from a client module comes
  * back as a client reference rather than the value itself.
  *
- * Ordered the way a new member actually meets the app.
+ * Ordered the way a member actually uses the app: browse, get liked, chat,
+ * and get help when something goes wrong.
  */
 export const SCREENS = [
-  { key: 'splash',     src: '/screens/splash.jpeg',     label: 'Splash',         caption: 'Real people, real connections' },
-  { key: 'getstarted', src: '/screens/getstarted.jpeg', label: 'Get started',    caption: 'The best place to meet your future partner' },
-  { key: 'login',      src: '/screens/login.jpeg',      label: 'Login',          caption: 'Sign in with your mobile number' },
-  { key: 'otp',        src: '/screens/otp.jpeg',        label: 'OTP',            caption: 'Secure 6-digit verification' },
-  { key: 'profile',    src: '/screens/signup.jpeg',     label: 'Create profile', caption: 'Photo, age, gender, location' },
+  { key: 'companions', src: '/screens/companions.png', label: 'Companions', caption: 'Book a verified companion near you' },
+  { key: 'likes',      src: '/screens/likes.png',      label: 'Likes',      caption: 'See everyone who liked your profile' },
+  { key: 'chats',      src: '/screens/chats.png',      label: 'Chats',      caption: 'Private chats with your matches' },
+  { key: 'support',    src: '/screens/support.png',    label: 'Support',    caption: 'Help & support, answered in 24 hours' },
 ] as const
 
 export type Screen = (typeof SCREENS)[number]
@@ -24,3 +24,17 @@ export function screen(key: ScreenKey): Screen {
   if (!found) throw new Error(`Unknown app screen: ${key}`)
   return found
 }
+
+/**
+ * Full-bleed store-listing artwork (phone mockup + copy baked into the image).
+ * These already carry their own background, so they are shown on their own —
+ * never inside a PhoneFrame.
+ */
+export const POSTERS = [
+  { key: 'match',       src: '/screens/poster-match.png',       alt: 'ZingDates — find your perfect match' },
+  { key: 'companion',   src: '/screens/poster-companion.png',   alt: 'ZingDates — find your perfect companion' },
+  { key: 'login',       src: '/screens/poster-login.png',       alt: 'ZingDates — quick, secure and hassle-free login' },
+  { key: 'connections', src: '/screens/poster-connections.png', alt: 'ZingDates — real people, real connections' },
+] as const
+
+export type Poster = (typeof POSTERS)[number]

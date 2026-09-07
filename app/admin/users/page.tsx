@@ -35,12 +35,31 @@ interface Meta {
 
 interface AddUserForm {
   name: string; email: string; phone: string; password: string; role: string; gender: string
+  photoUrl: string
 }
 interface EditUserForm {
   name: string; email: string; phone: string; role: string; gender: string; city: string; status: string
 }
 
-const DEFAULT_ADD_FORM: AddUserForm = { name: '', email: '', phone: '', password: '', role: 'user', gender: '' }
+const DEFAULT_ADD_FORM: AddUserForm = {
+  name: '', email: '', phone: '', password: '', role: 'user', gender: '', photoUrl: '',
+}
+
+// The API stores a single `is_admin` flag, so these are the only two roles it
+// can persist. The longer list this used to offer was rejected with a 422 —
+// nothing in the schema backs those other roles.
+const ROLES = [
+  { value: 'user',  label: 'User' },
+  { value: 'admin', label: 'Admin' },
+]
+
+// Must match the API's `in:male,female,other` rule.
+const GENDERS = [
+  { value: '',       label: 'Select gender' },
+  { value: 'male',   label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other',  label: 'Other' },
+]
 
 const BULK_LABELS: Record<string, string> = {
   suspend: 'suspended', unsuspend: 'unsuspended', verify: 'verified', delete: 'deleted',
@@ -307,6 +326,17 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
   const [form, setForm]     = useState<AddUserForm>(DEFAULT_ADD_FORM)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // A photo can come from a pasted URL or an uploaded file — never both, so
+  // picking one clears the other.
+  const [photoMode, setPhotoMode] = useState<'url' | 'upload'>('url')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+
+  function pickFile(f: File | null) {
+    setPhotoFile(f)
+    setPhotoPreview(p => { if (p) URL.revokeObjectURL(p); return f ? URL.createObjectURL(f) : null })
+    setErrors(e => ({ ...e, photo: '' }))
+  }
 
   function set(field: keyof AddUserForm, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -321,6 +351,12 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email.'
     if (!form.password)     errs.password = 'Password is required.'
     if (form.password.length < 8) errs.password = 'Password must be at least 8 characters.'
+    if (photoMode === 'url' && form.photoUrl.trim() && !/^https?:\/\/\S+$/i.test(form.photoUrl.trim())) {
+      errs.photo = 'Enter a full image URL starting with http:// or https://'
+    }
+    if (photoMode === 'upload' && photoFile && photoFile.size > 5 * 1024 * 1024) {
+      errs.photo = 'Image must be 5 MB or smaller.'
+    }
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
 
     setLoading(true)
@@ -328,7 +364,24 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
       const payload: Record<string, any> = { name: form.name.trim(), email: form.email.trim(), password: form.password, role: form.role }
       if (form.phone.trim()) payload.phone  = form.phone.trim()
       if (form.gender)       payload.gender = form.gender
-      await usersApi.create(token, payload)
+      // A URL can ride along with the create; a file cannot (that call is JSON),
+      // so it is uploaded straight after against the new user's id.
+      if (photoMode === 'url' && form.photoUrl.trim()) payload.photo = form.photoUrl.trim()
+
+      const res = await usersApi.create(token, payload)
+      const newId = res?.user?.id ?? res?.data?.user?.id
+
+      if (photoMode === 'upload' && photoFile && newId) {
+        try {
+          await usersApi.setPhoto(token, newId, { file: photoFile })
+        } catch {
+          // The account exists either way — say so rather than implying it failed.
+          toast.error('User created, but the photo upload failed. Add it from Edit.')
+          onSuccess()
+          return
+        }
+      }
+
       toast.success(`User "${form.name}" created successfully.`)
       onSuccess()
     } catch (err: any) {
@@ -350,9 +403,7 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Role</label>
             <select value={form.role} onChange={e => set('role', e.target.value)} className={inputCls()}>
-              {['user','moderator','support','analyst','marketing','finance','admin'].map(r => (
-                <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
-              ))}
+              {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
           </div>
         </div>
@@ -369,14 +420,60 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Gender <span className="text-gray-400 font-normal">(optional)</span></label>
             <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls()}>
-              <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="non_binary">Non-binary</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
+              {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </div>
         </div>
+        {/* Profile photo — paste a URL or upload a file */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Profile Photo <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+
+          <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-3 w-fit">
+            {(['url', 'upload'] as const).map(m => (
+              <button key={m} type="button"
+                onClick={() => { setPhotoMode(m); setErrors(e => ({ ...e, photo: '' })) }}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  photoMode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {m === 'url' ? 'Paste URL' : 'Upload file'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-start gap-3">
+            <div className="w-16 h-16 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+              {photoMode === 'upload' && photoPreview ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+              ) : photoMode === 'url' && /^https?:\/\//i.test(form.photoUrl.trim()) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={form.photoUrl.trim()} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {photoMode === 'url' ? (
+                <input type="url" value={form.photoUrl} onChange={e => set('photoUrl', e.target.value)}
+                  placeholder="https://example.com/photo.jpg" className={inputCls(errors.photo)} />
+              ) : (
+                <>
+                  <input type="file" accept="image/jpeg,image/png,image/webp"
+                    onChange={e => pickFile(e.target.files?.[0] ?? null)}
+                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 cursor-pointer" />
+                  <p className="text-xs text-gray-400 mt-1.5">JPG, PNG or WebP · up to 5 MB</p>
+                </>
+              )}
+              {errors.photo && <p className="text-xs text-red-500 mt-1">{errors.photo}</p>}
+            </div>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Password <span className="text-red-400">*</span></label>
           <input type="password" value={form.password} onChange={e => set('password', e.target.value)} placeholder="Min. 8 characters" className={inputCls(errors.password)} />

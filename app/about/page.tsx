@@ -146,8 +146,8 @@ export default function AboutPage() {
 
             {/* The real app screens */}
             <div className="relative hidden lg:grid grid-cols-2 gap-5">
-              <PhoneFrame screen={screen('getstarted')} width={210} className="mt-8" />
-              <PhoneFrame screen={screen('profile')} width={210} className="-mt-4" />
+              <PhoneFrame screen={screen('companions')} width={210} className="mt-8" />
+              <PhoneFrame screen={screen('likes')} width={210} className="-mt-4" />
             </div>
           </div>
         </div>

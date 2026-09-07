@@ -13,6 +13,7 @@ export default function SiteFooter() {
     { title: 'Company', links: [
       { label: 'About', href: '/#how-it-works' },
       { label: 'App Screens',  href: '/#screens' },
+      { label: 'Support', href: '/help' },
       { label: 'Get Started', href: '/register' },
       { label: 'Sign In', href: '/login' },
     ]},
@@ -20,7 +21,7 @@ export default function SiteFooter() {
       { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Terms of Service', href: '/terms' },
       { label: 'Refund Policy', href: '/refund' },
-      { label: 'Safety', href: '/terms' },
+      { label: 'Contact Support', href: '/help' },
     ]},
   ]
 

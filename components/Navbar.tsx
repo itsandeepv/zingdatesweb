@@ -96,6 +96,7 @@ export default function Navbar() {
           <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} />
           <Link href="/companions" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Companions</Link>
           <Link href="/about" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">About</Link>
+          <Link href="/help" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Support</Link>
           <a href="/#features" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Features</a>
         </div>
 
@@ -141,6 +142,7 @@ export default function Navbar() {
             { label: 'Podcasts', href: '/podcasts' },
             { label: 'Companions', href: '/companions' },
             { label: 'About', href: '/about' },
+            { label: 'Support', href: '/help' },
             { label: 'Features', href: '/#features' },
             { label: 'How It Works', href: '/#how-it-works' },
           ].map(l => (

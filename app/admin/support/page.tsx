@@ -121,6 +121,16 @@ export default function SupportPage() {
                   </div>
                   {/* Platform/build the user was on — attached by the app so a
                       version-specific bug is obvious without a back-and-forth. */}
+                  {ticket.attachment && (
+                    <a href={ticket.attachment} target="_blank" rel="noreferrer" className="inline-block mt-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={ticket.attachment}
+                        alt="Screenshot from the user"
+                        className="max-h-40 rounded-lg border"
+                      />
+                    </a>
+                  )}
                   {ticket.device_info && (
                     <p className="text-[11px] text-gray-400 font-mono mt-1.5">{ticket.device_info}</p>
                   )}

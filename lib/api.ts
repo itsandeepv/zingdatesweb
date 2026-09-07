@@ -108,6 +108,25 @@ export const usersApi = {
     req<any>(`/admin/users/${id}`, { method: 'DELETE' }, token),
   bulkAction: (token: string, action: string, ids: number[]) =>
     req<any>('/admin/users/bulk-action', { method: 'POST', body: JSON.stringify({ action, user_ids: ids }) }, token),
+  /**
+   * Set a user's profile photo — either an uploaded file or a hosted URL.
+   * Separate from create/update because a file needs multipart, not JSON.
+   */
+  setPhoto: async (token: string, id: number, source: { file?: File; url?: string }) => {
+    const fd = new FormData()
+    if (source.file) fd.append('photo', source.file)
+    else if (source.url) fd.append('photo_url', source.url)
+    const r = await fetch(`${BASE}/admin/users/${id}/photo`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({ message: r.statusText }))
+      throw new ApiError(r.status, err.message ?? 'Photo upload failed', err)
+    }
+    return r.json()
+  },
 }
 
 /* ─── Admin Events ────────────────────────────────────────────── */
@@ -400,6 +419,15 @@ export const messagingApi = {
 export const plansApi = {
   info: (token: string) => req<any>('/plans', {}, token),
   list: (token?: string) => req<any>('/plans', {}, token),
+}
+
+/* ─── Public Contact / Support (no auth) ──────────────────────── */
+export const contactApi = {
+  submit: (data: { name: string; email: string; subject: string; message: string }) =>
+    req<{ success: boolean; message: string }>('/contact', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }
 
 /* ─── Public Companions (no auth) ─────────────────────────────── */
