@@ -309,6 +309,13 @@ export const mobileApi = {
   config: (token: string) => req<any>('/admin/mobile/config', {}, token),
   updateConfig: (token: string, config: Record<string, any>) =>
     req<any>('/admin/mobile/config', { method: 'PUT', body: JSON.stringify({ config }) }, token),
+
+  // The update gate the mobile app actually checks on launch (GET /app-version,
+  // public). Set latest_version to the newest Play Store build to prompt an
+  // optional update; set min_required_version to force one for older builds.
+  updateGate: (token: string) => req<any>('/app-version', {}, token),
+  saveUpdateGate: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/app-version', { method: 'PUT', body: JSON.stringify(data) }, token),
 }
 
 /* ─── Admin API Keys ──────────────────────────────────────────── */
@@ -404,6 +411,10 @@ export const companionAdminApi = {
     req<any>(`/admin/companion-bookings/${id}/refund`, {
       method: 'POST', body: JSON.stringify({ reference }),
     }, token),
+  // A companion payout held because the session auto-closed without the
+  // client's code. The app releases it on the code; this is the human override.
+  releasePayout: (token: string, id: number) =>
+    req<any>(`/admin/companion-bookings/${id}/release-payout`, { method: 'POST' }, token),
   moveCategory: (token: string, id: number, direction: 'up' | 'down') =>
     req<any>(`/admin/booking-categories/${id}/move`, { method: 'POST', body: JSON.stringify({ direction }) }, token),
 }

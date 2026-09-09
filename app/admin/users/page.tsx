@@ -39,6 +39,7 @@ interface AddUserForm {
 }
 interface EditUserForm {
   name: string; email: string; phone: string; role: string; gender: string; city: string; status: string
+  photoUrl: string
 }
 
 const DEFAULT_ADD_FORM: AddUserForm = {
@@ -321,6 +322,65 @@ function SkeletonRow() {
   )
 }
 
+/* ── Profile photo picker (shared by Add + Edit) ─────── */
+type PhotoMode = 'url' | 'upload'
+function PhotoPicker({ mode, onMode, url, onUrl, preview, onFile, current, error }: {
+  mode: PhotoMode; onMode: (m: PhotoMode) => void
+  url: string; onUrl: (v: string) => void
+  preview: string | null; onFile: (f: File | null) => void
+  current?: string; error?: string
+}) {
+  const urlOk = /^https?:\/\//i.test(url.trim())
+  // Preview priority: freshly picked file → typed URL → the photo already on file.
+  const shown = mode === 'upload' && preview ? preview : mode === 'url' && urlOk ? url.trim() : current || null
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        Profile Photo <span className="text-gray-400 font-normal">(optional)</span>
+      </label>
+
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-3 w-fit">
+        {(['url', 'upload'] as const).map(m => (
+          <button key={m} type="button" onClick={() => onMode(m)}
+            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            {m === 'url' ? 'Paste URL' : 'Upload file'}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-start gap-3">
+        <div className="w-16 h-16 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+          {shown ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={shown} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+            </svg>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {mode === 'url' ? (
+            <input type="url" value={url} onChange={e => onUrl(e.target.value)}
+              placeholder="https://example.com/photo.jpg" className={inputCls(error)} />
+          ) : (
+            <>
+              <input type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={e => onFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 cursor-pointer" />
+              <p className="text-xs text-gray-400 mt-1.5">JPG, PNG or WebP · up to 5 MB</p>
+            </>
+          )}
+          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Add User Modal ──────────────────────────────────── */
 function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSuccess: () => void; token: string }) {
   const [form, setForm]     = useState<AddUserForm>(DEFAULT_ADD_FORM)
@@ -424,55 +484,9 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
             </select>
           </div>
         </div>
-        {/* Profile photo — paste a URL or upload a file */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Profile Photo <span className="text-gray-400 font-normal">(optional)</span>
-          </label>
-
-          <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-3 w-fit">
-            {(['url', 'upload'] as const).map(m => (
-              <button key={m} type="button"
-                onClick={() => { setPhotoMode(m); setErrors(e => ({ ...e, photo: '' })) }}
-                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  photoMode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {m === 'url' ? 'Paste URL' : 'Upload file'}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="w-16 h-16 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-              {photoMode === 'upload' && photoPreview ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={photoPreview} alt="" className="w-full h-full object-cover" />
-              ) : photoMode === 'url' && /^https?:\/\//i.test(form.photoUrl.trim()) ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={form.photoUrl.trim()} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                  <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                </svg>
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              {photoMode === 'url' ? (
-                <input type="url" value={form.photoUrl} onChange={e => set('photoUrl', e.target.value)}
-                  placeholder="https://example.com/photo.jpg" className={inputCls(errors.photo)} />
-              ) : (
-                <>
-                  <input type="file" accept="image/jpeg,image/png,image/webp"
-                    onChange={e => pickFile(e.target.files?.[0] ?? null)}
-                    className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 cursor-pointer" />
-                  <p className="text-xs text-gray-400 mt-1.5">JPG, PNG or WebP · up to 5 MB</p>
-                </>
-              )}
-              {errors.photo && <p className="text-xs text-red-500 mt-1">{errors.photo}</p>}
-            </div>
-          </div>
-        </div>
+        <PhotoPicker mode={photoMode} onMode={m => { setPhotoMode(m); setErrors(e => ({ ...e, photo: '' })) }}
+          url={form.photoUrl} onUrl={v => set('photoUrl', v)}
+          preview={photoPreview} onFile={pickFile} error={errors.photo} />
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Password <span className="text-red-400">*</span></label>
@@ -495,9 +509,21 @@ function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onC
     gender: user.gender || '',
     city:   user.city   || '',
     status: user.status || 'active',
+    photoUrl: user.profile_photo || '',
   })
   const [loading, setLoading] = useState(false)
   const [errors, setErrors]   = useState<Record<string, string>>({})
+  // Same two sources as Add: a pasted URL or an uploaded file. The photo call is
+  // separate from the profile update, and only fires when something changed.
+  const [photoMode, setPhotoMode] = useState<PhotoMode>('url')
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+
+  function pickFile(f: File | null) {
+    setPhotoFile(f)
+    setPhotoPreview(p => { if (p) URL.revokeObjectURL(p); return f ? URL.createObjectURL(f) : null })
+    setErrors(e => ({ ...e, photo: '' }))
+  }
 
   function set(field: keyof EditUserForm, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -509,6 +535,14 @@ function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onC
     const errs: Record<string, string> = {}
     if (!form.name.trim()) errs.name = 'Name is required.'
     if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email.'
+    const newUrl = form.photoUrl.trim()
+    const urlChanged = photoMode === 'url' && newUrl !== '' && newUrl !== (user.profile_photo || '')
+    if (urlChanged && !/^https?:\/\/\S+$/i.test(newUrl)) {
+      errs.photo = 'Enter a full image URL starting with http:// or https://'
+    }
+    if (photoMode === 'upload' && photoFile && photoFile.size > 5 * 1024 * 1024) {
+      errs.photo = 'Image must be 5 MB or smaller.'
+    }
     if (Object.keys(errs).length > 0) { setErrors(errs); return }
 
     setLoading(true)
@@ -523,6 +557,20 @@ function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onC
       if (form.gender)        payload.gender = form.gender
       if (form.city.trim())   payload.city   = form.city.trim()
       await usersApi.update(token, user.id, payload)
+
+      const photoSource = photoMode === 'upload' && photoFile ? { file: photoFile } : urlChanged ? { url: newUrl } : null
+      if (photoSource) {
+        try {
+          await usersApi.setPhoto(token, user.id, photoSource)
+        } catch (err) {
+          // The profile fields are already saved — say exactly what failed.
+          const why = err instanceof Error && err.message ? `: ${err.message}` : '.'
+          toast.error(`Profile saved, but the photo update failed${why}`)
+          onSuccess()
+          return
+        }
+      }
+
       toast.success(`User "${form.name}" updated successfully.`)
       onSuccess()
     } catch (err: any) {
@@ -556,6 +604,10 @@ function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onC
           <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="john@example.com" className={inputCls(errors.email)} />
           {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
         </div>
+
+        <PhotoPicker mode={photoMode} onMode={m => { setPhotoMode(m); setErrors(e => ({ ...e, photo: '' })) }}
+          url={form.photoUrl} onUrl={v => set('photoUrl', v)}
+          preview={photoPreview} onFile={pickFile} current={user.profile_photo} error={errors.photo} />
 
         <div className="grid grid-cols-2 gap-4">
           <div>

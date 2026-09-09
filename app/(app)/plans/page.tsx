@@ -33,9 +33,9 @@ type PlanCard = { id: string; name: string; price: number; period: string; badge
 
 // Fallback used only if the backend plan list can't be reached.
 const FALLBACK_PLANS: PlanCard[] = [
-  { id: 'trial', name: '1 Day Free Trial', price: 1, period: '1 day', ...PLAN_META.trial },
-  { id: 'monthly', name: 'Monthly Premium', price: 99, period: '30 days', ...PLAN_META.monthly },
-  { id: 'vip', name: 'VIP Plan', price: 199, period: '30 days', ...PLAN_META.vip },
+  { id: 'trial', name: '1 Day Free Trial', price: 49, period: '1 day', ...PLAN_META.trial },
+  { id: 'monthly', name: 'Monthly Premium', price: 149, period: '30 days', ...PLAN_META.monthly },
+  { id: 'vip', name: 'VIP Plan', price: 249, period: '30 days', ...PLAN_META.vip },
 ]
 
 function loadRazorpay(): Promise<boolean> {

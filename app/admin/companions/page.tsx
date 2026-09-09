@@ -231,12 +231,13 @@ export default function AdminCompanionsPage() {
       {tab !== 'settings' && tab !== 'categories' && (
         <div className="flex gap-2 flex-wrap">
           {(tab === 'companions' ? ['all', 'pending', 'approved', 'suspended', 'rejected']
-            : tab === 'bookings' ? ['all', 'refund_pending', 'flagged', 'ended_early', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
+            : tab === 'bookings' ? ['all', 'payout_held', 'refund_pending', 'flagged', 'ended_early', 'pending', 'accepted', 'in_progress', 'completed', 'cancelled']
             : ['all', 'pending', 'approved', 'paid', 'rejected']).map(s => (
             <button key={s} onClick={() => setStatusFilter(s)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize ${
                 statusFilter === s ? 'gradient-brand text-white'
                   : s === 'flagged' || s === 'refund_pending' ? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'
+                  : s === 'payout_held' ? 'bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100'
                   : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}>{s.replace('_', ' ')}</button>
           ))}
@@ -419,10 +420,30 @@ export default function AdminCompanionsPage() {
                             disabled={busy === b.id}
                             onClick={() => {
                               const ref = window.prompt('Reference for this refund (UTR / payment id) — optional:') ?? undefined
-                              act(b.id, () => companionAdminApi.settleRefund(token, b.id, ref || undefined), 'Refund recorded')
+                              act(b.id, () => companionAdminApi.settleRefund(token, b.id, ref || undefined), 'Refund recorded — the client has been notified')
                             }}
                             className="mt-1 px-2 py-1 rounded-lg bg-green-100 text-green-700 text-[10px] font-bold">
                             Mark refund sent
+                          </button>
+                        </div>
+                      ) : null}
+                      {/* Session auto-closed without the client's code, so the
+                          companion is unpaid. Normally the client shares the
+                          code in the app; this is the override for when they
+                          cannot be reached. */}
+                      {b.payout_held ? (
+                        <div className="mt-1">
+                          <span className="block text-[10px] font-bold text-amber-700">
+                            ⏳ payout held: ₹{Number(b.creator_amount ?? 0).toFixed(0)} (awaiting client code)
+                          </span>
+                          <button
+                            disabled={busy === b.id}
+                            onClick={() => {
+                              if (!window.confirm(`Release ₹${Number(b.creator_amount ?? 0).toFixed(0)} to the companion without the client's code? Only do this after confirming the session happened.`)) return
+                              act(b.id, () => companionAdminApi.releasePayout(token, b.id), 'Payout released — the companion has been notified')
+                            }}
+                            className="mt-1 px-2 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-bold">
+                            Release payout
                           </button>
                         </div>
                       ) : null}
@@ -457,8 +478,11 @@ export default function AdminCompanionsPage() {
                     <td className="px-4 py-3"><Badge s={w.status} /></td>
                     <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
                       {['pending', 'approved'].includes(w.status) && <>
-                        {w.status === 'pending' && <button disabled={busy === w.id} onClick={() => act(w.id, () => companionAdminApi.approveWithdraw(token, w.id), 'Approved')} className="px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold">Approve</button>}
-                        <button disabled={busy === w.id} onClick={() => act(w.id, () => companionAdminApi.payWithdraw(token, w.id), 'Marked paid')} className="px-3 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">Mark paid</button>
+                        {w.status === 'pending' && <button disabled={busy === w.id} onClick={() => act(w.id, () => companionAdminApi.approveWithdraw(token, w.id), 'Approved — the creator has been notified')} className="px-3 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-bold">Approve</button>}
+                        <button disabled={busy === w.id} onClick={() => {
+                          const ref = window.prompt('Payout reference (UTR / transaction id) — optional:') ?? undefined
+                          act(w.id, () => companionAdminApi.payWithdraw(token, w.id, ref || undefined), 'Marked paid — the creator has been notified')
+                        }} className="px-3 py-1 rounded-lg bg-green-100 text-green-700 text-xs font-bold">Mark paid</button>
                         <button disabled={busy === w.id} onClick={() => act(w.id, () => companionAdminApi.rejectWithdraw(token, w.id), 'Rejected')} className="px-3 py-1 rounded-lg bg-red-100 text-red-600 text-xs font-bold">Reject</button>
                       </>}
                     </td>

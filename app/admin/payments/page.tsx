@@ -3,13 +3,52 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { paymentsApi } from '@/lib/api'
+import { paymentsApi, companionAdminApi } from '@/lib/api'
 
 /* ─── Types ─────────────────────────────────────────────── */
 type TxStatus  = 'pending' | 'completed' | 'failed' | 'refunded' | 'disputed'
 type TxType    = 'subscription' | 'coin_purchase' | 'event_ticket' | 'refund'
 type CoinType  = 'credit' | 'debit'
-type ActiveTab = 'payments' | 'coins'
+type ActiveTab = 'payments' | 'companion' | 'coins'
+// Inside the companion tab: money that came in from clients, or went out to creators.
+type CompanionView = 'received' | 'payouts'
+
+// Companion money lives in two other tables. Bookings are what clients pay in;
+// withdrawals are what creators take out. Both come from the companion admin
+// endpoints, so the shapes are loose — only the fields this page reads are named.
+interface Booking {
+  id: number
+  client?: string
+  companion?: string
+  session_type?: string
+  hours?: number
+  starts_at?: string | null
+  amount?: number | string
+  gst_amount?: number | string
+  total_amount?: number | string
+  creator_amount?: number | string
+  commission_amount?: number | string
+  payment_status?: string
+  status?: string
+  refunded?: boolean
+  refund_pending?: boolean
+  refund_amount?: number | string | null
+  payout_held?: boolean
+  created_at?: string
+  [key: string]: any
+}
+
+interface Withdrawal {
+  id: number
+  user?: string
+  email?: string
+  amount?: number | string
+  status?: string
+  payout?: { method?: string; upi?: string; account_name?: string; account_number?: string; ifsc?: string } | null
+  note?: string
+  created_at?: string
+  [key: string]: any
+}
 
 interface Transaction {
   id: number
@@ -73,6 +112,14 @@ function StatusBadge({ status }: { status: string }) {
     failed:    { label: 'Failed',    cls: 'bg-red-100 text-red-600',        dot: 'bg-red-500'     },
     refunded:  { label: 'Refunded',  cls: 'bg-blue-100 text-blue-700',      dot: 'bg-blue-500'    },
     disputed:  { label: 'Disputed',  cls: 'bg-orange-100 text-orange-700',  dot: 'bg-orange-500'  },
+    // Companion booking / withdrawal states share this badge.
+    paid:        { label: 'Paid',        cls: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
+    approved:    { label: 'Approved',    cls: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500'    },
+    rejected:    { label: 'Rejected',    cls: 'bg-red-100 text-red-600',         dot: 'bg-red-500'     },
+    accepted:    { label: 'Accepted',    cls: 'bg-blue-100 text-blue-700',       dot: 'bg-blue-500'    },
+    in_progress: { label: 'In Progress', cls: 'bg-purple-100 text-purple-700',   dot: 'bg-purple-500'  },
+    cancelled:   { label: 'Cancelled',   cls: 'bg-gray-100 text-gray-500',       dot: 'bg-gray-400'    },
+    expired:     { label: 'Expired',     cls: 'bg-gray-100 text-gray-500',       dot: 'bg-gray-400'    },
   }
   const e = map[status] ?? { label: status, cls: 'bg-gray-100 text-gray-600', dot: 'bg-gray-400' }
   return (
@@ -340,6 +387,21 @@ export default function PaymentsPage() {
   const [coinSearch, setCoinSearch]     = useState('')
   const [coinLoading, setCoinLoading]   = useState(true)
 
+  /* ── Companion payments: one tab, two directions of money ── */
+  const [companionView, setCompanionView] = useState<CompanionView>('received')
+
+  /* ── Companion bookings (client payments) ── */
+  const [bookings, setBookings]         = useState<Booking[]>([])
+  const [bookingFilter, setBookingFilter] = useState('all')
+  const [bookingSearch, setBookingSearch] = useState('')
+  const [bookingLoading, setBookingLoading] = useState(false)
+
+  /* ── Companion payouts (withdrawals) ── */
+  const [payouts, setPayouts]           = useState<Withdrawal[]>([])
+  const [payoutFilter, setPayoutFilter] = useState('all')
+  const [payoutSearch, setPayoutSearch] = useState('')
+  const [payoutLoading, setPayoutLoading] = useState(false)
+
   /* ── Stats ── */
   const [stats, setStats]               = useState<Stats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
@@ -417,9 +479,46 @@ export default function PaymentsPage() {
     }
   }, [token])
 
+  /* ── Load companion bookings ── */
+  const loadBookings = useCallback(async () => {
+    setBookingLoading(true)
+    try {
+      const params: Record<string, string> = bookingFilter !== 'all' ? { status: bookingFilter } : {}
+      const res = await companionAdminApi.bookings(token, params)
+      setBookings(Array.isArray(res) ? res : (res?.data ?? []))
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to load companion bookings.')
+    } finally {
+      setBookingLoading(false)
+    }
+  }, [token, bookingFilter])
+
+  /* ── Load companion payouts ── */
+  const loadPayouts = useCallback(async () => {
+    setPayoutLoading(true)
+    try {
+      const params: Record<string, string> = payoutFilter !== 'all' ? { status: payoutFilter } : {}
+      const res = await companionAdminApi.withdrawals(token, params)
+      setPayouts(Array.isArray(res) ? res : (res?.data ?? []))
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to load companion payouts.')
+    } finally {
+      setPayoutLoading(false)
+    }
+  }, [token, payoutFilter])
+
   useEffect(() => { loadStats() }, [loadStats])
   useEffect(() => { loadPayments() }, [loadPayments])
   useEffect(() => { loadCoins() }, [loadCoins])
+  // The companion tables are only fetched once someone opens them.
+  useEffect(() => { if (activeTab === 'companion' && companionView === 'received') loadBookings() }, [activeTab, companionView, loadBookings])
+  useEffect(() => { if (activeTab === 'companion' && companionView === 'payouts')  loadPayouts()  }, [activeTab, companionView, loadPayouts])
+
+  // Client-side search — these endpoints return the full list in one go.
+  const matches = (q: string, ...fields: (string | number | null | undefined)[]) =>
+    !q.trim() || fields.some(f => String(f ?? '').toLowerCase().includes(q.trim().toLowerCase()))
+  const visibleBookings = bookings.filter(b => matches(bookingSearch, b.id, b.client, b.companion, b.session_type))
+  const visiblePayouts  = payouts.filter(w => matches(payoutSearch, w.id, w.user, w.email, w.payout?.upi, w.payout?.account_number))
 
   /* ── Chart data ── */
   const chartData = stats?.monthly_revenue?.map(m => ({
@@ -443,8 +542,16 @@ export default function PaymentsPage() {
     if (!refundTx) return
     setActionIds(prev => new Set(prev).add(refundTx.id))
     try {
-      await paymentsApi.refund(token, refundTx.id, reason)
-      toast.success(`Refund issued for ${refundTx.user?.name ?? 'user'}.`)
+      const res = await paymentsApi.refund(token, refundTx.id, reason)
+      // Reflect the refund in the row right away. The response may carry the
+      // updated record; if not, mark it ourselves — the money has gone back, so
+      // the row must stop saying "completed" and offering another refund.
+      const updated: Partial<Transaction> = res?.payment ?? res?.transaction ?? res?.data ?? {}
+      const refundedAmount = updated.refund_amount ?? res?.refund_amount ?? refundTx.amount
+      setPayments(prev => prev.map(p => p.id === refundTx.id
+        ? { ...p, ...updated, status: 'refunded', refund_amount: refundedAmount, refunded_at: updated.refunded_at ?? new Date().toISOString() }
+        : p))
+      toast.success(`Refund issued — ${refundTx.user?.name ?? 'the user'} has been notified.`)
       setRefundTx(null)
       loadPayments()
       loadStats()
@@ -454,6 +561,57 @@ export default function PaymentsPage() {
       setActionIds(prev => { const n = new Set(prev); n.delete(refundTx!.id); return n })
     }
   }
+
+  /* ── Companion money actions ──
+     The API records the money movement and notifies the person it affects
+     (push + in-app), so the panel only has to reload. `act` mirrors the helper
+     on the Companions page so behaviour is identical from either screen. */
+  async function act(id: number, fn: () => Promise<any>, msg: string, reload: () => Promise<void>) {
+    setActionIds(prev => new Set(prev).add(id))
+    try {
+      await fn()
+      toast.success(msg)
+      await reload()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Action failed.')
+    } finally {
+      setActionIds(prev => { const n = new Set(prev); n.delete(id); return n })
+    }
+  }
+
+  function settleBookingRefund(b: Booking) {
+    const ref = window.prompt('Reference for this refund (UTR / payment id) — optional:') ?? undefined
+    act(b.id, () => companionAdminApi.settleRefund(token, b.id, ref || undefined), `Refund recorded — ${b.client ?? 'the client'} has been notified.`, loadBookings)
+  }
+
+  function releaseBookingPayout(b: Booking) {
+    if (!window.confirm(`Release ${fmtINR(b.creator_amount ?? 0)} to the companion without the client's code? Only do this after confirming the session happened.`)) return
+    act(b.id, () => companionAdminApi.releasePayout(token, b.id), `Payout released — ${b.companion ?? 'the companion'} has been notified.`, loadBookings)
+  }
+
+  function approvePayout(w: Withdrawal) {
+    act(w.id, () => companionAdminApi.approveWithdraw(token, w.id), `Withdrawal approved — ${w.user ?? 'the creator'} has been notified.`, loadPayouts)
+  }
+
+  function markPayoutPaid(w: Withdrawal) {
+    const ref = window.prompt('Payout reference (UTR / transaction id) — optional:') ?? undefined
+    act(w.id, () => companionAdminApi.payWithdraw(token, w.id, ref || undefined), `Marked paid — ${w.user ?? 'the creator'} has been notified.`, loadPayouts)
+  }
+
+  function rejectPayout(w: Withdrawal) {
+    if (!window.confirm(`Reject the ${fmtINR(w.amount ?? 0)} withdrawal request from ${w.user ?? 'this creator'}?`)) return
+    act(w.id, () => companionAdminApi.rejectWithdraw(token, w.id), 'Withdrawal rejected — the creator has been notified.', loadPayouts)
+  }
+
+  // The type dropdown lists the kinds this page knows plus anything else the
+  // API has actually sent, so a new transaction type is filterable on sight.
+  const KNOWN_TYPES: Record<string, string> = {
+    subscription: 'Subscription', coin_purchase: 'Coin Purchase', event_ticket: 'Event Ticket', refund: 'Refund',
+  }
+  const typeOptions = Object.entries({
+    ...KNOWN_TYPES,
+    ...Object.fromEntries(payments.map(p => p.type).filter(t => t && !KNOWN_TYPES[t]).map(t => [t, t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())])),
+  })
 
   /* ── Type distribution from current page ── */
   const txTypes: { key: TxType; label: string; color: string }[] = [
@@ -473,7 +631,7 @@ export default function PaymentsPage() {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Payments &amp; Coin Ledger</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Transaction records, revenue overview &amp; coin credit/debit history</p>
+            <p className="text-sm text-gray-500 mt-0.5">Gateway payments, companion bookings &amp; payouts, and coin credit/debit history</p>
           </div>
           <button
             onClick={handleExport}
@@ -530,25 +688,22 @@ export default function PaymentsPage() {
         {/* ── Tabs ── */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
           {/* Tab headers */}
-          <div className="flex border-b border-gray-100">
-            <button
-              onClick={() => setActiveTab('payments')}
-              className={`flex-1 sm:flex-none px-6 py-3.5 text-sm font-semibold transition-colors ${
-                activeTab === 'payments'
-                  ? 'border-b-2 border-pink-500 text-pink-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              Payments{payMeta?.total != null ? ` (${payMeta.total})` : ''}
-            </button>
-            <button
-              onClick={() => setActiveTab('coins')}
-              className={`flex-1 sm:flex-none px-6 py-3.5 text-sm font-semibold transition-colors ${
-                activeTab === 'coins'
-                  ? 'border-b-2 border-pink-500 text-pink-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              Coin Ledger{coinMeta?.total != null ? ` (${coinMeta.total})` : ''}
-            </button>
+          <div className="flex border-b border-gray-100 overflow-x-auto">
+            {([
+              { key: 'payments', label: `Payments${payMeta?.total != null ? ` (${payMeta.total})` : ''}` },
+              { key: 'companion', label: 'Companion Payments' },
+              { key: 'coins',    label: `Coin Ledger${coinMeta?.total != null ? ` (${coinMeta.total})` : ''}` },
+            ] as { key: ActiveTab; label: string }[]).map(t => (
+              <button key={t.key}
+                onClick={() => setActiveTab(t.key)}
+                className={`flex-none px-6 py-3.5 text-sm font-semibold transition-colors whitespace-nowrap ${
+                  activeTab === t.key
+                    ? 'border-b-2 border-pink-500 text-pink-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {t.label}
+              </button>
+            ))}
           </div>
 
           {/* ── PAYMENTS TAB ── */}
@@ -567,10 +722,7 @@ export default function PaymentsPage() {
                 <select value={payType} onChange={e => { setPayType(e.target.value); setPayPage(1) }}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 text-gray-700">
                   <option value="">All Types</option>
-                  <option value="subscription">Subscription</option>
-                  <option value="coin_purchase">Coin Purchase</option>
-                  <option value="event_ticket">Event Ticket</option>
-                  <option value="refund">Refund</option>
+                  {typeOptions.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                 </select>
                 <select value={payGateway} onChange={e => { setPayGateway(e.target.value); setPayPage(1) }}
                   className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 text-gray-700">
@@ -648,6 +800,214 @@ export default function PaymentsPage() {
                 </table>
               </div>
               <Pagination page={payPage} total={payMeta?.last_page ?? 1} onChange={setPayPage} />
+            </>
+          )}
+
+          {/* ── COMPANION PAYMENTS TAB ──
+              Booking management lives on the Companions page; this is the money
+              view only — what clients paid in, and what creators were paid out. */}
+          {activeTab === 'companion' && (
+            <div className="flex items-center gap-3 px-5 pt-4 flex-wrap">
+              <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+                {([
+                  { key: 'received', label: 'Received from clients' },
+                  { key: 'payouts',  label: 'Paid to creators' },
+                ] as { key: CompanionView; label: string }[]).map(v => (
+                  <button key={v.key} type="button" onClick={() => setCompanionView(v.key)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      companionView === v.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400">
+                {companionView === 'received'
+                  ? `${bookingLoading ? '…' : visibleBookings.length} booking payments`
+                  : `${payoutLoading ? '…' : visiblePayouts.length} withdrawal requests`}
+              </p>
+            </div>
+          )}
+
+          {activeTab === 'companion' && companionView === 'received' && (
+            <>
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 flex-wrap">
+                {['all', 'refund_pending', 'payout_held', 'completed', 'cancelled', 'in_progress', 'accepted', 'pending'].map(f => (
+                  <button key={f} onClick={() => setBookingFilter(f)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
+                      bookingFilter === f ? 'gradient-brand text-white'
+                        : f === 'refund_pending' ? 'bg-red-50 border border-red-200 text-red-600 hover:bg-red-100'
+                        : f === 'payout_held' ? 'bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100'
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>{f.replace('_', ' ')}</button>
+                ))}
+                <div className="relative flex-1 min-w-[200px]">
+                  <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input type="text" placeholder="Search by booking #, client or companion…" value={bookingSearch}
+                    onChange={e => setBookingSearch(e.target.value)}
+                    className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 w-full" />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      {['#', 'Client', 'Companion', 'Session', 'Client Paid', 'Creator Gets', 'Payment', 'Booking', 'Date', 'Actions'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bookingLoading ? (
+                      <tr><td colSpan={10} className="py-16 text-center">
+                        <div className="flex items-center justify-center gap-2 text-gray-400 text-sm"><Spinner /> Loading companion bookings…</div>
+                      </td></tr>
+                    ) : visibleBookings.length === 0 ? (
+                      <tr><td colSpan={10} className="py-16 text-center text-gray-400 text-sm">No companion bookings found.</td></tr>
+                    ) : visibleBookings.map((b, i) => (
+                      <tr key={b.id} className={`border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${i % 2 !== 0 ? 'bg-gray-50/30' : ''}`}>
+                        <td className="px-4 py-3 text-xs text-gray-500">{b.id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900">{b.client ?? '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">{b.companion ?? '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-600">
+                          <p className="capitalize">{b.session_type ?? '—'}{b.hours ? ` · ${b.hours}h` : ''}</p>
+                          <p className="text-xs text-gray-400">{b.starts_at ? fmtDate(b.starts_at) : '—'}</p>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-900">
+                          {fmtINR(b.total_amount ?? 0)}
+                          <span className="block text-[10px] font-normal text-gray-400">
+                            {fmtINR(b.amount ?? 0)} + {fmtINR(b.gst_amount ?? 0)} GST
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                          {fmtINR(b.creator_amount ?? 0)}
+                          <span className="block text-[10px] text-gray-400">fee {fmtINR(b.commission_amount ?? 0)}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <StatusBadge status={b.refunded ? 'refunded' : (b.payment_status ?? 'pending')} />
+                          {b.refund_pending && (
+                            <span className="block text-[10px] font-bold text-red-600 mt-1">
+                              ⚠ refund owed: {fmtINR(b.refund_amount ?? b.total_amount ?? 0)}
+                            </span>
+                          )}
+                          {b.payout_held && (
+                            <span className="block text-[10px] font-bold text-amber-700 mt-1">
+                              ⏳ payout held: {fmtINR(b.creator_amount ?? 0)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={b.status ?? 'pending'} /></td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{b.created_at ? fmtDateShort(b.created_at) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            {b.refund_pending && (
+                              <button disabled={actionIds.has(b.id)} onClick={() => settleBookingRefund(b)}
+                                className="px-2.5 py-1 text-xs rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40">
+                                {actionIds.has(b.id) ? '…' : 'Mark refund sent'}
+                              </button>
+                            )}
+                            {b.payout_held && (
+                              <button disabled={actionIds.has(b.id)} onClick={() => releaseBookingPayout(b)}
+                                className="px-2.5 py-1 text-xs rounded-lg border border-amber-200 text-amber-700 hover:bg-amber-50 transition-colors disabled:opacity-40">
+                                {actionIds.has(b.id) ? '…' : 'Release payout'}
+                              </button>
+                            )}
+                            {!b.refund_pending && !b.payout_held && <span className="text-xs text-gray-300">—</span>}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'companion' && companionView === 'payouts' && (
+            <>
+              <div className="flex items-center gap-2 px-5 py-4 border-b border-gray-100 flex-wrap">
+                {['all', 'pending', 'approved', 'paid', 'rejected'].map(f => (
+                  <button key={f} onClick={() => setPayoutFilter(f)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-colors ${
+                      payoutFilter === f ? 'gradient-brand text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}>{f}</button>
+                ))}
+                <div className="relative flex-1 min-w-[200px]">
+                  <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input type="text" placeholder="Search by creator, email, UPI or account…" value={payoutSearch}
+                    onChange={e => setPayoutSearch(e.target.value)}
+                    className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 w-full" />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50">
+                      {['#', 'Creator', 'Amount', 'Payout To', 'Status', 'Requested', 'Actions'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payoutLoading ? (
+                      <tr><td colSpan={7} className="py-16 text-center">
+                        <div className="flex items-center justify-center gap-2 text-gray-400 text-sm"><Spinner /> Loading companion payouts…</div>
+                      </td></tr>
+                    ) : visiblePayouts.length === 0 ? (
+                      <tr><td colSpan={7} className="py-16 text-center text-gray-400 text-sm">No payout requests found.</td></tr>
+                    ) : visiblePayouts.map((w, i) => (
+                      <tr key={w.id} className={`border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${i % 2 !== 0 ? 'bg-gray-50/30' : ''}`}>
+                        <td className="px-4 py-3 text-xs text-gray-500">{w.id}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <p className="font-medium text-gray-900 text-sm">{w.user ?? '—'}</p>
+                          <p className="text-xs text-gray-400">{w.email ?? ''}</p>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap font-semibold text-gray-900">{fmtINR(w.amount ?? 0)}</td>
+                        <td className="px-4 py-3">
+                          {!w.payout ? (
+                            <span className="text-xs text-red-600 font-semibold">No payout details</span>
+                          ) : w.payout.method === 'upi' ? (
+                            <span className="font-mono text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">UPI · {w.payout.upi}</span>
+                          ) : (
+                            <div className="text-xs">
+                              <p className="text-gray-700 font-semibold">{w.payout.account_name}</p>
+                              <p className="font-mono text-gray-600">{w.payout.account_number} · {w.payout.ifsc}</p>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={w.status ?? 'pending'} /></td>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-500">{w.created_at ? fmtDateShort(w.created_at) : '—'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {['pending', 'approved'].includes(w.status ?? '') ? (
+                            <div className="flex items-center gap-1.5">
+                              {w.status === 'pending' && (
+                                <button disabled={actionIds.has(w.id)} onClick={() => approvePayout(w)}
+                                  className="px-2.5 py-1 text-xs rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40">
+                                  Approve
+                                </button>
+                              )}
+                              <button disabled={actionIds.has(w.id)} onClick={() => markPayoutPaid(w)}
+                                className="px-2.5 py-1 text-xs rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40">
+                                {actionIds.has(w.id) ? '…' : 'Mark paid'}
+                              </button>
+                              <button disabled={actionIds.has(w.id)} onClick={() => rejectPayout(w)}
+                                className="px-2.5 py-1 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40">
+                                Reject
+                              </button>
+                            </div>
+                          ) : <span className="text-xs text-gray-300">—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 

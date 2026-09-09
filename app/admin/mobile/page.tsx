@@ -12,12 +12,22 @@ export default function MobilePage() {
   const [loading, setLoading] = useState(true)
   const [togglingFlag, setTogglingFlag] = useState<number | null>(null)
 
+  // The update gate the mobile app checks on launch.
+  const [gate, setGate] = useState<any>({ latest_version: '', min_required_version: '', update_message: '', play_store_url: '' })
+  const [savingGate, setSavingGate] = useState(false)
+
   useEffect(() => {
     async function load() {
       try {
-        const [v, f] = await Promise.all([mobileApi.versions(token), mobileApi.flags(token)])
+        const [v, f, g] = await Promise.all([mobileApi.versions(token), mobileApi.flags(token), mobileApi.updateGate(token)])
         setVersions(v.data ?? v ?? [])
         setFlags(f.data ?? f ?? [])
+        if (g) setGate({
+          latest_version: g.latest_version ?? '',
+          min_required_version: g.min_required_version ?? '',
+          update_message: g.update_message ?? '',
+          play_store_url: g.play_store_url ?? '',
+        })
       } catch (err: any) { toast.error(err.message || 'Failed to load mobile data') }
       finally { setLoading(false) }
     }
@@ -35,6 +45,15 @@ export default function MobilePage() {
     finally { setTogglingFlag(null) }
   }
 
+  async function saveGate() {
+    setSavingGate(true)
+    try {
+      await mobileApi.saveUpdateGate(token, gate)
+      toast.success('Update gate saved — users on older versions will be prompted')
+    } catch (err: any) { toast.error(err.message || 'Failed to save update gate') }
+    finally { setSavingGate(false) }
+  }
+
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" /></div>
 
   return (
@@ -42,6 +61,65 @@ export default function MobilePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Mobile App</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage app versions and feature flags</p>
+      </div>
+
+      {/* Update gate — what the mobile app checks on launch to prompt an update */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900">App Update Prompt</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Set the latest published version. Anyone on an older build gets an update popup when they open the app —
+            optional above the minimum, forced below it. No app deploy needed.
+          </p>
+        </div>
+        <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Latest version</span>
+            <input
+              value={gate.latest_version}
+              onChange={e => setGate((g: any) => ({ ...g, latest_version: e.target.value }))}
+              placeholder="e.g. 1.0.5"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+            <span className="text-[11px] text-gray-400">Prompts an optional update on older builds.</span>
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Minimum required version</span>
+            <input
+              value={gate.min_required_version}
+              onChange={e => setGate((g: any) => ({ ...g, min_required_version: e.target.value }))}
+              placeholder="e.g. 1.0.0"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+            <span className="text-[11px] text-gray-400">Below this, the update is forced (can't be dismissed).</span>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Update message</span>
+            <input
+              value={gate.update_message}
+              onChange={e => setGate((g: any) => ({ ...g, update_message: e.target.value }))}
+              placeholder="A new version is available with exciting features!"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Play Store URL</span>
+            <input
+              value={gate.play_store_url}
+              onChange={e => setGate((g: any) => ({ ...g, play_store_url: e.target.value }))}
+              placeholder="https://play.google.com/store/apps/details?id=com.zingdates.app"
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+          </label>
+          <div className="sm:col-span-2 flex justify-end">
+            <button
+              onClick={saveGate}
+              disabled={savingGate}
+              className="rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 transition-colors">
+              {savingGate ? 'Saving…' : 'Save update prompt'}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
