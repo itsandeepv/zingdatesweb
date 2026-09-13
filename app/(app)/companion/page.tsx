@@ -95,7 +95,7 @@ function CompanionCard({ c }: { c: Companion }) {
             <p className="text-lg font-extrabold text-gray-900 leading-none">₹{perHour} <span className="text-xs text-purple-600 font-bold">/hour</span></p>
           </div>
           <span className="gradient-brand text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-brand group-hover:opacity-90">
-            {status === 'booked' ? 'Book later' : 'Book'}
+            {status === 'booked' ? 'Request later' : 'Request Date'}
           </span>
         </div>
       </div>
@@ -134,7 +134,7 @@ export default function CompanionFeedPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Companions</h1>
-          <p className="text-gray-500 text-sm">Book a verified companion for a paid session</p>
+          <p className="text-gray-500 text-sm">Request a date with a verified companion for a paid session</p>
         </div>
         <div className="flex gap-2">
           <Link href="/companion/my-bookings" className="px-4 py-2 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">My Bookings</Link>

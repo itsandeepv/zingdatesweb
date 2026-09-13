@@ -118,7 +118,7 @@ function BookingModal({ companion, onClose, onBooked }: { companion: any; onClos
       <div className="bg-white rounded-t-3xl sm:rounded-3xl p-6 w-full max-w-md space-y-5 max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Book {companion.name}</h3>
+            <h3 className="text-lg font-bold text-gray-900">Request a date with {companion.name}</h3>
             <p className="text-sm font-bold text-purple-700">₹{Math.round(companion.price_per_hour ?? 0)} / hour</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl">×</button>
@@ -326,7 +326,7 @@ export default function CompanionProfilePage() {
           <span className="text-[10px] text-gray-400 uppercase">from / 8 hrs</span>
           <p className="text-xl font-extrabold text-gray-900">₹{Math.round(c.price_per_hour || 0)} <span className="text-sm text-purple-600">/hour</span></p>
         </div>
-        <button onClick={() => setShowBooking(true)} className="gradient-brand text-white font-bold px-8 py-3 rounded-xl shadow-brand hover:opacity-90">Book Now</button>
+        <button onClick={() => setShowBooking(true)} className="gradient-brand text-white font-bold px-8 py-3 rounded-xl shadow-brand hover:opacity-90">Request Date</button>
       </div>
 
       {showBooking && (
