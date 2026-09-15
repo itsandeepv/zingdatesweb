@@ -72,9 +72,9 @@ const NAV: NavGroup[] = [
     { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
   ]},
   { label: 'Platform', items: [
-    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone', soon: true },
+    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone' },
     { href: '/admin/api',      label: 'API',        icon: 'code', soon: true },
-    { href: '/admin/settings', label: 'Settings',   icon: 'gear', soon: true },
+    { href: '/admin/settings', label: 'Settings',   icon: 'gear' },
   ]},
 ]
 

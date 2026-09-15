@@ -286,30 +286,24 @@ export const analyticsApi = {
 }
 
 /* ─── Admin Settings ──────────────────────────────────────────── */
+// Platform settings — every field here is enforced server-side (photo cap at
+// upload, age range at profile save, maintenance in the API middleware,
+// registration in the OTP / social sign-up flow). GET /app-config is the
+// public mirror the mobile app reads.
 export const settingsApi = {
   get: (token: string) => req<any>('/admin/settings', {}, token),
   update: (token: string, settings: Record<string, any>) =>
     req<any>('/admin/settings', { method: 'PUT', body: JSON.stringify({ settings }) }, token),
-  toggleMaintenance: (token: string) =>
-    req<any>('/admin/settings/maintenance', { method: 'POST' }, token),
+  // Used by the (still disabled) Security page; no backend route yet.
   updateSecurity: (token: string, data: Record<string, any>) =>
     req<any>('/admin/settings/security', { method: 'PUT', body: JSON.stringify(data) }, token),
 }
 
 /* ─── Admin Mobile ────────────────────────────────────────────── */
+// Only what the API actually serves. The version list and feature flags this
+// once called (/admin/mobile/versions, /admin/mobile/flags) never existed on
+// the backend, and their 404s broke the whole page load.
 export const mobileApi = {
-  versions: (token: string) => req<any>('/admin/mobile/versions', {}, token),
-  createVersion: (token: string, data: Record<string, any>) =>
-    req<any>('/admin/mobile/versions', { method: 'POST', body: JSON.stringify(data) }, token),
-  updateVersion: (token: string, id: number, data: Record<string, any>) =>
-    req<any>(`/admin/mobile/versions/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
-  flags: (token: string) => req<any>('/admin/mobile/flags', {}, token),
-  updateFlag: (token: string, id: number, enabled: boolean) =>
-    req<any>(`/admin/mobile/flags/${id}`, { method: 'PUT', body: JSON.stringify({ is_enabled: enabled }) }, token),
-  config: (token: string) => req<any>('/admin/mobile/config', {}, token),
-  updateConfig: (token: string, config: Record<string, any>) =>
-    req<any>('/admin/mobile/config', { method: 'PUT', body: JSON.stringify({ config }) }, token),
-
   // The update gate the mobile app actually checks on launch (GET /app-version,
   // public). Set latest_version to the newest Play Store build to prompt an
   // optional update; set min_required_version to force one for older builds.
@@ -323,6 +317,10 @@ export const mobileApi = {
   dailyPush: (token: string) => req<any>('/admin/daily-push', {}, token),
   saveDailyPush: (token: string, data: Record<string, any>) =>
     req<any>('/admin/daily-push', { method: 'PUT', body: JSON.stringify(data) }, token),
+  // Send the saved copy to everyone right now, ignoring the paused switch.
+  // The API refuses a second send within 10 minutes (429).
+  sendDailyPushNow: (token: string) =>
+    req<{ success: boolean; sent: number; message: string }>('/admin/daily-push/send', { method: 'POST' }, token),
 }
 
 /* ─── Admin API Keys ──────────────────────────────────────────── */

@@ -9,17 +9,16 @@ export default function SettingsPage() {
   const token = useAuthStore(s => s.token) ?? ''
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // Only settings the API actually enforces. Phone OTP is always required
+  // and there is no email verification step, so neither is a switch here.
   const [form, setForm] = useState({
-    app_name: 'zingDates',
+    app_name: 'ZingDates',
     support_email: '',
     max_photos: '6',
     min_age: '18',
     max_age: '99',
-    coin_value: '0.01',
     maintenance_mode: false,
     registration_enabled: true,
-    email_verification: true,
-    phone_verification: true,
   })
 
   useEffect(() => {
@@ -27,7 +26,8 @@ export default function SettingsPage() {
       try {
         const res = await settingsApi.get(token)
         const s = res.data ?? res ?? {}
-        setForm(f => ({ ...f, ...s }))
+        // Numbers come back as numbers; the inputs hold strings.
+        setForm(f => ({ ...f, ...s, max_photos: String(s.max_photos ?? f.max_photos), min_age: String(s.min_age ?? f.min_age), max_age: String(s.max_age ?? f.max_age) }))
       } catch (err: any) {
         toast.error(err.message || 'Failed to load settings')
       } finally {
@@ -44,10 +44,14 @@ export default function SettingsPage() {
 
   async function handleSave(e: { preventDefault(): void }) {
     e.preventDefault()
+    const minAge = Number(form.min_age), maxAge = Number(form.max_age), maxPhotos = Number(form.max_photos)
+    if (minAge < 18) { toast.error('Minimum age cannot go below 18.'); return }
+    if (maxAge < minAge) { toast.error('Maximum age must be at least the minimum age.'); return }
+    if (maxPhotos < 1 || maxPhotos > 20) { toast.error('Max photos must be between 1 and 20.'); return }
     setSaving(true)
     try {
-      await settingsApi.update(token, form)
-      toast.success('Settings saved successfully')
+      await settingsApi.update(token, { ...form, max_photos: maxPhotos, min_age: minAge, max_age: maxAge })
+      toast.success(form.maintenance_mode ? 'Settings saved — maintenance mode is ON, users cannot use the app' : 'Settings saved')
     } catch (err: any) {
       toast.error(err.message || 'Failed to save settings')
     } finally {
@@ -82,11 +86,6 @@ export default function SettingsPage() {
               <input type="email" value={form.support_email} onChange={e => set('support_email', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Coin Value (USD)</label>
-              <input type="number" step="0.001" value={form.coin_value} onChange={e => set('coin_value', e.target.value)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
-            </div>
           </div>
         </div>
 
@@ -95,17 +94,19 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Max Photos per User</label>
-              <input type="number" value={form.max_photos} onChange={e => set('max_photos', e.target.value)}
+              <input type="number" min={1} max={20} value={form.max_photos} onChange={e => set('max_photos', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              <p className="text-[11px] text-gray-400 mt-1">Enforced when a user adds a gallery photo.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Age</label>
-              <input type="number" value={form.min_age} onChange={e => set('min_age', e.target.value)}
+              <input type="number" min={18} max={99} value={form.min_age} onChange={e => set('min_age', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              <p className="text-[11px] text-gray-400 mt-1">Never below 18. Checked when a profile saves its date of birth.</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Age</label>
-              <input type="number" value={form.max_age} onChange={e => set('max_age', e.target.value)}
+              <input type="number" min={18} max={120} value={form.max_age} onChange={e => set('max_age', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
             </div>
           </div>
@@ -115,10 +116,8 @@ export default function SettingsPage() {
           <h2 className="text-base font-semibold text-gray-900 mb-4">Platform Toggles</h2>
           <div className="space-y-4">
             {[
-              { key: 'maintenance_mode', label: 'Maintenance Mode', desc: 'Temporarily disable the platform for all users' },
-              { key: 'registration_enabled', label: 'New Registrations', desc: 'Allow new users to register on the platform' },
-              { key: 'email_verification', label: 'Email Verification', desc: 'Require email verification for new accounts' },
-              { key: 'phone_verification', label: 'Phone Verification', desc: 'Require phone verification for new accounts' },
+              { key: 'maintenance_mode', label: 'Maintenance Mode', desc: 'Every user-facing API call answers 503 until turned off. The admin panel keeps working.' },
+              { key: 'registration_enabled', label: 'New Registrations', desc: 'Off: new phone numbers and new Google/Facebook accounts are turned away. Existing users still sign in.' },
             ].map(item => (
               <div key={item.key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
                 <div>
