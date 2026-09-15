@@ -316,6 +316,13 @@ export const mobileApi = {
   updateGate: (token: string) => req<any>('/app-version', {}, token),
   saveUpdateGate: (token: string, data: Record<string, any>) =>
     req<any>('/admin/app-version', { method: 'PUT', body: JSON.stringify(data) }, token),
+
+  // Daily "come back" push sent to every user (see routes/console.php
+  // notifications:daily-reengagement). Blank title/body falls back to the
+  // rotating default copy — default_preview shows what that looks like today.
+  dailyPush: (token: string) => req<any>('/admin/daily-push', {}, token),
+  saveDailyPush: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/daily-push', { method: 'PUT', body: JSON.stringify(data) }, token),
 }
 
 /* ─── Admin API Keys ──────────────────────────────────────────── */

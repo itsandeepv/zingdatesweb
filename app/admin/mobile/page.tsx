@@ -16,10 +16,16 @@ export default function MobilePage() {
   const [gate, setGate] = useState<any>({ latest_version: '', min_required_version: '', update_message: '', play_store_url: '' })
   const [savingGate, setSavingGate] = useState(false)
 
+  // Daily "come back" push sent to every user around 8-9 PM IST. Blank
+  // title/body falls back to a rotating default (defaultPreview shows today's).
+  const [dailyPush, setDailyPush] = useState<any>({ title: '', body: '', enabled: true })
+  const [defaultPreview, setDefaultPreview] = useState<any>({ title: '', body: '' })
+  const [savingDailyPush, setSavingDailyPush] = useState(false)
+
   useEffect(() => {
     async function load() {
       try {
-        const [v, f, g] = await Promise.all([mobileApi.versions(token), mobileApi.flags(token), mobileApi.updateGate(token)])
+        const [v, f, g, dp] = await Promise.all([mobileApi.versions(token), mobileApi.flags(token), mobileApi.updateGate(token), mobileApi.dailyPush(token)])
         setVersions(v.data ?? v ?? [])
         setFlags(f.data ?? f ?? [])
         if (g) setGate({
@@ -28,6 +34,10 @@ export default function MobilePage() {
           update_message: g.update_message ?? '',
           play_store_url: g.play_store_url ?? '',
         })
+        if (dp) {
+          setDailyPush({ title: dp.title ?? '', body: dp.body ?? '', enabled: dp.enabled ?? true })
+          setDefaultPreview(dp.default_preview ?? { title: '', body: '' })
+        }
       } catch (err: any) { toast.error(err.message || 'Failed to load mobile data') }
       finally { setLoading(false) }
     }
@@ -52,6 +62,19 @@ export default function MobilePage() {
       toast.success('Update gate saved — users on older versions will be prompted')
     } catch (err: any) { toast.error(err.message || 'Failed to save update gate') }
     finally { setSavingGate(false) }
+  }
+
+  async function saveDailyPush() {
+    setSavingDailyPush(true)
+    try {
+      await mobileApi.saveDailyPush(token, dailyPush)
+      // Refresh the preview in case blanking the fields just handed control
+      // back to the default rotation.
+      const fresh = await mobileApi.dailyPush(token)
+      if (fresh) setDefaultPreview(fresh.default_preview ?? defaultPreview)
+      toast.success('Daily push saved')
+    } catch (err: any) { toast.error(err.message || 'Failed to save daily push') }
+    finally { setSavingDailyPush(false) }
   }
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" /></div>
@@ -117,6 +140,61 @@ export default function MobilePage() {
               disabled={savingGate}
               className="rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 transition-colors">
               {savingGate ? 'Saving…' : 'Save update prompt'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily re-engagement push — sent to every user around 8-9 PM IST */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Daily &ldquo;Come Back&rdquo; Push 🔔</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Sent to every user with notifications on, once a day around 8-9 PM IST. Leave title/body blank to use a
+              rotating default line instead. Use <code className="font-mono bg-gray-100 px-1 rounded">{'{count}'}</code> anywhere to insert today&rsquo;s new-signup count.
+            </p>
+          </div>
+          <button
+            onClick={() => setDailyPush((d: any) => ({ ...d, enabled: !d.enabled }))}
+            title={dailyPush.enabled ? 'Enabled — click to pause' : 'Paused — click to enable'}
+            className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${dailyPush.enabled ? 'bg-pink-500' : 'bg-gray-200'}`}>
+            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${dailyPush.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
+        </div>
+        <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</span>
+            <input
+              value={dailyPush.title}
+              onChange={e => setDailyPush((d: any) => ({ ...d, title: e.target.value }))}
+              placeholder={defaultPreview.title || '💕 Feeling bored?'}
+              maxLength={80}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body</span>
+            <input
+              value={dailyPush.body}
+              onChange={e => setDailyPush((d: any) => ({ ...d, body: e.target.value }))}
+              placeholder={defaultPreview.body || 'Your perfect match might be one swipe away...'}
+              maxLength={180}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+            />
+          </label>
+          {(defaultPreview.title || defaultPreview.body) && (
+            <div className="sm:col-span-2 rounded-lg bg-pink-50/60 border border-pink-100 px-3 py-2">
+              <p className="text-[11px] font-semibold text-pink-600 uppercase tracking-wide">Tonight&rsquo;s default (used when the fields above are blank)</p>
+              <p className="text-sm text-gray-700 mt-1"><span className="font-semibold">{defaultPreview.title}</span> — {defaultPreview.body}</p>
+            </div>
+          )}
+          <div className="sm:col-span-2 flex justify-end">
+            <button
+              onClick={saveDailyPush}
+              disabled={savingDailyPush}
+              className="rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 transition-colors">
+              {savingDailyPush ? 'Saving…' : 'Save daily push'}
             </button>
           </div>
         </div>
