@@ -311,16 +311,22 @@ export const mobileApi = {
   saveUpdateGate: (token: string, data: Record<string, any>) =>
     req<any>('/admin/app-version', { method: 'PUT', body: JSON.stringify(data) }, token),
 
-  // Daily "come back" push sent to every user (see routes/console.php
-  // notifications:daily-reengagement). Blank title/body falls back to the
-  // rotating default copy — default_preview shows what that looks like today.
-  dailyPush: (token: string) => req<any>('/admin/daily-push', {}, token),
-  saveDailyPush: (token: string, data: Record<string, any>) =>
-    req<any>('/admin/daily-push', { method: 'PUT', body: JSON.stringify(data) }, token),
-  // Send the saved copy to everyone right now, ignoring the paused switch.
-  // The API refuses a second send within 10 minutes (429).
-  sendDailyPushNow: (token: string) =>
-    req<{ success: boolean; sent: number; message: string }>('/admin/daily-push/send', { method: 'POST' }, token),
+  // Scheduled re-engagement pushes — any number of them, each with its own
+  // time (IST) and copy, sent automatically every day (see routes/console.php
+  // pushes:run-scheduled). If none exist at all, a built-in rotating default
+  // fires at 20:30 IST instead — preview_count is today's live {count} value.
+  scheduledPushes: (token: string) => req<{ pushes: any[]; preview_count: number }>('/admin/scheduled-pushes', {}, token),
+  createScheduledPush: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/scheduled-pushes', { method: 'POST', body: JSON.stringify(data) }, token),
+  updateScheduledPush: (token: string, id: number, data: Record<string, any>) =>
+    req<any>(`/admin/scheduled-pushes/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  deleteScheduledPush: (token: string, id: number) =>
+    req<any>(`/admin/scheduled-pushes/${id}`, { method: 'DELETE' }, token),
+  // Sends that row's saved copy to everyone right now, ignoring its paused
+  // switch. Throttled per-row — the API refuses a second send within 10
+  // minutes of the last one on the SAME row (429).
+  sendScheduledPushNow: (token: string, id: number) =>
+    req<{ success: boolean; sent: number; message: string }>(`/admin/scheduled-pushes/${id}/send-now`, { method: 'POST' }, token),
 }
 
 /* ─── Admin API Keys ──────────────────────────────────────────── */

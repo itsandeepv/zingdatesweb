@@ -5,6 +5,18 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { mobileApi } from '@/lib/api'
 
+type ScheduledPush = {
+  id: number
+  title: string
+  body: string
+  send_time: string
+  enabled: boolean
+  last_sent_date: string | null
+  last_manual_sent_at: string | null
+}
+
+const emptyDraft = { title: '', body: '', send_time: '20:30' }
+
 export default function MobilePage() {
   const token = useAuthStore(s => s.token) ?? ''
   const [loading, setLoading] = useState(true)
@@ -13,18 +25,19 @@ export default function MobilePage() {
   const [gate, setGate] = useState<any>({ latest_version: '', min_required_version: '', update_message: '', play_store_url: '' })
   const [savingGate, setSavingGate] = useState(false)
 
-  // Daily "come back" push sent to every user around 8-9 PM IST. Blank
-  // title/body falls back to a rotating default (defaultPreview shows today's).
-  const [dailyPush, setDailyPush] = useState<any>({ title: '', body: '', enabled: true })
-  const [defaultPreview, setDefaultPreview] = useState<any>({ title: '', body: '' })
-  const [lastManualSend, setLastManualSend] = useState<string | null>(null)
-  const [savingDailyPush, setSavingDailyPush] = useState(false)
-  const [sendingNow, setSendingNow] = useState(false)
+  // Scheduled re-engagement pushes — any number, each with its own time/copy.
+  const [pushes, setPushes] = useState<ScheduledPush[]>([])
+  const [previewCount, setPreviewCount] = useState(0)
+  const [newPush, setNewPush] = useState(emptyDraft)
+  const [creating, setCreating] = useState(false)
+  const [savingId, setSavingId] = useState<number | null>(null)
+  const [sendingId, setSendingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
     // Each card loads on its own: one failing must not blank the other.
     async function load() {
-      const [g, dp] = await Promise.allSettled([mobileApi.updateGate(token), mobileApi.dailyPush(token)])
+      const [g, sp] = await Promise.allSettled([mobileApi.updateGate(token), mobileApi.scheduledPushes(token)])
       if (g.status === 'fulfilled' && g.value) {
         setGate({
           latest_version: g.value.latest_version ?? '',
@@ -35,10 +48,11 @@ export default function MobilePage() {
       } else if (g.status === 'rejected') {
         toast.error(g.reason?.message || 'Failed to load the update prompt settings')
       }
-      if (dp.status === 'fulfilled' && dp.value) {
-        applyDailyPush(dp.value)
-      } else if (dp.status === 'rejected') {
-        toast.error(dp.reason?.message || 'Failed to load the daily push settings')
+      if (sp.status === 'fulfilled' && sp.value) {
+        setPushes(sp.value.pushes ?? [])
+        setPreviewCount(sp.value.preview_count ?? 0)
+      } else if (sp.status === 'rejected') {
+        toast.error(sp.reason?.message || 'Failed to load scheduled pushes')
       }
       setLoading(false)
     }
@@ -46,10 +60,8 @@ export default function MobilePage() {
     else setLoading(false)
   }, [token])
 
-  function applyDailyPush(dp: any) {
-    setDailyPush({ title: dp.title ?? '', body: dp.body ?? '', enabled: dp.enabled ?? true })
-    setDefaultPreview(dp.default_preview ?? { title: '', body: '' })
-    setLastManualSend(dp.last_manual_send_at ?? null)
+  function patchRow(id: number, patch: Partial<ScheduledPush>) {
+    setPushes(rows => rows.map(r => r.id === id ? { ...r, ...patch } : r))
   }
 
   async function saveGate() {
@@ -61,35 +73,58 @@ export default function MobilePage() {
     finally { setSavingGate(false) }
   }
 
-  async function saveDailyPush() {
-    setSavingDailyPush(true)
+  async function createPush() {
+    if (!newPush.title.trim() || !newPush.body.trim()) { toast.error('Title and body are required'); return }
+    setCreating(true)
     try {
-      await mobileApi.saveDailyPush(token, dailyPush)
-      // Refresh the preview in case blanking the fields just handed control
-      // back to the default rotation.
-      const fresh = await mobileApi.dailyPush(token)
-      if (fresh) applyDailyPush(fresh)
-      toast.success('Daily push saved')
-    } catch (err: any) { toast.error(err.message || 'Failed to save daily push') }
-    finally { setSavingDailyPush(false) }
+      const res = await mobileApi.createScheduledPush(token, newPush)
+      setPushes(rows => [...rows, res.push].sort((a, b) => a.send_time.localeCompare(b.send_time)))
+      setNewPush(emptyDraft)
+      toast.success('Schedule added')
+    } catch (err: any) { toast.error(err.message || 'Failed to add schedule') }
+    finally { setCreating(false) }
   }
 
-  // Manual send: this reaches every user with the app installed, so it saves
-  // the fields first (what you see is what goes out) and asks before sending.
-  async function sendNow() {
-    const title = dailyPush.title.trim() || defaultPreview.title
-    const body  = dailyPush.body.trim()  || defaultPreview.body
-    if (!window.confirm(`Send this push to every user right now?\n\n${title}\n${body}`)) return
-    setSendingNow(true)
+  async function savePush(row: ScheduledPush) {
+    setSavingId(row.id)
     try {
-      await mobileApi.saveDailyPush(token, dailyPush)
-      const res = await mobileApi.sendDailyPushNow(token)
-      toast.success(`Push sent to ${res.sent.toLocaleString()} users`)
-      const fresh = await mobileApi.dailyPush(token)
-      if (fresh) applyDailyPush(fresh)
-    } catch (err: any) { toast.error(err.message || 'Failed to send the push') }
-    finally { setSendingNow(false) }
+      await mobileApi.updateScheduledPush(token, row.id, {
+        title: row.title, body: row.body, send_time: row.send_time, enabled: row.enabled,
+      })
+      toast.success('Saved')
+    } catch (err: any) { toast.error(err.message || 'Failed to save') }
+    finally { setSavingId(null) }
   }
+
+  async function deletePush(id: number) {
+    if (!window.confirm('Delete this schedule? This cannot be undone.')) return
+    setDeletingId(id)
+    try {
+      await mobileApi.deleteScheduledPush(token, id)
+      setPushes(rows => rows.filter(r => r.id !== id))
+      toast.success('Deleted')
+    } catch (err: any) { toast.error(err.message || 'Failed to delete') }
+    finally { setDeletingId(null) }
+  }
+
+  // Reaches every user with the app installed, so it saves first (what you
+  // see is what goes out) and asks before sending.
+  async function sendNow(row: ScheduledPush) {
+    if (!window.confirm(`Send this push to every user right now?\n\n${row.title}\n${row.body}`)) return
+    setSendingId(row.id)
+    try {
+      await mobileApi.updateScheduledPush(token, row.id, {
+        title: row.title, body: row.body, send_time: row.send_time, enabled: row.enabled,
+      })
+      const res = await mobileApi.sendScheduledPushNow(token, row.id)
+      toast.success(`Push sent to ${res.sent.toLocaleString()} users`)
+      const fresh = await mobileApi.scheduledPushes(token)
+      setPushes(fresh.pushes ?? [])
+    } catch (err: any) { toast.error(err.message || 'Failed to send the push') }
+    finally { setSendingId(null) }
+  }
+
+  const fieldClass = "mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" /></div>
 
@@ -97,7 +132,7 @@ export default function MobilePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Mobile App</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Update prompt and the daily re-engagement push</p>
+        <p className="text-sm text-gray-500 mt-0.5">Update prompt and scheduled re-engagement pushes</p>
       </div>
 
       {/* Update gate — what the mobile app checks on launch to prompt an update */}
@@ -116,7 +151,7 @@ export default function MobilePage() {
               value={gate.latest_version}
               onChange={e => setGate((g: any) => ({ ...g, latest_version: e.target.value }))}
               placeholder="e.g. 1.0.5"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              className={fieldClass + ' font-mono'}
             />
             <span className="text-[11px] text-gray-400">Prompts an optional update on older builds.</span>
           </label>
@@ -126,9 +161,9 @@ export default function MobilePage() {
               value={gate.min_required_version}
               onChange={e => setGate((g: any) => ({ ...g, min_required_version: e.target.value }))}
               placeholder="e.g. 1.0.0"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              className={fieldClass + ' font-mono'}
             />
-            <span className="text-[11px] text-gray-400">Below this, the update is forced (can't be dismissed).</span>
+            <span className="text-[11px] text-gray-400">Below this, the update is forced (can&apos;t be dismissed).</span>
           </label>
           <label className="block sm:col-span-2">
             <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Update message</span>
@@ -136,7 +171,7 @@ export default function MobilePage() {
               value={gate.update_message}
               onChange={e => setGate((g: any) => ({ ...g, update_message: e.target.value }))}
               placeholder="A new version is available with exciting features!"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              className={fieldClass}
             />
           </label>
           <label className="block sm:col-span-2">
@@ -145,7 +180,7 @@ export default function MobilePage() {
               value={gate.play_store_url}
               onChange={e => setGate((g: any) => ({ ...g, play_store_url: e.target.value }))}
               placeholder="https://play.google.com/store/apps/details?id=com.zingdates.app"
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              className={fieldClass}
             />
           </label>
           <div className="sm:col-span-2 flex justify-end">
@@ -159,75 +194,137 @@ export default function MobilePage() {
         </div>
       </div>
 
-      {/* Daily re-engagement push — sent to every user around 8-9 PM IST */}
+      {/* Scheduled re-engagement pushes — any number, each with its own time/copy */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">Daily &ldquo;Come Back&rdquo; Push 🔔</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Sent to every user with notifications on, once a day around 8-9 PM IST. Leave title/body blank to use a
-              rotating default line instead. Use <code className="font-mono bg-gray-100 px-1 rounded">{'{count}'}</code> anywhere to insert today&rsquo;s new-signup count.
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-base font-semibold text-gray-900">Scheduled Pushes 🔔</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Each schedule fires every day at its own time (IST), to every user with notifications on. Add as many as
+            you like. Use <code className="font-mono bg-gray-100 px-1 rounded">{'{count}'}</code> anywhere in a title
+            or body to insert today&rsquo;s new-signup count (currently <strong>{previewCount}</strong>).
+          </p>
+        </div>
+
+        {pushes.length === 0 && (
+          <div className="mx-6 mt-5 rounded-lg bg-pink-50/60 border border-pink-100 px-3 py-2">
+            <p className="text-sm text-gray-700">
+              No schedules yet — a built-in rotating message goes out automatically at <strong>8:30 PM IST</strong> so
+              the feature isn&rsquo;t silent. Add a schedule below and it takes over.
             </p>
           </div>
-          <button
-            onClick={() => setDailyPush((d: any) => ({ ...d, enabled: !d.enabled }))}
-            title={dailyPush.enabled ? 'Enabled — click to pause' : 'Paused — click to enable'}
-            className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${dailyPush.enabled ? 'bg-pink-500' : 'bg-gray-200'}`}>
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${dailyPush.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-          </button>
+        )}
+
+        {/* Existing schedules */}
+        <div className="divide-y divide-gray-50">
+          {pushes.map(row => (
+            <div key={row.id} className="px-6 py-5 grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+              <label className="block sm:col-span-4">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</span>
+                <input
+                  value={row.title}
+                  onChange={e => patchRow(row.id, { title: e.target.value })}
+                  maxLength={80}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block sm:col-span-4">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body</span>
+                <input
+                  value={row.body}
+                  onChange={e => patchRow(row.id, { body: e.target.value })}
+                  maxLength={180}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Time (IST)</span>
+                <input
+                  type="time"
+                  value={row.send_time}
+                  onChange={e => patchRow(row.id, { send_time: e.target.value })}
+                  className={fieldClass}
+                />
+              </label>
+              <div className="sm:col-span-2 flex flex-col items-start sm:items-end gap-2 sm:pt-5">
+                <button
+                  onClick={() => patchRow(row.id, { enabled: !row.enabled })}
+                  title={row.enabled ? 'Enabled — click to pause' : 'Paused — click to enable'}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${row.enabled ? 'bg-pink-500' : 'bg-gray-200'}`}>
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${row.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+
+              <div className="sm:col-span-12 flex items-center justify-between gap-3 flex-wrap -mt-1">
+                <p className="text-[11px] text-gray-400">
+                  {row.last_sent_date ? `Last auto-sent ${row.last_sent_date}` : 'Not sent automatically yet'}
+                  {row.last_manual_sent_at && ` · Last manual send ${new Date(row.last_manual_sent_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`}
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => deletePush(row.id)}
+                    disabled={deletingId === row.id}
+                    className="rounded-lg border border-red-200 bg-white hover:bg-red-50 disabled:opacity-50 text-red-600 text-sm font-semibold px-4 py-2 transition-colors">
+                    {deletingId === row.id ? 'Deleting…' : 'Delete'}
+                  </button>
+                  <button
+                    onClick={() => sendNow(row)}
+                    disabled={sendingId === row.id || savingId === row.id}
+                    className="rounded-lg border border-pink-200 bg-white hover:bg-pink-50 disabled:opacity-50 text-pink-600 text-sm font-semibold px-4 py-2 transition-colors">
+                    {sendingId === row.id ? 'Sending…' : 'Send now'}
+                  </button>
+                  <button
+                    onClick={() => savePush(row)}
+                    disabled={savingId === row.id || sendingId === row.id}
+                    className="rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 transition-colors">
+                    {savingId === row.id ? 'Saving…' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-        <div className="px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="block sm:col-span-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Title</span>
+
+        {/* Add new schedule */}
+        <div className="px-6 py-5 bg-gray-50/60 rounded-b-2xl grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+          <label className="block sm:col-span-4">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">New title</span>
             <input
-              value={dailyPush.title}
-              onChange={e => setDailyPush((d: any) => ({ ...d, title: e.target.value }))}
-              placeholder={defaultPreview.title || '💕 Feeling bored?'}
+              value={newPush.title}
+              onChange={e => setNewPush(d => ({ ...d, title: e.target.value }))}
+              placeholder="💕 Feeling bored?"
               maxLength={80}
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              className={fieldClass}
+            />
+          </label>
+          <label className="block sm:col-span-4">
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">New body</span>
+            <input
+              value={newPush.body}
+              onChange={e => setNewPush(d => ({ ...d, body: e.target.value }))}
+              placeholder="Your perfect match might be one swipe away..."
+              maxLength={180}
+              className={fieldClass}
             />
           </label>
           <label className="block sm:col-span-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Body</span>
+            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Time (IST)</span>
             <input
-              value={dailyPush.body}
-              onChange={e => setDailyPush((d: any) => ({ ...d, body: e.target.value }))}
-              placeholder={defaultPreview.body || 'Your perfect match might be one swipe away...'}
-              maxLength={180}
-              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-pink-400 focus:ring-1 focus:ring-pink-400 outline-none"
+              type="time"
+              value={newPush.send_time}
+              onChange={e => setNewPush(d => ({ ...d, send_time: e.target.value }))}
+              className={fieldClass}
             />
           </label>
-          {(defaultPreview.title || defaultPreview.body) && (
-            <div className="sm:col-span-2 rounded-lg bg-pink-50/60 border border-pink-100 px-3 py-2">
-              <p className="text-[11px] font-semibold text-pink-600 uppercase tracking-wide">Tonight&rsquo;s default (used when the fields above are blank)</p>
-              <p className="text-sm text-gray-700 mt-1"><span className="font-semibold">{defaultPreview.title}</span> — {defaultPreview.body}</p>
-            </div>
-          )}
-          <div className="sm:col-span-2 flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[11px] text-gray-400">
-              {lastManualSend
-                ? `Last sent manually ${new Date(lastManualSend).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`
-                : 'Never sent manually'}
-              {' · '}Send now goes to everyone immediately, even while paused.
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={sendNow}
-                disabled={sendingNow || savingDailyPush}
-                className="rounded-lg border border-pink-200 bg-white hover:bg-pink-50 disabled:opacity-50 text-pink-600 text-sm font-semibold px-5 py-2.5 transition-colors">
-                {sendingNow ? 'Sending…' : 'Send now'}
-              </button>
-              <button
-                onClick={saveDailyPush}
-                disabled={savingDailyPush || sendingNow}
-                className="rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 transition-colors">
-                {savingDailyPush ? 'Saving…' : 'Save daily push'}
-              </button>
-            </div>
+          <div className="sm:col-span-2 flex sm:justify-end sm:pt-5">
+            <button
+              onClick={createPush}
+              disabled={creating}
+              className="w-full sm:w-auto rounded-lg bg-pink-500 hover:bg-pink-600 disabled:opacity-50 text-white text-sm font-semibold px-5 py-2.5 transition-colors">
+              {creating ? 'Adding…' : '+ Add schedule'}
+            </button>
           </div>
         </div>
       </div>
-
     </div>
   )
 }

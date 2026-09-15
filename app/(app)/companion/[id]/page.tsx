@@ -326,7 +326,7 @@ export default function CompanionProfilePage() {
           <span className="text-[10px] text-gray-400 uppercase">from / 8 hrs</span>
           <p className="text-xl font-extrabold text-gray-900">₹{Math.round(c.price_per_hour || 0)} <span className="text-sm text-purple-600">/hour</span></p>
         </div>
-        <button onClick={() => setShowBooking(true)} className="gradient-brand text-white font-bold px-8 py-3 rounded-xl shadow-brand hover:opacity-90">Request Date</button>
+        <button onClick={() => setShowBooking(true)} className="gradient-brand text-white font-bold px-8 py-3 rounded-xl shadow-brand hover:opacity-90">Request a Date</button>
       </div>
 
       {showBooking && (

@@ -23,7 +23,7 @@ function Stars({ value }: { value: number }) {
  *
  * Two deliberate differences from the in-app version:
  *  • no rate is shown (rates are for people who have signed in to book), and
- *  • the whole card, Book included, goes to sign-in carrying `?next=`, so after
+ *  • the whole card, Request a Date included, goes to sign-in carrying `?next=`, so after
  *    logging in the visitor lands on THIS companion rather than the feed.
  */
 export default function CompanionCard({
@@ -115,7 +115,7 @@ export default function CompanionCard({
             <span className="text-xs text-gray-400">Sign in to see the rate</span>
           )}
           <span className="gradient-brand text-white text-sm font-semibold px-4 py-2 rounded-xl shadow-brand group-hover:opacity-90 flex-shrink-0">
-            Book
+            Request a Date
           </span>
         </div>
       </div>
