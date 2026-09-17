@@ -19,7 +19,13 @@ export default function SettingsPage() {
     max_age: '99',
     maintenance_mode: false,
     registration_enabled: true,
+    // Test numbers: sign in with a fixed code and no SMS (App Store / Play
+    // reviewers, QA phones). Only numbers on the list are affected.
+    test_otp_enabled: false,
+    test_otp_code: '123456',
+    test_phone_numbers: [] as string[],
   })
+  const [newNumber, setNewNumber] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -27,7 +33,8 @@ export default function SettingsPage() {
         const res = await settingsApi.get(token)
         const s = res.data ?? res ?? {}
         // Numbers come back as numbers; the inputs hold strings.
-        setForm(f => ({ ...f, ...s, max_photos: String(s.max_photos ?? f.max_photos), min_age: String(s.min_age ?? f.min_age), max_age: String(s.max_age ?? f.max_age) }))
+        setForm(f => ({ ...f, ...s, max_photos: String(s.max_photos ?? f.max_photos), min_age: String(s.min_age ?? f.min_age), max_age: String(s.max_age ?? f.max_age),
+          test_otp_code: String(s.test_otp_code ?? f.test_otp_code), test_phone_numbers: Array.isArray(s.test_phone_numbers) ? s.test_phone_numbers : [] }))
       } catch (err: any) {
         toast.error(err.message || 'Failed to load settings')
       } finally {
@@ -38,8 +45,21 @@ export default function SettingsPage() {
     else setLoading(false)
   }, [token])
 
-  function set(key: string, value: string | boolean) {
+  function set(key: string, value: string | boolean | string[]) {
     setForm(f => ({ ...f, [key]: value }))
+  }
+
+  function addNumber() {
+    const digits = newNumber.replace(/\D/g, '')
+    if (digits.length < 10) { toast.error('Enter a 10-digit mobile number.'); return }
+    const normalised = '+91' + digits.slice(-10)
+    if (form.test_phone_numbers.includes(normalised)) { toast.error('That number is already on the list.'); return }
+    set('test_phone_numbers', [...form.test_phone_numbers, normalised])
+    setNewNumber('')
+  }
+
+  function removeNumber(n: string) {
+    set('test_phone_numbers', form.test_phone_numbers.filter(x => x !== n))
   }
 
   async function handleSave(e: { preventDefault(): void }) {
@@ -48,6 +68,8 @@ export default function SettingsPage() {
     if (minAge < 18) { toast.error('Minimum age cannot go below 18.'); return }
     if (maxAge < minAge) { toast.error('Maximum age must be at least the minimum age.'); return }
     if (maxPhotos < 1 || maxPhotos > 20) { toast.error('Max photos must be between 1 and 20.'); return }
+    if (!/^[0-9]{4,8}$/.test(form.test_otp_code)) { toast.error('Test OTP must be 4 to 8 digits.'); return }
+    if (form.test_otp_enabled && form.test_phone_numbers.length === 0) { toast.error('Add at least one test number, or turn test OTP off.'); return }
     setSaving(true)
     try {
       await settingsApi.update(token, { ...form, max_photos: maxPhotos, min_age: minAge, max_age: maxAge })
@@ -130,6 +152,65 @@ export default function SettingsPage() {
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Test Numbers</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            For App Store / Play reviewers and QA phones. A number on this list signs in with the fixed test OTP below and no SMS is sent.
+            Every other number still gets a real OTP.
+          </p>
+
+          <div className="flex items-center justify-between py-3 border-b border-gray-50">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Test OTP Enabled</p>
+              <p className="text-xs text-gray-500 mt-0.5">Off: the list is kept but every number gets a real OTP.</p>
+            </div>
+            <button type="button" onClick={() => set('test_otp_enabled', !form.test_otp_enabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.test_otp_enabled ? 'bg-pink-500' : 'bg-gray-200'}`}>
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${form.test_otp_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Test OTP</label>
+              <input type="text" inputMode="numeric" value={form.test_otp_code} onChange={e => set('test_otp_code', e.target.value.replace(/\D/g, '').slice(0, 8))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              <p className="text-[11px] text-gray-400 mt-1">Use 6 digits — the app&apos;s OTP screen has six boxes.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Add Test Number</label>
+              <div className="flex gap-2">
+                <input type="tel" value={newNumber} onChange={e => setNewNumber(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addNumber() } }}
+                  placeholder="10-digit mobile number"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                <button type="button" onClick={addNumber}
+                  className="px-4 py-2.5 rounded-xl text-sm font-semibold text-pink-600 bg-pink-50 hover:bg-pink-100">
+                  Add
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">Saved as +91 followed by the last 10 digits.</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {form.test_phone_numbers.length === 0 ? (
+              <p className="text-xs text-gray-400">No test numbers yet.</p>
+            ) : (
+              <ul className="divide-y divide-gray-50 border border-gray-100 rounded-xl">
+                {form.test_phone_numbers.map(n => (
+                  <li key={n} className="flex items-center justify-between px-3 py-2">
+                    <span className="text-sm font-mono text-gray-800">{n}</span>
+                    <button type="button" onClick={() => removeNumber(n)} className="text-xs font-medium text-red-500 hover:text-red-600">
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
