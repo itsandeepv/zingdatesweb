@@ -50,6 +50,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/users',          label: 'Users',          icon: 'users' },
     { href: '/admin/companions',     label: 'Companions',     icon: 'heart' },
     { href: '/admin/subscriptions',  label: 'Subscriptions',  icon: 'card' },
+    { href: '/admin/plans',          label: 'Plans',          icon: 'ticket' },
     { href: '/admin/payments',       label: 'Payments',       icon: 'dollar' },
     { href: '/admin/events',         label: 'Events',         icon: 'calendar', soon: true },
     { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
