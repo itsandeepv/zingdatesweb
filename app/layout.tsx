@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { ToasterProvider } from '@/components/ToasterProvider'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
+// Editorial serif for the hero headline only; everything else stays Inter.
+const playfair = Playfair_Display({ subsets: ['latin'], weight: ['700', '800'], variable: '--font-playfair', display: 'swap' })
 
 export const viewport: Viewport = { themeColor: '#E91E8C', width: 'device-width', initialScale: 1 }
 
@@ -51,7 +53,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
       <body>
         {children}
         <ToasterProvider />

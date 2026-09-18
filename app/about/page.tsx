@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import { PhoneFrame } from '@/components/AppScreens'
@@ -61,31 +62,29 @@ const VALUES = [
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar overlay />
 
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section
-        className="relative overflow-hidden pt-28 pb-24"
-        style={{ background: 'linear-gradient(160deg,#fff5f8 0%,#fdf4ff 50%,#fff 100%)' }}
-      >
-        {/* Background blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-32 -right-32 w-80 h-80 rounded-full opacity-20" style={{ background: 'radial-gradient(circle,#E91E8C,transparent 70%)' }} />
-          <div className="absolute bottom-0 -left-24 w-64 h-64 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#9C27B0,transparent 70%)' }} />
+      <section className="relative overflow-hidden min-h-[85svh] flex items-center bg-[#160a2a]">
+        {/* Photo background with a dark wash so the copy stays readable over any part of the image. */}
+        <div className="absolute inset-0">
+          <Image src="/about-bg.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.78) 0%, rgba(12,7,32,0.5) 40%, rgba(12,7,32,0.6) 75%, rgba(12,7,32,0.92) 100%)' }} />
+          <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.35), transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-4xl mx-auto px-4 sm:px-6 text-center">
-          <div className="inline-flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-full px-4 py-2 mb-6">
-            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse-ring" />
-            <span className="text-sm font-medium text-pink-600">Our Story</span>
+        <div className="relative w-full max-w-4xl mx-auto px-4 sm:px-6 pt-28 pb-24 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
+            <span className="w-2 h-2 rounded-full bg-pink-400 animate-pulse-ring" />
+            <span className="text-sm font-medium text-white/90">Our Story</span>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 leading-tight mb-6">
+          <h1 className="text-5xl sm:text-6xl font-bold text-white leading-tight mb-6">
             We believe in{' '}
-            <span className="gradient-brand-text">real connections</span>
+            <span className="gradient-brand-text-anim">real connections</span>
           </h1>
 
-          <p className="text-xl text-gray-500 leading-relaxed max-w-2xl mx-auto mb-10">
+          <p className="text-xl text-white/80 leading-relaxed max-w-2xl mx-auto mb-10">
             zingDates was built on a simple idea: technology should bring people closer together, not turn them into a product to be swiped away. We are a team of engineers, designers, and romantics on a mission to make meaningful human connection easier.
           </p>
 
@@ -98,7 +97,7 @@ export default function AboutPage() {
             </Link>
             <a
               href="#our-story"
-              className="flex items-center justify-center gap-2 text-gray-700 font-semibold px-8 py-4 rounded-2xl border-2 border-gray-200 hover:border-pink-200 hover:bg-pink-50 transition-all"
+              className="flex items-center justify-center gap-2 text-white font-semibold px-8 py-4 rounded-2xl border-2 border-white/30 hover:border-white/60 hover:bg-white/10 backdrop-blur-sm transition-all"
             >
               Read Our Story
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>

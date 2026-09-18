@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
@@ -46,18 +47,25 @@ export default async function BlogIndexPage({
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar overlay />
 
       {/* Header */}
-      <header className="pt-28 pb-12" style={{ background: 'linear-gradient(160deg,#fff5f8 0%,#fdf4ff 60%,#fff 100%)' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <span className="inline-block text-sm font-semibold px-4 py-1.5 rounded-full gradient-brand-soft" style={{ color: '#E91E8C' }}>
+      <header className="relative overflow-hidden min-h-[60svh] flex items-center bg-[#160a2a]">
+        {/* Photo background with a dark wash so the copy reads over any part of the image. */}
+        <div className="absolute inset-0">
+          <Image src="/all-blogs.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.78) 0%, rgba(12,7,32,0.5) 40%, rgba(12,7,32,0.6) 75%, rgba(12,7,32,0.92) 100%)' }} />
+          <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.35), transparent 70%)' }} />
+        </div>
+
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-14 text-center">
+          <span className="inline-block text-sm font-medium px-4 py-1.5 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white/90">
             The zingDates Blog
           </span>
-          <h1 className="mt-4 text-4xl sm:text-5xl font-bold text-gray-900">
-            Stories, tips &amp; <span className="gradient-brand-text">real connections</span>
+          <h1 className="mt-4 text-4xl sm:text-5xl lg:text-6xl font-bold text-white">
+            Stories, tips &amp; <span className="gradient-brand-text-anim">real connections</span>
           </h1>
-          <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="mt-4 text-lg text-white/80 max-w-2xl mx-auto">
             Advice, guides, and inspiration to help you meet your future partner.
           </p>
 

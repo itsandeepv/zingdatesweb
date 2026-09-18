@@ -12,15 +12,18 @@ import { publicCompanionApi } from '@/lib/api'
  * page reads worse than no section at all.
  */
 export default async function CompanionsSection() {
-  // Everyone who is registered and approved, up to the API's page ceiling.
-  // Past that the "Browse all" link takes over — a home page that renders a
-  // hundred cards is slower to load than the page built for browsing them.
-  const [companions, categories] = await Promise.all([
-    publicCompanionApi.list({ limit: 24 }),
+  // One row only — a teaser, not the directory. Fetch a few extra so the
+  // "See more" button knows whether there is anything more to see.
+  const ROW = 4
+  const [all, categories] = await Promise.all([
+    publicCompanionApi.list({ limit: ROW * 3 }),
     publicCompanionApi.categories(),
   ])
 
-  if (companions.length === 0) return null
+  if (all.length === 0) return null
+
+  const companions = all.slice(0, ROW)
+  const hasMore = all.length > ROW
 
   const labels = Object.fromEntries(categories.map(c => [c.key, c.label]))
 
@@ -44,13 +47,24 @@ export default async function CompanionsSection() {
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {companions.map((c, i) => (
-            // Stagger only across the first row — a long list should not make
-            // the last card wait two seconds to appear.
-            <ScrollReveal key={c.id} delay={(i % 4) * 90} direction="up" className="h-full">
+            <ScrollReveal key={c.id} delay={i * 90} direction="up" className="h-full">
               <CompanionCard c={c} categoryLabels={labels} />
             </ScrollReveal>
           ))}
         </div>
+
+        {/* The rest live behind sign-in: the full list is for people who can actually book. */}
+        {hasMore && (
+          <ScrollReveal direction="up" delay={120} className="text-center mt-10">
+            <Link
+              href="/login?next=%2Fcompanion"
+              className="inline-flex items-center gap-2 gradient-brand text-white font-semibold px-8 py-3.5 rounded-2xl shadow-brand hover:opacity-90 hover:scale-105 transition-all duration-200">
+              See more companions
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
+            </Link>
+            <p className="text-xs text-gray-400 mt-3">Sign in with your number to see everyone and send a request.</p>
+          </ScrollReveal>
+        )}
 
         {/* ── Booking needs an account ──────────────────── */}
         <ScrollReveal direction="up" delay={150}>

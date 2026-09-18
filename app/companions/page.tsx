@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
@@ -49,29 +50,31 @@ export default async function CompanionsPage({
 
   return (
     <div className="min-h-screen bg-white">
-      <Navbar />
+      <Navbar overlay />
 
       {/* ── Hero ───────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-28 pb-16" style={{ background: 'linear-gradient(160deg,#fff5f8 0%,#fdf4ff 50%,#fff 100%)' }}>
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="animate-blob absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle,#E91E8C,transparent 70%)' }} />
-          <div className="animate-blob2 absolute top-20 -left-20 w-80 h-80 rounded-full opacity-15" style={{ background: 'radial-gradient(circle,#9C27B0,transparent 70%)' }} />
+      <section className="relative overflow-hidden min-h-[70svh] flex items-center bg-[#160a2a]">
+        {/* Photo background with a dark wash so the copy reads over any part of the image. */}
+        <div className="absolute inset-0">
+          <Image src="/comp-bg.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.78) 0%, rgba(12,7,32,0.5) 40%, rgba(12,7,32,0.6) 75%, rgba(12,7,32,0.92) 100%)' }} />
+          <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.35), transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <div className="inline-flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-full px-4 py-2 mb-6">
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-60" />
-              <span className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#E91E8C' }} />
+              <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-70" />
+              <span className="relative w-2.5 h-2.5 rounded-full bg-pink-400" />
             </span>
-            <span className="text-sm font-medium" style={{ color: '#E91E8C' }}>Verified companions</span>
+            <span className="text-sm font-medium text-white/90">Verified companions</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 leading-tight max-w-3xl mx-auto">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight max-w-3xl mx-auto">
             Book someone to{' '}
             <span className="gradient-brand-text-anim">spend time with</span>
           </h1>
-          <p className="text-lg text-gray-500 leading-relaxed max-w-2xl mx-auto mt-5">
+          <p className="text-lg text-white/80 leading-relaxed max-w-2xl mx-auto mt-5">
             Not a match — a booking. Pick a verified companion, choose how long, and spend
             the hour on a coffee chat, a game, study help, or just company. You see the rate
             before you book, and nothing is charged until they accept.

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { callApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
 import NoPlanModal from '@/components/NoPlanModal'
+import DownloadAppModal from '@/components/DownloadAppModal'
 
 function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const px = size === 'lg' ? 44 : size === 'md' ? 36 : 32
@@ -318,6 +319,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── No-plan upsell modal ─────────────────────────── */}
       {pathname !== '/plans' && <NoPlanModal />}
+      <DownloadAppModal />
 
       {/* ── Incoming call modal ──────────────────────────── */}
       {incomingCall && (

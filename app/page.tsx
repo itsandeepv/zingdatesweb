@@ -1,11 +1,13 @@
 import Link from 'next/link'
+import Image from 'next/image'
+import HeroVideo from '@/components/HeroVideo'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import ScrollReveal from '@/components/ScrollReveal'
 import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import CompanionsSection from '@/components/CompanionsSection'
-import { screen, POSTERS } from '@/lib/screens'
+import { screen } from '@/lib/screens'
 import { PLAY_STORE_URL } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
@@ -48,6 +50,14 @@ const PLANS = [
   { name: 'VIP Plan',         price: '\u20b9199', duration: '30 days', features: 'Chat, likes, search + audio & video calls', featured: true  },
 ]
 
+// Hero background. Drop your own clip at public/hero-bg.mp4 (landscape,
+// 10–20 s, muted, ideally under 4 MB) and point HERO_VIDEO at it; the poster
+// is what paints before the video is ready and for reduced-motion visitors.
+const HERO_VIDEO  = '/hero-bg.mp4'
+const HERO_POSTER = '/og-image.jpg'
+// Second clip behind the "Take a look inside" section. Same rules as above.
+const SCREENS_VIDEO = '/hero2.mp4'
+
 const HIGHLIGHTS = [
   { v: '100%', l: 'Free to join' },
   { v: 'HD',   l: 'Voice & video' },
@@ -61,97 +71,75 @@ export default function LandingPage() {
       <JsonLd data={structuredData} />
 
       {/* ── Navbar ─────────────────────────────────────── */}
-      <Navbar />
+      <Navbar overlay />
 
       {/* ── Hero ───────────────────────────────────────── */}
-      <section className="relative overflow-hidden pt-24 pb-20" style={{ background: 'linear-gradient(160deg,#fff5f8 0%,#fdf4ff 50%,#fff 100%)' }}>
-        {/* Animated ambient blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="animate-blob absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle,#E91E8C,transparent 70%)' }} />
-          <div className="animate-blob2 absolute top-20 -left-20 w-80 h-80 rounded-full opacity-15" style={{ background: 'radial-gradient(circle,#9C27B0,transparent 70%)' }} />
-          <div className="animate-blob absolute bottom-10 right-1/3 w-56 h-56 rounded-full opacity-10" style={{ background: 'radial-gradient(circle,#E91E8C,transparent 70%)', animationDelay: '4s' }} />
+      <section className="relative min-h-[100svh] flex items-center overflow-hidden bg-[#160a2a]">
+        {/* Background: poster paints instantly, the video fades in over it. */}
+        <div className="absolute inset-0">
+          {/* Blurred so the poster reads as colour and mood, never as competing artwork under the headline. */}
+          <Image src={HERO_POSTER} alt="" fill priority sizes="100vw" className="object-cover blur-md scale-110" />
+          <HeroVideo src={HERO_VIDEO} poster={HERO_POSTER} />
+          {/* Darken for legibility: stronger at the top (under the nav) and the bottom (under the CTA). */}
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.78) 0%, rgba(12,7,32,0.55) 40%, rgba(12,7,32,0.65) 75%, rgba(12,7,32,0.92) 100%)' }} />
+          <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.35), transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            {/* Left */}
-            <div className="space-y-8">
-              <div className="hero-badge inline-flex items-center gap-2 bg-pink-50 border border-pink-100 rounded-full px-4 py-2">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-60" />
-                  <span className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#E91E8C' }} />
-                </span>
-                <span className="text-sm font-medium" style={{ color: '#E91E8C' }}>Real people, real connections</span>
+        <div className="relative w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-24 text-center">
+          <div className="hero-badge inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-sm rounded-full px-4 py-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-pink-400 opacity-70" />
+              <span className="relative w-2.5 h-2.5 rounded-full bg-pink-400" />
+            </span>
+            <span className="text-sm font-medium text-white/90">Real people, real connections</span>
+          </div>
+
+          <h1 className="hero-h1 text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-tight tracking-tight mt-7">
+            The best place to meet your{' '}
+            <span className="gradient-brand-text-anim">future partner</span>
+          </h1>
+
+          <p className="hero-p text-lg sm:text-xl text-white/80 leading-relaxed max-w-2xl mx-auto mt-6">
+            Create connections with people near you. Find meaningful relationships, attend local events, and build a life worth sharing.
+          </p>
+
+          <div className="hero-cta mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link href="/register"
+              className="btn-glow gradient-brand text-white text-base font-semibold px-8 py-4 rounded-2xl shadow-brand-lg hover:opacity-90 hover:scale-105 transition-all duration-200 text-center">
+              Get Started Free
+            </Link>
+            <a href={PLAY_STORE_URL} target="_blank" rel="noopener" aria-label="Get ZingDates on Google Play"
+              className="flex items-center gap-3 bg-white text-gray-900 pl-4 pr-6 py-3 rounded-2xl hover:scale-105 transition-transform duration-200 shadow-lg">
+              <svg className="w-7 h-7 flex-shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M3.6 2.5 13.4 12 3.6 21.5c-.2-.2-.4-.6-.4-1V3.5c0-.4.2-.8.4-1z" />
+                <path fill="#34A853" d="m13.4 12 3.1-3.1 3.6 2.1c1 .6 1 1.5 0 2.1l-3.6 2.1L13.4 12z" />
+                <path fill="#FBBC04" d="M3.6 2.5c.3-.3.8-.4 1.3-.1l11.6 6.5-3.1 3.1L3.6 2.5z" />
+                <path fill="#EA4335" d="M3.6 21.5 13.4 12l3.1 3.1L4.9 21.6c-.5.3-1 .2-1.3-.1z" />
+              </svg>
+              <span className="text-left leading-tight">
+                <span className="block text-[11px] text-gray-500">Download on</span>
+                <span className="block text-base font-bold">Google Play</span>
+              </span>
+            </a>
+          </div>
+
+          <div className="hero-stats mt-14 grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-3xl mx-auto">
+            {HIGHLIGHTS.map(h => (
+              <div key={h.l}>
+                <p className="text-2xl sm:text-3xl font-bold text-white">{h.v}</p>
+                <p className="text-xs sm:text-sm text-white/60 mt-1">{h.l}</p>
               </div>
-
-              <h1 className="hero-h1 text-5xl sm:text-6xl font-bold text-gray-900 leading-tight">
-                The best place to meet your{' '}
-                <span className="gradient-brand-text-anim">future partner</span>
-              </h1>
-
-              <p className="hero-p text-xl text-gray-500 leading-relaxed max-w-lg">
-                Create connections with people near you. Find meaningful relationships, attend local events, and build a life worth sharing.
-              </p>
-
-              <div className="hero-cta flex flex-col sm:flex-row gap-4">
-                <Link href="/register"
-                  className="btn-glow gradient-brand text-white text-base font-semibold px-8 py-4 rounded-2xl shadow-brand-lg hover:opacity-90 hover:scale-105 transition-all duration-200 text-center"
-                >
-                  Get Started Free
-                </Link>
-                <a href="#how-it-works"
-                  className="flex items-center justify-center gap-2 text-gray-700 font-semibold px-8 py-4 rounded-2xl border-2 border-gray-200 hover:border-pink-300 hover:bg-pink-50 hover:scale-105 transition-all duration-200 text-base"
-                >
-                  <svg className="w-5 h-5 animate-heartbeat" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                  </svg>
-                  How It Works
-                </a>
-              </div>
-
-              <div className="hero-stats grid grid-cols-2 sm:grid-cols-4 gap-6 pt-4">
-                {HIGHLIGHTS.map(h => (
-                  <div key={h.l} className="group">
-                    <p className="text-2xl font-bold gradient-brand-text group-hover:scale-110 transition-transform duration-200 inline-block">
-                      {h.v}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">{h.l}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Right: real app screens */}
-            <div className="relative hidden lg:flex justify-center items-end gap-5 pt-4">
-              <PhoneFrame screen={screen('chats')} width={214} className="translate-y-6" />
-              <PhoneFrame screen={screen('companions')} width={230} />
-
-              {/* Floating match notification */}
-              <div className="absolute -bottom-4 -left-2 glass rounded-2xl shadow-xl p-4 flex items-center gap-3 border border-pink-100 animate-float" style={{ animationDelay: '0.5s' }}>
-                <div className="w-10 h-10 rounded-full gradient-brand flex items-center justify-center text-lg animate-heartbeat">💝</div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-800">It&apos;s a Match!</p>
-                  <p className="text-xs text-gray-500">You both liked each other</p>
-                </div>
-              </div>
-
-              {/* Floating call notification */}
-              <div className="absolute -top-2 -right-4 glass rounded-2xl shadow-xl p-3 flex items-center gap-2 border border-purple-100 animate-float2">
-                <div className="relative w-8 h-8 rounded-full gradient-brand flex items-center justify-center text-sm">
-                  📞
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 ring-2 ring-white" />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-800">Incoming call</p>
-                  <p className="text-xs text-gray-500">HD video, in-app</p>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
+
+        {/* Scroll cue */}
+        <Link href="#features" aria-label="Scroll to features"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 hover:text-white animate-scroll-cue">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </Link>
       </section>
 
-      {/* ── Features ───────────────────────────────────── */}
       <section id="features" className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal className="text-center mb-16">
@@ -287,6 +275,11 @@ export default function LandingPage() {
 
       {/* ── Inside the app ─────────────────────── */}
       <section id="screens" className="py-20 overflow-hidden relative" style={{ background: 'linear-gradient(160deg,#0c0720 0%,#1d0940 45%,#280c3a 75%,#0c0720 100%)' }}>
+        {/* Background video over the gradient; if the file is missing the gradient simply stays. */}
+        <div className="pointer-events-none absolute inset-0">
+          <HeroVideo src={SCREENS_VIDEO} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.85) 0%, rgba(12,7,32,0.6) 35%, rgba(12,7,32,0.65) 70%, rgba(12,7,32,0.9) 100%)' }} />
+        </div>
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -top-20 left-1/3 w-96 h-96 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(233,30,140,0.25),transparent 70%)' }} />
           <div className="absolute bottom-0 right-1/4 w-72 h-72 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle,rgba(156,39,176,0.2),transparent 70%)' }} />
@@ -306,24 +299,6 @@ export default function LandingPage() {
             <AppScreens />
           </ScrollReveal>
 
-          {/* Store artwork — the same shots you see on the app listing */}
-          <ScrollReveal direction="up" delay={200} className="mt-16">
-            <p className="text-center text-white/40 text-xs font-semibold uppercase tracking-[0.2em] mb-6">
-              Straight from the app listing
-            </p>
-            <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 px-2 -mx-2 snap-x snap-mandatory">
-              {POSTERS.map(p => (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  key={p.key}
-                  src={p.src}
-                  alt={p.alt}
-                  loading="lazy"
-                  className="w-[200px] sm:w-[230px] flex-shrink-0 snap-center rounded-3xl border border-white/10 object-cover shadow-2xl"
-                />
-              ))}
-            </div>
-          </ScrollReveal>
         </div>
       </section>
 

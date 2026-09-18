@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { toast } from 'sonner'
 import { chatApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import { triggerPlanModal } from '@/components/NoPlanModal'
+import { triggerDownloadApp } from '@/components/DownloadAppModal'
 import type { Chat, ChatMessage } from '@/lib/types'
 
 /* ── Helpers ──────────────────────────────────────────────── */
@@ -368,28 +368,31 @@ export default function ChatPage() {
           </p>
         </div>
 
-        {/* Action buttons */}
+        {/* Action buttons. Calling only works in the mobile app, so on the
+            website these open a "download the app" prompt instead of a call. */}
         <div className="flex items-center gap-1">
-          <Link
-            href={`/call/new?to=${other?.id}&type=audio`}
-            onClick={e => { if (!user?.is_premium) { e.preventDefault(); triggerPlanModal('call') } }}
+          <button
+            type="button"
+            onClick={() => triggerDownloadApp('audio')}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all"
             title="Voice call"
+            aria-label="Voice call (available in the app)"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 10.8 19.79 19.79 0 0 1 .22 2.18 2 2 0 0 1 2.18 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.18 6.18l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
             </svg>
-          </Link>
-          <Link
-            href={`/call/new?to=${other?.id}&type=video`}
-            onClick={e => { if (!user?.is_premium) { e.preventDefault(); triggerPlanModal('call') } }}
+          </button>
+          <button
+            type="button"
+            onClick={() => triggerDownloadApp('video')}
             className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition-all"
             title="Video call"
+            aria-label="Video call (available in the app)"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
-          </Link>
+          </button>
         </div>
       </header>
 
