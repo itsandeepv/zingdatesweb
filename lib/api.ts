@@ -96,6 +96,12 @@ export const usersApi = {
   create: (token: string, data: Record<string, any>) =>
     req<any>('/admin/users', { method: 'POST', body: JSON.stringify(data) }, token),
   get: (token: string, id: number) => req<any>(`/admin/users/${id}`, {}, token),
+  // Put a user on a plan without a payment (or take them off one). The API
+  // notifies the user and writes a ₹0 ledger line.
+  grantPlan: (token: string, id: number, data: { plan: string; days?: number; note?: string }) =>
+    req<any>(`/admin/users/${id}/plan`, { method: 'POST', body: JSON.stringify(data) }, token),
+  revokePlan: (token: string, id: number) =>
+    req<any>(`/admin/users/${id}/plan`, { method: 'DELETE' }, token),
   update: (token: string, id: number, data: Record<string, any>) =>
     req<any>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }, token),
   suspend: (token: string, id: number, reason: string, days?: number) =>

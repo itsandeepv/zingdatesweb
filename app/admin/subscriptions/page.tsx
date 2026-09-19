@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { subscriptionsApi } from '@/lib/api'
+import GrantPlanModal, { type GrantPlanTarget } from '@/components/admin/GrantPlanModal'
 
 function SubStatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -38,6 +39,7 @@ export default function SubscriptionsPage() {
   const [planFilter, setPlanFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [actionLoading, setActionLoading] = useState<number | null>(null)
+  const [planTarget, setPlanTarget] = useState<GrantPlanTarget | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -76,6 +78,11 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="space-y-6">
+      {planTarget && (
+        <GrantPlanModal user={planTarget} token={token}
+          onClose={() => setPlanTarget(null)}
+          onSuccess={() => { setPlanTarget(null); loadData() }} />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Subscriptions</h1>
@@ -168,12 +175,19 @@ export default function SubscriptionsPage() {
                     </td>
                     <td className="px-4 py-4"><SubStatusBadge status={sub.status} /></td>
                     <td className="pr-4 py-4">
-                      {sub.status === 'active' && (
-                        <button onClick={() => handleCancel(sub.id)} disabled={actionLoading === sub.id}
-                          className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50">
-                          {actionLoading === sub.id ? '...' : 'Cancel'}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setPlanTarget({ id: sub.user_id ?? sub.id, name: sub.user_name ?? sub.userName ?? 'User', subscription_plan: sub.plan_type, plan_expires_at: sub.end_date })}
+                          className="px-2 py-1 text-xs rounded border border-purple-200 text-purple-600 hover:bg-purple-50">
+                          {sub.status === 'active' ? 'Change' : 'Give plan'}
                         </button>
-                      )}
+                        {sub.status === 'active' && (
+                          <button onClick={() => handleCancel(sub.id)} disabled={actionLoading === sub.id}
+                            className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50">
+                            {actionLoading === sub.id ? '...' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

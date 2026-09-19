@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import { usersApi } from '@/lib/api'
+import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
 import type { UserStatus, VerificationStatus } from '@/lib/types'
 
@@ -14,6 +15,9 @@ interface ApiUser {
   phone: string | null
   profile_photo?: string
   subscription_plan?: string
+  plan_name?: string | null
+  plan_expires_at?: string | null
+  plan_active?: boolean
   verification_status: VerificationStatus
   is_verified: boolean
   status: UserStatus
@@ -168,11 +172,12 @@ function inputCls(err?: string) {
 
 /* ── Actions dropdown ────────────────────────────────── */
 function ActionsMenu({
-  user, token, onRefresh, onEdit, onView,
+  user, token, onRefresh, onEdit, onView, onPlan,
 }: {
   user: ApiUser; token: string; onRefresh: () => void
   onEdit: (u: ApiUser) => void
   onView: (u: ApiUser) => void
+  onPlan: (u: ApiUser) => void
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -241,6 +246,17 @@ function ActionsMenu({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Edit User
+            </button>
+
+            {/* Give plan */}
+            <button
+              onClick={() => { setOpen(false); onPlan(user) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-left text-gray-700"
+            >
+              <svg className="w-3.5 h-3.5 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+              </svg>
+              {user.plan_active ? 'Change Plan' : 'Give Plan'}
             </button>
 
             <div className="my-1 border-t border-gray-100" />
@@ -647,10 +663,11 @@ function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onC
 }
 
 /* ── View User Modal ─────────────────────────────────── */
-function ViewUserModal({ user, onClose, onEdit, token, onRefresh }: {
-  user: ApiUser; onClose: () => void; onEdit: (u: ApiUser) => void; token: string; onRefresh: () => void
+function ViewUserModal({ user, onClose, onEdit, onPlan, token, onRefresh }: {
+  user: ApiUser; onClose: () => void; onEdit: (u: ApiUser) => void; onPlan: (u: ApiUser) => void; token: string; onRefresh: () => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [preview, setPreview] = useState(false)
 
   async function doAction(action: 'verify' | 'suspend' | 'unsuspend' | 'delete') {
     if (action === 'delete' && !window.confirm(`Delete "${user.name}"? This cannot be undone.`)) return
@@ -673,47 +690,74 @@ function ViewUserModal({ user, onClose, onEdit, token, onRefresh }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      {preview && user.profile_photo && (
+        <PhotoLightbox src={user.profile_photo} alt={user.name || 'Profile photo'} onClose={() => setPreview(false)} />
+      )}
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
 
-        {/* Header banner */}
-        <div className="gradient-brand px-6 pt-8 pb-14 relative">
-          <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/20 hover:bg-white/30 transition-colors text-white">
+        {/* Header: photo, name and badges together, nothing overlapping. */}
+        <div className="gradient-brand px-6 py-6 relative">
+          <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10" />
+          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/20 hover:bg-white/30 transition-colors text-white z-10">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-          <p className="text-white/70 text-xs font-medium uppercase tracking-wide">User Profile</p>
-          <h2 className="text-white text-xl font-bold mt-1">{user.name || '—'}</h2>
-        </div>
 
-        {/* Avatar overlapping banner */}
-        <div className="px-6">
-          <div className="flex items-end gap-4 -mt-8 mb-4">
-            <div className="ring-4 ring-white rounded-full flex-shrink-0">
-              <Avatar name={user.name || '?'} photo={user.profile_photo} large />
-            </div>
-            <div className="flex gap-2 flex-wrap pb-1">
-              <RoleBadge role={user.role} />
-              <StatusBadge status={user.status} />
-              <VerificationBadge status={user.verification_status} />
+          <div className="relative flex items-center gap-4">
+            {user.profile_photo ? (
+              <button type="button" onClick={() => setPreview(true)} title="View photo"
+                className="group relative flex-shrink-0 rounded-full ring-4 ring-white/40 hover:ring-white transition-all focus:outline-none focus:ring-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={user.profile_photo} alt={user.name} className="w-20 h-20 rounded-full object-cover" />
+                <span className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
+                  <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 8v6m-3-3h6m5 0a8 8 0 11-16 0 8 8 0 0116 0z" />
+                  </svg>
+                </span>
+              </button>
+            ) : (
+              <div className="w-20 h-20 rounded-full flex-shrink-0 bg-white/20 ring-4 ring-white/40 flex items-center justify-center text-white text-2xl font-bold">
+                {(user.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0">
+              <p className="text-white/70 text-[11px] font-semibold uppercase tracking-wider">User #{user.id}</p>
+              <h2 className="text-white text-xl font-bold leading-tight truncate">{user.name || '—'}</h2>
+              <div className="flex gap-1.5 flex-wrap mt-2">
+                <RoleBadge role={user.role} />
+                <StatusBadge status={user.status} />
+                <VerificationBadge status={user.verification_status} />
+              </div>
             </div>
           </div>
+        </div>
 
+        <div className="px-6 pt-5">
           {/* Details grid */}
           <div className="space-y-3 pb-5 border-b border-gray-100">
             {[
               { label: 'Email',       value: user.email },
               { label: 'Phone',       value: user.phone },
+              { label: 'Gender',      value: user.gender ? user.gender.replace(/_/g, ' ') : null },
               { label: 'Location',    value: [user.city, user.country].filter(Boolean).join(', ') || null },
-              { label: 'Plan',        value: user.subscription_plan || 'Free' },
+              { label: 'Plan',        value: user.plan_active && user.plan_expires_at
+                  ? `${user.plan_name ?? user.subscription_plan} · until ${fmtDate(user.plan_expires_at)}`
+                  : (user.subscription_plan ? `${user.plan_name ?? user.subscription_plan} (expired)` : 'Free') },
               { label: 'Joined',      value: fmtDate(user.created_at) },
               { label: 'Last Active', value: fmtDate(user.last_login_at) },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center justify-between">
-                <span className="text-xs text-gray-400 font-medium">{label}</span>
-                <span className="text-sm text-gray-700 font-medium">{value || '—'}</span>
+              <div key={label} className="flex items-start justify-between gap-4">
+                <span className="text-xs text-gray-400 font-medium flex-shrink-0 pt-0.5">{label}</span>
+                <span className="text-sm text-gray-700 font-medium text-right break-words min-w-0 ">{value || '—'}</span>
               </div>
             ))}
+            {user.bio && (
+              <div className="pt-1">
+                <span className="text-xs text-gray-400 font-medium">Bio</span>
+                <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-line">{user.bio}</p>
+              </div>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -725,6 +769,14 @@ function ViewUserModal({ user, onClose, onEdit, token, onRefresh }: {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
               Edit
+            </button>
+
+            <button onClick={() => { onClose(); onPlan(user) }} disabled={busy}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-purple-200 text-purple-600 rounded-xl hover:bg-purple-50 transition-colors disabled:opacity-50">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
+              </svg>
+              {user.plan_active ? 'Change Plan' : 'Give Plan'}
             </button>
 
             {!user.is_verified && (
@@ -759,6 +811,30 @@ function ViewUserModal({ user, onClose, onEdit, token, onRefresh }: {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── Full-size photo preview ─────────────────────────── */
+function PhotoLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={alt}>
+      <button onClick={onClose} aria-label="Close preview" className="absolute top-4 right-4 p-2 rounded-xl bg-white/15 hover:bg-white/30 text-white transition-colors">
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} onClick={e => e.stopPropagation()}
+        className="max-w-full max-h-[88vh] rounded-2xl object-contain shadow-2xl" />
+      <a href={src} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
+        className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs font-medium text-white/80 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors">
+        Open original
+      </a>
     </div>
   )
 }
@@ -854,6 +930,7 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal]   = useState(false)
   const [editUser, setEditUser]           = useState<ApiUser | null>(null)
   const [viewUser, setViewUser]           = useState<ApiUser | null>(null)
+  const [planUser, setPlanUser]           = useState<ApiUser | null>(null)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -959,7 +1036,15 @@ export default function UsersPage() {
           user={viewUser} token={token}
           onClose={() => setViewUser(null)}
           onEdit={u => { setViewUser(null); setEditUser(u) }}
+          onPlan={u => { setViewUser(null); setPlanUser(u) }}
           onRefresh={fetchUsers}
+        />
+      )}
+      {planUser && (
+        <GrantPlanModal
+          user={planUser} token={token}
+          onClose={() => setPlanUser(null)}
+          onSuccess={() => { setPlanUser(null); fetchUsers() }}
         />
       )}
 
@@ -1157,6 +1242,7 @@ export default function UsersPage() {
                           user={user} token={token} onRefresh={fetchUsers}
                           onEdit={u => setEditUser(u)}
                           onView={u => setViewUser(u)}
+                          onPlan={u => setPlanUser(u)}
                         />
                       </td>
                     </tr>
