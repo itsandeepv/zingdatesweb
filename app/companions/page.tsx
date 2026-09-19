@@ -71,7 +71,7 @@ export default async function CompanionsPage({
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight max-w-3xl mx-auto">
-            Book someone to{' '}
+            Rent someone to{' '}
             <span className="gradient-brand-text-anim">spend time with</span>
           </h1>
           <p className="text-lg text-white/80 leading-relaxed max-w-2xl mx-auto mt-5">
@@ -140,7 +140,7 @@ export default async function CompanionsPage({
                 {companions.map((c, i) => (
                   <ScrollReveal key={c.id} delay={(i % 4) * 80} direction="up" className="h-full">
                     {/* Rates stay visible on the browse page; the landing teaser hides them. */}
-                    <CompanionCard c={c} categoryLabels={labels} showPrice />
+                    <CompanionCard c={c} categoryLabels={labels} />
                   </ScrollReveal>
                 ))}
               </div>

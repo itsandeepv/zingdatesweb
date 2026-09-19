@@ -6,7 +6,7 @@
  * IMPORTANT: only mark up what is actually visible on the page — never fabricate
  * ratings/reviews (Google penalises self-serving or invisible review markup).
  */
-import { SITE_URL, SITE_NAME, PLAY_STORE_URL } from './site'
+import { SITE_URL, SITE_NAME, PLAY_STORE_URL, SOCIAL_LINKS } from './site'
 
 const ORG_ID = `${SITE_URL}/#organization`
 const WEBSITE_ID = `${SITE_URL}/#website`
@@ -25,6 +25,7 @@ export function organizationSchema() {
     image: `${SITE_URL}/og-image.jpg`,
     description:
       'zingDates is a social networking platform to meet your future partner and book verified companions through local events, real-time chat, and video calls.',
+    sameAs: Object.values(SOCIAL_LINKS),
   }
 }
 

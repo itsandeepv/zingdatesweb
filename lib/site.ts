@@ -8,6 +8,12 @@ export const SITE_URL = (
 
 export const SITE_NAME = 'zingDates'
 
+/** Official social profiles — footer icons and the Organization schema's sameAs. */
+export const SOCIAL_LINKS = {
+  instagram: 'https://www.instagram.com/zingdates/',
+  facebook:  'https://www.facebook.com/profile.php?id=61594014257270',
+} as const
+
 /** Google Play listing for the ZingDates Android app. */
 export const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=com.zingdates.app'
