@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
-import { usersApi } from '@/lib/api'
+import { usersApi, attentionApi } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
 import type { UserStatus, VerificationStatus } from '@/lib/types'
@@ -931,6 +931,20 @@ export default function UsersPage() {
   const [editUser, setEditUser]           = useState<ApiUser | null>(null)
   const [viewUser, setViewUser]           = useState<ApiUser | null>(null)
   const [planUser, setPlanUser]           = useState<ApiUser | null>(null)
+  // When this admin last opened the page, from before we mark it seen now —
+  // rows created after it get a "New" tag and the banner below counts them.
+  const [lastSeen, setLastSeen] = useState<string | null | undefined>(undefined)
+  const [newSinceSeen, setNewSinceSeen] = useState(0)
+  useEffect(() => {
+    if (!token) return
+    let alive = true
+    attentionApi.get(token)
+      .then(a => { if (!alive) return; setLastSeen(a.seen.users); setNewSinceSeen(a.new_users) })
+      .catch(() => { if (alive) setLastSeen(null) })
+      .finally(() => { attentionApi.markSeen(token, 'users').catch(() => {}) })
+    return () => { alive = false }
+  }, [token])
+  const isNewUser = (u: ApiUser) => !!lastSeen && new Date(u.created_at) > new Date(lastSeen)
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1054,6 +1068,13 @@ export default function UsersPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage, verify, and monitor all registered users.</p>
+            {newSinceSeen > 0 && (
+              <p className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-pink-700 bg-pink-50 border border-pink-100 rounded-full px-3 py-1">
+                <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse-ring" />
+                {newSinceSeen} new {newSinceSeen === 1 ? 'user' : 'users'} since you last looked
+                {lastSeen && <span className="font-normal text-pink-500">· {fmtDate(lastSeen)}</span>}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -1215,9 +1236,14 @@ export default function UsersPage() {
                             <Avatar name={user.name || '?'} photo={user.profile_photo} />
                           </button>
                           <div className="min-w-0">
-                            <button onClick={() => setViewUser(user)} className="font-semibold text-gray-900 truncate max-w-[130px] hover:text-pink-600 transition-colors text-left">
-                              {user.name || '—'}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button onClick={() => setViewUser(user)} className="font-semibold text-gray-900 truncate max-w-[130px] hover:text-pink-600 transition-colors text-left">
+                                {user.name || '—'}
+                              </button>
+                              {isNewUser(user) && (
+                                <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-pink-500 text-white flex-shrink-0">New</span>
+                              )}
+                            </div>
                             <p className="text-xs text-gray-400 truncate max-w-[130px]">{user.email || '—'}</p>
                           </div>
                         </div>

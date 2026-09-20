@@ -83,6 +83,20 @@ export const authApi = {
 }
 
 /* ─── Admin Dashboard ─────────────────────────────────────────── */
+/* ─── Admin attention (sidebar badges) ────────────────────────── */
+// What is new since THIS admin last looked. `seen` is per admin.
+export interface AttentionCounts {
+  new_users: number
+  new_companions: number
+  pending_companions: number
+  seen: { users: string | null; companions: string | null }
+}
+export const attentionApi = {
+  get: (token: string) => req<AttentionCounts>('/admin/attention', {}, token),
+  markSeen: (token: string, section: 'users' | 'companions') =>
+    req<any>('/admin/attention/seen', { method: 'POST', body: JSON.stringify({ section }) }, token),
+}
+
 export const dashboardApi = {
   stats: (token: string) => req<any>('/admin/dashboard/stats', {}, token),
   activity: (token: string, page = 1) => req<any>(`/admin/dashboard/activity?page=${page}`, {}, token),

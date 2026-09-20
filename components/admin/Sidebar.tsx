@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
+import { attentionApi, type AttentionCounts } from '@/lib/api'
 
 /* ─── Icons (inline SVG paths) ──────────────────────── */
 const Icon = ({ path, className = 'w-5 h-5' }: { path: string | string[]; className?: string }) => (
@@ -87,8 +88,42 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
   const user = useAuthStore(s => s.user)
+  const token = useAuthStore(s => s.token) ?? ''
   const clearAuth = useAuthStore(s => s.clearAuth)
   const adminName = user?.name ?? 'Admin'
+
+  // Count badges: new sign-ups since this admin last opened Users, and
+  // companion profiles waiting for approval. Refreshed on every page change
+  // (so opening a page clears its badge) and every minute in between.
+  const [attention, setAttention] = useState<AttentionCounts | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let alive = true
+    const load = () => attentionApi.get(token).then(a => { if (alive) setAttention(a) }).catch(() => {})
+    const t = setTimeout(load, 400)        // after the page's own markSeen has fired
+    const iv = setInterval(load, 60_000)
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { alive = false; clearTimeout(t); clearInterval(iv); document.removeEventListener('visibilitychange', onVisible) }
+  }, [token, pathname])
+
+  const attentionCount = (href: string): number => {
+    if (!attention) return 0
+    if (href === '/admin/users') return attention.new_users
+    if (href === '/admin/companions') return attention.pending_companions + attention.new_companions
+    return 0
+  }
+  const attentionTitle = (href: string): string => {
+    if (!attention) return ''
+    if (href === '/admin/users') return `${attention.new_users} new sign-ups since you last looked`
+    if (href === '/admin/companions') {
+      const parts = []
+      if (attention.pending_companions) parts.push(`${attention.pending_companions} waiting for approval`)
+      if (attention.new_companions) parts.push(`${attention.new_companions} new since you last looked`)
+      return parts.join(' · ')
+    }
+    return ''
+  }
   const adminInitial = adminName.charAt(0).toUpperCase()
   const logout = () => { clearAuth(); router.replace('/admin-login') }
 
@@ -152,11 +187,12 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
                 )
               }
 
+              const count = attentionCount(item.href)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  title={collapsed ? item.label : undefined}
+                  title={collapsed ? `${item.label}${count ? ` (${count} new)` : ''}` : (count ? attentionTitle(item.href) : undefined)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group
                     ${active
                       ? 'gradient-brand shadow-brand text-white'
@@ -165,10 +201,24 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
                     ${collapsed ? 'justify-center' : ''}
                   `}
                 >
-                  <Icon path={ICONS[item.icon]} className="w-[18px] h-[18px] flex-shrink-0" />
+                  <span className="relative flex-shrink-0">
+                    <Icon path={ICONS[item.icon]} className="w-[18px] h-[18px]" />
+                    {collapsed && count > 0 && (
+                      <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[#1a1235]">
+                        {count > 99 ? '99+' : count}
+                      </span>
+                    )}
+                  </span>
                   {!collapsed && (
                     <>
                       <span className="flex-1 truncate">{item.label}</span>
+                      {count > 0 && (
+                        <span title={attentionTitle(item.href)}
+                          className={`min-w-[22px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center flex-shrink-0 animate-pulse-ring
+                            ${active ? 'bg-white text-pink-600' : 'bg-pink-500 text-white shadow-brand'}`}>
+                          {count > 99 ? '99+' : count}
+                        </span>
+                      )}
                       {item.badge && (
                         <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium flex-shrink-0
                           ${active ? 'bg-white/25 text-white' : 'bg-white/10 text-white/60'}`}>

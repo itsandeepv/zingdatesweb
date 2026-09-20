@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { companionAdminApi } from '@/lib/api'
+import { companionAdminApi, attentionApi } from '@/lib/api'
 
 const TABS = ['companions', 'bookings', 'withdrawals', 'categories', 'settings'] as const
 type Tab = typeof TABS[number]
@@ -156,6 +156,18 @@ export default function AdminCompanionsPage() {
   // Icon names the app can actually draw, served with the list so the picker
   // and the server's validator can never drift apart.
   const [icons, setIcons] = useState<string[]>([])
+  // Sidebar badge context: profiles waiting for approval, and how many
+  // companions registered since this admin last opened the page.
+  const [attention, setAttention] = useState<{ pending: number; fresh: number; seen: string | null } | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let alive = true
+    attentionApi.get(token)
+      .then(a => { if (alive) setAttention({ pending: a.pending_companions, fresh: a.new_companions, seen: a.seen.companions }) })
+      .catch(() => {})
+      .finally(() => { attentionApi.markSeen(token, 'companions').catch(() => {}) })
+    return () => { alive = false }
+  }, [token])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -217,6 +229,23 @@ export default function AdminCompanionsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Companion Management</h1>
         <p className="text-gray-500 text-sm">Approve companions, review bookings, and process payouts.</p>
+        {attention && (attention.pending > 0 || attention.fresh > 0) && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {attention.pending > 0 && (
+              <button onClick={() => { setTab('companions'); setStatusFilter('pending') }}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 hover:bg-amber-100">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse-ring" />
+                {attention.pending} waiting for approval
+              </button>
+            )}
+            {attention.fresh > 0 && (
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-pink-700 bg-pink-50 border border-pink-100 rounded-full px-3 py-1">
+                <span className="w-2 h-2 rounded-full bg-pink-500" />
+                {attention.fresh} new {attention.fresh === 1 ? 'companion' : 'companions'} since you last looked
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-1 border-b border-gray-200">
