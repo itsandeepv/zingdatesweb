@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next'
-import { blogApi, podcastApi } from '@/lib/api'
+import { blogApi, podcastApi, publicEventApi } from '@/lib/api'
 import { SITE_URL, slugify, toList } from '@/lib/site'
 
 // Regenerated on request; degrades to the static routes if the API is down.
@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: SITE_URL, changeFrequency: 'weekly', priority: 1 },
     { url: `${SITE_URL}/about`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/companions`, changeFrequency: 'daily', priority: 0.9 },
+    { url: `${SITE_URL}/events`, changeFrequency: 'daily', priority: 0.9 },
     // Linked from the App Store / Play Store listings, so it must stay crawlable.
     { url: `${SITE_URL}/help`, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/blog`, changeFrequency: 'daily', priority: 0.9 },
@@ -21,9 +22,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/refund`, changeFrequency: 'yearly', priority: 0.2 },
   ]
 
-  const [posts, episodes] = await Promise.all([
+  const [posts, episodes, events] = await Promise.all([
     blogApi.list({ status: 'published' }).then(toList).catch(() => []),
     podcastApi.list({ status: 'published' }).then(toList).catch(() => []),
+    // Individual event pages, so a link someone shares is also one a
+    // crawler can find.
+    publicEventApi.list({ per_page: 30 }).catch(() => []),
   ])
 
   const blogRoutes: MetadataRoute.Sitemap = posts.map((p: any) => ({
@@ -40,5 +44,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
-  return [...staticRoutes, ...blogRoutes, ...podcastRoutes]
+  const eventRoutes: MetadataRoute.Sitemap = events.map((e) => ({
+    url: `${SITE_URL}/events/${e.id}`,
+    lastModified: e.starts_at ?? undefined,
+    changeFrequency: 'daily',
+    priority: 0.7,
+  }))
+
+  return [...staticRoutes, ...blogRoutes, ...podcastRoutes, ...eventRoutes]
 }

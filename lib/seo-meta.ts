@@ -27,6 +27,8 @@ export type SeoSlug =
   // Has no seo_pages row yet — the endpoint returns null and the page keeps its
   // built-in defaults until a row is added.
   | 'companions'
+  // Same: no seo_pages row yet, so the page keeps its built-in defaults.
+  | 'events'
 
 export interface SeoPage {
   slug: string

@@ -115,6 +115,7 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
         <div className="hidden md:flex items-center gap-7">
           <NavMenu label="Blog" href="/blog" loadCategories={blogCats} light={light} />
           <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} light={light} />
+          <Link href="/events" className={`text-sm font-medium transition-colors ${linkCls}`}>Events</Link>
           <Link href="/companions" className={`text-sm font-medium transition-colors ${linkCls}`}>Companions</Link>
           <Link href="/about" className={`text-sm font-medium transition-colors ${linkCls}`}>About</Link>
           <Link href="/help" className={`text-sm font-medium transition-colors ${linkCls}`}>Support</Link>
@@ -161,6 +162,7 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
           {[
             { label: 'Blog', href: '/blog' },
             { label: 'Podcasts', href: '/podcasts' },
+            { label: 'Events', href: '/events' },
             { label: 'Companions', href: '/companions' },
             { label: 'About', href: '/about' },
             { label: 'Support', href: '/help' },

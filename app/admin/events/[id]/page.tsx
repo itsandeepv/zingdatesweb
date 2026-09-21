@@ -5,7 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { eventsApi } from '@/lib/api'
+import { eventsApi, usersApi } from '@/lib/api'
+import EventForm, {
+  EMPTY_EVENT, toPayload, toLocalInput, toIso, type EventFormValues,
+} from '@/components/admin/EventForm'
 
 type EventStatus = 'published' | 'pending_approval' | 'draft' | 'cancelled' | 'completed'
 
@@ -28,6 +31,8 @@ type Report = {
 
 type EventDetail = {
   id: number
+  category: string | null
+  location_visibility?: 'public' | 'participants_only'
   name: string
   status: EventStatus
   category_label: string | null
@@ -96,10 +101,34 @@ export default function EventDetailPage() {
   const [acting, setActing] = useState(false)
   const [notFound, setNotFound] = useState(false)
 
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState<EventFormValues>(EMPTY_EVENT)
+
+  const [postponeOpen, setPostponeOpen] = useState(false)
+  const [newStart, setNewStart] = useState('')
+  const [newEnd, setNewEnd] = useState('')
+  const [postponeReason, setPostponeReason] = useState('')
+
+  const [userQuery, setUserQuery] = useState('')
+  const [userResults, setUserResults] = useState<any[]>([])
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setEvent((await eventsApi.get(token, id)).data)
+      const e = (await eventsApi.get(token, id)).data
+      setEvent(e)
+      setForm({
+        title: e.name ?? '', description: e.description ?? '',
+        category: e.category ?? '',
+        starts_at: toLocalInput(e.starts_at), ends_at: toLocalInput(e.ends_at),
+        city: e.venue_city ?? '', public_location_name: e.venue_name ?? '',
+        max_participants: e.capacity ?? 20,
+        age_min: e.age_min != null ? String(e.age_min) : '',
+        age_max: e.age_max != null ? String(e.age_max) : '',
+        join_mode: (e.join_mode ?? 'everyone') as EventFormValues['join_mode'],
+        gender_preference: (e.gender_preference ?? 'everyone') as EventFormValues['gender_preference'],
+        location_visibility: (e.location_visibility ?? 'public') as EventFormValues['location_visibility'],
+      })
     } catch (err: any) {
       if (err.status === 404) setNotFound(true)
       else toast.error(err.message || 'Failed to load event')
@@ -132,6 +161,89 @@ export default function EventDetailPage() {
       toast.success('Event updated')
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to update') }
+    finally { setActing(false) }
+  }
+
+  async function suspendHost() {
+    const reason = prompt('Why is this host being suspended? Their upcoming events will be cancelled.')
+    if (!reason) return
+    setActing(true)
+    try {
+      const res = await eventsApi.suspendHost(token, id, reason)
+      toast.success(res.message ?? 'Host suspended')
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to suspend host') }
+    finally { setActing(false) }
+  }
+
+  async function removeParticipant(userId: number, name: string | null) {
+    const reason = prompt(`Remove ${name ?? 'this person'} from the event? They will be told. Reason:`)
+    if (reason === null) return
+    setActing(true)
+    try {
+      await eventsApi.removeParticipant(token, id, userId, reason)
+      toast.success('Participant removed')
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to remove') }
+    finally { setActing(false) }
+  }
+
+  async function saveEdit() {
+    setActing(true)
+    try {
+      await eventsApi.updateEvent(token, id, toPayload(form))
+      toast.success('Event updated')
+      setEditing(false)
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to update') }
+    finally { setActing(false) }
+  }
+
+  async function doPostpone() {
+    if (!newStart || !newEnd) return
+    if (new Date(newEnd) <= new Date(newStart)) {
+      toast.error('The end time must be after the start.')
+      return
+    }
+    setActing(true)
+    try {
+      await eventsApi.postpone(token, id, {
+        starts_at: toIso(newStart), ends_at: toIso(newEnd),
+        reason: postponeReason.trim() || undefined,
+      })
+      toast.success('Event postponed — everyone going has been told')
+      setPostponeOpen(false)
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to postpone') }
+    finally { setActing(false) }
+  }
+
+  async function changeCover(file: File) {
+    setActing(true)
+    try {
+      await eventsApi.uploadCover(token, id, file)
+      toast.success('Cover updated')
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to upload') }
+    finally { setActing(false) }
+  }
+
+  async function searchUsers() {
+    if (!userQuery.trim()) return
+    try {
+      const res = await usersApi.list(token, { search: userQuery.trim() })
+      setUserResults((res.data ?? res ?? []).slice(0, 6))
+    } catch (err: any) { toast.error(err.message || 'Search failed') }
+  }
+
+  async function addParticipant(userId: number, name: string) {
+    setActing(true)
+    try {
+      await eventsApi.addParticipant(token, id, userId)
+      toast.success(`${name} added`)
+      setUserQuery(''); setUserResults([])
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to add') }
     finally { setActing(false) }
   }
 
@@ -180,6 +292,25 @@ export default function EventDetailPage() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {event.status !== 'cancelled' && event.status !== 'completed' && (
+            <>
+              <button onClick={() => setEditing(v => !v)} disabled={acting}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 font-semibold disabled:opacity-50">
+                {editing ? 'Close editor' : 'Edit'}
+              </button>
+              <button
+                onClick={() => {
+                  setNewStart(toLocalInput(event.starts_at))
+                  setNewEnd(toLocalInput(event.ends_at))
+                  setPostponeOpen(true)
+                }}
+                disabled={acting}
+                className="px-4 py-2 text-sm rounded-lg border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 font-semibold disabled:opacity-50">
+                Postpone
+              </button>
+            </>
+          )}
+
           {event.status === 'pending_approval' && (
             <button onClick={approve} disabled={acting}
               className="px-4 py-2 text-sm rounded-lg bg-green-50 border border-green-300 text-green-700 hover:bg-green-100 font-semibold disabled:opacity-50">
@@ -199,6 +330,67 @@ export default function EventDetailPage() {
         </div>
       </div>
 
+      {editing && (
+        <div className="bg-white rounded-xl border border-pink-200 shadow-sm p-6 space-y-5">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Edit event</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              A host can only edit a draft. As an admin you can correct a published event — capacity
+              cannot go below the {event.attendees} already joined.
+            </p>
+          </div>
+
+          <EventForm value={form} onChange={setForm} token={token} />
+
+          <div className="flex items-center gap-3 pt-2">
+            <button onClick={saveEdit} disabled={acting}
+              className="px-5 py-2 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand disabled:opacity-50">
+              {acting ? 'Saving…' : 'Save changes'}
+            </button>
+            <button onClick={() => setEditing(false)} className="text-sm text-gray-500 hover:text-gray-700">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {postponeOpen && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-gray-900">Postpone event</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Everyone going keeps their place and is told the new date. Reminders reset.
+            </p>
+
+            <div className="space-y-4 mt-5">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">New start</label>
+                <input type="datetime-local" value={newStart} onChange={e => setNewStart(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">New end</label>
+                <input type="datetime-local" value={newEnd} onChange={e => setNewEnd(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Reason (optional)</label>
+                <input value={postponeReason} onChange={e => setPostponeReason(e.target.value)}
+                  maxLength={300} placeholder="Venue clash"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-6">
+              <button onClick={() => setPostponeOpen(false)}
+                className="px-4 py-2 text-sm rounded-lg text-gray-600 hover:bg-gray-50">Cancel</button>
+              <button onClick={doPostpone} disabled={acting || !newStart || !newEnd}
+                className="px-5 py-2 text-sm rounded-lg gradient-brand text-white font-semibold shadow-brand disabled:opacity-50">
+                {acting ? 'Moving…' : 'Postpone'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(event.reject_reason || event.cancel_reason) && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4">
           <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
@@ -211,9 +403,19 @@ export default function EventDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-            {event.cover_url
-              ? <img src={event.cover_url} alt="" className="w-full h-48 object-cover" />
-              : <div className="w-full h-48 bg-gradient-to-br from-pink-400 to-purple-600" />}
+            <div className="relative group">
+              {event.cover_url
+                ? <img src={event.cover_url} alt="" className="w-full h-48 object-cover" />
+                : <div className="w-full h-48 bg-gradient-to-br from-pink-400 to-purple-600" />}
+
+              <label className="absolute bottom-3 right-3 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/90 text-gray-800 cursor-pointer hover:bg-white shadow">
+                {acting ? 'Uploading…' : 'Replace cover'}
+                <input
+                  type="file" accept="image/*" className="hidden" disabled={acting}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) changeCover(f) }}
+                />
+              </label>
+            </div>
             <div className="p-6 space-y-5">
               <div>
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">About</p>
@@ -242,6 +444,36 @@ export default function EventDetailPage() {
               <h2 className="text-base font-semibold text-gray-900">Participants</h2>
               <span className="text-xs text-gray-400">{event.participants.length}</span>
             </div>
+            <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/60">
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Add someone</label>
+              <div className="flex gap-2">
+                <input
+                  value={userQuery}
+                  onChange={e => setUserQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchUsers() } }}
+                  placeholder="Search by name or phone"
+                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-pink-200"
+                />
+                <button onClick={searchUsers} disabled={acting}
+                  className="px-4 py-2 text-sm rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+                  Search
+                </button>
+              </div>
+              {userResults.length > 0 && (
+                <div className="mt-2 border border-gray-100 rounded-lg bg-white divide-y divide-gray-50">
+                  {userResults.map((u: any) => (
+                    <button key={u.id} onClick={() => addParticipant(u.id, u.name)} disabled={acting}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-pink-50 disabled:opacity-50">
+                      {u.name} <span className="text-gray-400">#{u.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-400 mt-1">
+                Age, gender and verification rules are skipped — capacity is not.
+              </p>
+            </div>
+
             {event.participants.length === 0 ? (
               <p className="text-center py-10 text-sm text-gray-400">Nobody has joined yet.</p>
             ) : (
@@ -258,6 +490,13 @@ export default function EventDetailPage() {
                       {p.is_verified && <span title="Verified" className="text-blue-500 ml-1">✓</span>}
                     </div>
                     <span className="text-xs text-gray-400 whitespace-nowrap">{formatDate(p.joined_at)}</span>
+                    <button
+                      onClick={() => removeParticipant(p.id, p.name)}
+                      disabled={acting}
+                      className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
                   </div>
                 ))}
               </div>
@@ -274,6 +513,14 @@ export default function EventDetailPage() {
             {event.organizer_verified
               ? <span className="ml-1 text-blue-500" title="Verified">✓</span>
               : <p className="text-xs text-amber-600 mt-1">Not verified</p>}
+
+            <button
+              onClick={suspendHost}
+              disabled={acting}
+              className="mt-4 w-full px-3 py-2 text-xs rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-semibold disabled:opacity-50"
+            >
+              Suspend host &amp; cancel their events
+            </button>
           </div>
 
           <div className={`bg-white rounded-xl border shadow-sm ${event.reports.length > 0 ? 'border-red-200' : 'border-gray-100'}`}>
