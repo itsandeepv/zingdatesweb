@@ -153,12 +153,27 @@ export const usersApi = {
 export const eventsApi = {
   list: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/events?${new URLSearchParams(params)}`, {}, token),
+  get: (token: string, id: number) =>
+    req<any>(`/admin/events/${id}`, {}, token),
   approve: (token: string, id: number) =>
     req<any>(`/admin/events/${id}/approve`, { method: 'POST' }, token),
+  // Reject and cancel are the same endpoint: on an event that was never
+  // published the backend records a rejection, on a live one a cancellation
+  // with its participants notified.
   cancel: (token: string, id: number, reason: string) =>
     req<any>(`/admin/events/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
   delete: (token: string, id: number) =>
     req<any>(`/admin/events/${id}`, { method: 'DELETE' }, token),
+  stats: (token: string) =>
+    req<any>('/admin/events/stats', {}, token),
+  // The admin's own categories route — the public one sits behind the
+  // events_enabled switch, which is off until the feature is rolled out.
+  categories: (token: string) =>
+    req<any>('/admin/events/categories', {}, token),
+  settings: (token: string) =>
+    req<any>('/admin/events/settings', {}, token),
+  updateSettings: (token: string, settings: Record<string, boolean>) =>
+    req<any>('/admin/events/settings', { method: 'PUT', body: JSON.stringify({ settings }) }, token),
   // Public
   publicList: (params: Record<string, string> = {}) =>
     req<any>(`/events?${new URLSearchParams(params)}`),
