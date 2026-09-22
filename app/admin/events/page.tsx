@@ -1,19 +1,57 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { eventsApi } from '@/lib/api'
 
 type EventStatus = 'published' | 'pending_approval' | 'draft' | 'cancelled' | 'completed'
 
-const eventCategories = [
-  { name: 'Networking', color: 'bg-blue-500', bg: 'bg-blue-50', text: 'text-blue-700', icon: '🤝' },
-  { name: 'Social', color: 'bg-pink-500', bg: 'bg-pink-50', text: 'text-pink-700', icon: '🎉' },
-  { name: 'Sports', color: 'bg-green-500', bg: 'bg-green-50', text: 'text-green-700', icon: '⚽' },
-  { name: 'Arts', color: 'bg-purple-500', bg: 'bg-purple-50', text: 'text-purple-700', icon: '🎨' },
-  { name: 'Tech', color: 'bg-indigo-500', bg: 'bg-indigo-50', text: 'text-indigo-700', icon: '💻' },
-  { name: 'Wellness', color: 'bg-teal-500', bg: 'bg-teal-50', text: 'text-teal-700', icon: '🧘' },
+/**
+ * The backend keeps approval and lifecycle as two columns and flattens them
+ * into this one string on the way out, so these five values are the whole
+ * vocabulary. A rejected event arrives as 'cancelled' — its reason is on the
+ * detail view.
+ */
+type EventRow = {
+  id: number
+  name: string
+  title: string
+  status: EventStatus
+  category: string | null
+  category_label: string | null
+  organizer_name: string | null
+  organizer_verified: boolean
+  venue_city: string | null
+  venue_name: string | null
+  cover_url: string | null
+  starts_at: string | null
+  price: number
+  is_free: boolean
+  capacity: number
+  attendees: number
+  reports_count: number
+}
+
+type Category = { key: string; label: string; icon: string | null; is_active: boolean; events: number }
+
+type Stats = {
+  total: number
+  pending_approval: number
+  published: number
+  completed: number
+  cancelled: number
+  total_participants: number
+}
+
+/** The module's rollout switches, in the order they get turned on. */
+const SETTING_LABELS: { key: string; label: string; hint: string }[] = [
+  { key: 'events_enabled',          label: 'Events',            hint: 'Show the Events tab in the app. Everything below needs this on.' },
+  { key: 'event_creation_enabled',  label: 'User-created events', hint: 'Let users host their own. Off = admin-seeded events only.' },
+  { key: 'event_host_requires_kyc', label: 'Hosts must be verified', hint: 'Require a completed KYC before someone can host.' },
+  { key: 'event_auto_approval',     label: 'Skip moderation',   hint: 'Publish user events without review. Leave off at launch.' },
+  { key: 'paid_events_enabled',     label: 'Paid tickets',      hint: 'Needs the Razorpay webhook and scheduled reconciliation first.' },
 ]
 
 function StatusBadge({ status }: { status: EventStatus }) {
@@ -29,7 +67,7 @@ function StatusBadge({ status }: { status: EventStatus }) {
 }
 
 function CapacityBar({ used, total }: { used: number; total: number }) {
-  const pct = Math.min(Math.round((used / total) * 100), 100)
+  const pct = total > 0 ? Math.min(Math.round((used / total) * 100), 100) : 0
   const color = pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-yellow-500' : 'bg-green-500'
   return (
     <div className="min-w-[80px]">
@@ -39,12 +77,41 @@ function CapacityBar({ used, total }: { used: number; total: number }) {
   )
 }
 
-const coverColors = ['bg-gradient-to-br from-pink-400 to-rose-600','bg-gradient-to-br from-purple-400 to-indigo-600','bg-gradient-to-br from-blue-400 to-cyan-600','bg-gradient-to-br from-green-400 to-teal-600','bg-gradient-to-br from-orange-400 to-amber-600']
+function StatCard({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-4 shadow-sm">
+      <div className="w-11 h-11 rounded-xl gradient-brand flex items-center justify-center shrink-0 shadow-brand">{icon}</div>
+      <div>
+        <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">{label}</p>
+        <p className="text-xl font-bold text-gray-900">{value}</p>
+      </div>
+    </div>
+  )
+}
+
+const Icon = {
+  calendar: <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  clock: <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  check: <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  users: <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+}
+
+/** Server sends ISO; show it in the admin's own locale, date + time. */
+function formatDate(iso: string | null) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString(undefined, { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
 
 export default function EventsPage() {
   const token = useAuthStore(s => s.token) ?? ''
-  const [events, setEvents] = useState<any[]>([])
+  const [events, setEvents] = useState<EventRow[]>([])
   const [meta, setMeta] = useState({ total: 0, page: 1, last_page: 1 })
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [settings, setSettings] = useState<Record<string, boolean> | null>(null)
+  const [savingSetting, setSavingSetting] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
@@ -60,7 +127,7 @@ export default function EventsPage() {
       if (category) params.category = category
       if (status) params.status = status
       const res = await eventsApi.list(token, params)
-      setEvents(res.data ?? res)
+      setEvents(res.data ?? [])
       if (res.meta) setMeta(res.meta)
     } catch (err: any) {
       toast.error(err.message || 'Failed to load events')
@@ -69,14 +136,30 @@ export default function EventsPage() {
     }
   }, [token, page, search, category, status])
 
+  // Totals come from the server, not from the page currently on screen — the
+  // old version counted "Published" out of whichever 20 rows had loaded.
+  const loadStats = useCallback(async () => {
+    try { setStats((await eventsApi.stats(token)).data) } catch { /* the table still works without them */ }
+  }, [token])
+
+  const loadAside = useCallback(async () => {
+    try { setCategories((await eventsApi.categories(token)).data ?? []) } catch { /* non-fatal */ }
+    try { setSettings((await eventsApi.settings(token)).data ?? null) } catch { /* non-fatal */ }
+  }, [token])
+
   useEffect(() => { loadEvents() }, [loadEvents])
+  useEffect(() => { loadStats(); loadAside() }, [loadStats, loadAside])
+
+  async function refresh() {
+    await Promise.all([loadEvents(), loadStats()])
+  }
 
   async function handleApprove(id: number) {
     setActionLoading(id)
     try {
       await eventsApi.approve(token, id)
       toast.success('Event approved')
-      loadEvents()
+      await refresh()
     } catch (err: any) { toast.error(err.message || 'Failed to approve') }
     finally { setActionLoading(null) }
   }
@@ -87,21 +170,32 @@ export default function EventsPage() {
     setActionLoading(id)
     try {
       await eventsApi.cancel(token, id, reason)
-      toast.success('Event rejected')
-      loadEvents()
+      toast.success('Event updated')
+      await refresh()
     } catch (err: any) { toast.error(err.message || 'Failed to reject') }
     finally { setActionLoading(null) }
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Delete this event? This cannot be undone.')) return
+    if (!confirm('Delete this event? Participants are notified and this cannot be undone.')) return
     setActionLoading(id)
     try {
       await eventsApi.delete(token, id)
       toast.success('Event deleted')
-      loadEvents()
+      await refresh()
     } catch (err: any) { toast.error(err.message || 'Failed to delete') }
     finally { setActionLoading(null) }
+  }
+
+  async function toggleSetting(key: string, next: boolean) {
+    setSavingSetting(key)
+    try {
+      const res = await eventsApi.updateSettings(token, { [key]: next })
+      setSettings(res.data)
+      toast.success('Settings saved')
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save')
+    } finally { setSavingSetting(null) }
   }
 
   const pendingEvents = events.filter(e => e.status === 'pending_approval')
@@ -113,31 +207,63 @@ export default function EventsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Event Management</h1>
           <p className="text-sm text-gray-500 mt-0.5">Review, approve, and manage all events on the platform</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-          Export
-        </button>
+        {/* One group, or justify-between pushes them to opposite ends. */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/events/settings"
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Settings
+          </Link>
+          <Link
+            href="/admin/events/new"
+            className="px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand"
+          >
+            + Create Event
+          </Link>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl gradient-brand flex items-center justify-center shrink-0 shadow-brand">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+      {/* Rollout switches. Shown first because while Events is off, nothing
+          below it is visible to a single user in the app. */}
+      {settings && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Rollout</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Turn the module on in stages. Admin tools here keep working either way.</p>
+            </div>
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${settings.events_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+              {settings.events_enabled ? 'Live for users' : 'Hidden from users'}
+            </span>
           </div>
-          <div><p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Total Events</p><p className="text-xl font-bold text-gray-900">{meta.total.toLocaleString()}</p></div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl gradient-brand flex items-center justify-center shrink-0 shadow-brand">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <div className="divide-y divide-gray-50">
+            {SETTING_LABELS.map(s => (
+              <div key={s.key} className="px-6 py-3 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800">{s.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{s.hint}</p>
+                </div>
+                <button
+                  onClick={() => toggleSetting(s.key, !settings[s.key])}
+                  disabled={savingSetting === s.key}
+                  aria-pressed={!!settings[s.key]}
+                  aria-label={s.label}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${settings[s.key] ? 'bg-pink-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${settings[s.key] ? 'translate-x-5' : ''}`} />
+                </button>
+              </div>
+            ))}
           </div>
-          <div><p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Pending Approval</p><p className="text-xl font-bold text-gray-900">{pendingEvents.length}</p></div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-start gap-4 shadow-sm">
-          <div className="w-11 h-11 rounded-xl gradient-brand flex items-center justify-center shrink-0 shadow-brand">
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          </div>
-          <div><p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-0.5">Published</p><p className="text-xl font-bold text-gray-900">{events.filter(e => e.status === 'published').length}</p></div>
-        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Events"  value={stats?.total ?? meta.total} icon={Icon.calendar} />
+        <StatCard label="Pending Approval" value={stats?.pending_approval ?? pendingEvents.length} icon={Icon.clock} />
+        <StatCard label="Published"     value={stats?.published ?? 0} icon={Icon.check} />
+        <StatCard label="Participants"  value={stats?.total_participants ?? 0} icon={Icon.users} />
       </div>
 
       {pendingEvents.length > 0 && (
@@ -150,8 +276,8 @@ export default function EventsPage() {
             {pendingEvents.map(e => (
               <div key={e.id} className="px-6 py-4 flex items-center justify-between gap-4 flex-wrap hover:bg-yellow-50/40">
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-gray-900 text-sm truncate">{e.name ?? e.title}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">by {e.organizer_name ?? e.organizerName} &middot; {e.venue_city ?? e.venue?.city}</p>
+                  <Link href={`/admin/events/${e.id}`} className="font-semibold text-gray-900 text-sm truncate hover:text-pink-600">{e.name}</Link>
+                  <p className="text-xs text-gray-500 mt-0.5">by {e.organizer_name ?? '—'} &middot; {e.venue_city ?? '—'} &middot; {formatDate(e.starts_at)}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button onClick={() => handleApprove(e.id)} disabled={actionLoading === e.id}
@@ -176,10 +302,12 @@ export default function EventsPage() {
             <input type="text" placeholder="Search events..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
               className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 w-full" />
           </div>
+          {/* Categories come from the server — the app's filter chips read the
+              same list, so the two can no longer drift apart. */}
           <select value={category} onChange={e => { setCategory(e.target.value); setPage(1) }}
             className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none text-gray-700">
             <option value="">All Categories</option>
-            {['Networking','Social','Tech','Wellness','Sports','Arts'].map(c => <option key={c} value={c}>{c}</option>)}
+            {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
           <select value={status} onChange={e => { setStatus(e.target.value); setPage(1) }}
             className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none text-gray-700">
@@ -213,20 +341,37 @@ export default function EventsPage() {
                 </tr>
               </thead>
               <tbody>
-                {events.map((event, i) => (
+                {events.map(event => (
                   <tr key={event.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3"><div className={`w-10 h-10 rounded-lg ${coverColors[i % coverColors.length]}`} /></td>
+                    <td className="px-4 py-3">
+                      {event.cover_url
+                        ? <img src={event.cover_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                        : <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-400 to-purple-600" />}
+                    </td>
                     <td className="px-4 py-3 min-w-[180px]">
-                      <div className="font-semibold text-gray-900 text-sm">{event.name ?? event.title}</div>
-                      <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-1 inline-block">{event.category}</span>
+                      <Link href={`/admin/events/${event.id}`} className="font-semibold text-gray-900 text-sm hover:text-pink-600">{event.name}</Link>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {event.category_label && <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{event.category_label}</span>}
+                        {event.is_free
+                          ? <span className="text-xs bg-green-50 text-green-600 px-1.5 py-0.5 rounded">Free</span>
+                          : <span className="text-xs bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded">₹{event.price}</span>}
+                        {event.reports_count > 0 && (
+                          <span className="text-xs bg-red-50 text-red-600 px-1.5 py-0.5 rounded font-semibold">{event.reports_count} report{event.reports_count > 1 ? 's' : ''}</span>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-800 text-sm">{event.organizer_name ?? event.organizerName}</td>
-                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 text-sm">{event.date ?? event.start_date}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-800 text-sm">
+                      <span className="inline-flex items-center gap-1">
+                        {event.organizer_name ?? '—'}
+                        {event.organizer_verified && <span title="Verified" className="text-blue-500">✓</span>}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700 text-sm">{formatDate(event.starts_at)}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="text-gray-700 text-sm">{event.venue_city ?? event.venue?.city}</div>
-                      <div className="text-xs text-gray-400">{event.venue_name ?? event.venue?.name}</div>
+                      <div className="text-gray-700 text-sm">{event.venue_city ?? '—'}</div>
+                      <div className="text-xs text-gray-400">{event.venue_name ?? ''}</div>
                     </td>
-                    <td className="px-4 py-3"><CapacityBar used={event.registration_count ?? event.registrationCount ?? 0} total={event.capacity ?? 100} /></td>
+                    <td className="px-4 py-3"><CapacityBar used={event.attendees ?? 0} total={event.capacity ?? 0} /></td>
                     <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={event.status} /></td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1">
@@ -239,7 +384,7 @@ export default function EventsPage() {
                         {event.status !== 'cancelled' && event.status !== 'completed' && (
                           <button onClick={() => handleReject(event.id)} disabled={actionLoading === event.id}
                             className="px-2 py-1 text-xs rounded border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50">
-                            Reject
+                            {event.status === 'pending_approval' ? 'Reject' : 'Cancel'}
                           </button>
                         )}
                         <button onClick={() => handleDelete(event.id)} disabled={actionLoading === event.id}
@@ -268,17 +413,28 @@ export default function EventsPage() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Event Categories Overview</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {eventCategories.map(cat => (
-            <div key={cat.name} className={`${cat.bg} rounded-xl p-4 flex flex-col items-center text-center`}>
-              <span className="text-2xl mb-2">{cat.icon}</span>
-              <p className="text-sm font-semibold text-gray-800">{cat.name}</p>
-            </div>
-          ))}
+      {categories.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-gray-900">Event Categories</h2>
+            <Link href="/admin/events/categories" className="text-sm font-semibold text-pink-600 hover:text-pink-700">
+              Manage &rsaquo;
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {categories.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => { setCategory(cat.key); setPage(1) }}
+                className={`rounded-xl p-4 flex flex-col items-center text-center transition-colors ${category === cat.key ? 'bg-pink-100 ring-2 ring-pink-300' : 'bg-gray-50 hover:bg-pink-50'} ${cat.is_active ? '' : 'opacity-50'}`}
+              >
+                <p className="text-sm font-semibold text-gray-800">{cat.label}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{cat.events} event{cat.events === 1 ? '' : 's'}</p>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

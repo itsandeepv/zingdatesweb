@@ -149,19 +149,143 @@ export const usersApi = {
   },
 }
 
+/**
+ * Multipart POST. Separate from req() because that always sets
+ * Content-Type: application/json — for FormData the browser has to set it
+ * itself so it can add the multipart boundary.
+ */
+async function reqForm<T>(path: string, body: FormData, token?: string | null): Promise<T> {
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    if (res.status === 401) _on401?.()
+    throw new ApiError(res.status, err.message ?? 'Upload failed', err)
+  }
+  const text = await res.text()
+  return (text ? JSON.parse(text) : null) as T
+}
+
 /* ─── Admin Events ────────────────────────────────────────────── */
 export const eventsApi = {
   list: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/events?${new URLSearchParams(params)}`, {}, token),
+  get: (token: string, id: number) =>
+    req<any>(`/admin/events/${id}`, {}, token),
   approve: (token: string, id: number) =>
     req<any>(`/admin/events/${id}/approve`, { method: 'POST' }, token),
+  // Reject and cancel are the same endpoint: on an event that was never
+  // published the backend records a rejection, on a live one a cancellation
+  // with its participants notified.
   cancel: (token: string, id: number, reason: string) =>
     req<any>(`/admin/events/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
   delete: (token: string, id: number) =>
     req<any>(`/admin/events/${id}`, { method: 'DELETE' }, token),
-  // Public
-  publicList: (params: Record<string, string> = {}) =>
-    req<any>(`/events?${new URLSearchParams(params)}`),
+  stats: (token: string) =>
+    req<any>('/admin/events/stats', {}, token),
+  // Suspends the host AND cancels everything they were running — a suspended
+  // host with live events is the worst of both.
+  suspendHost: (token: string, id: number, reason: string) =>
+    req<any>(`/admin/events/${id}/suspend-host`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  removeParticipant: (token: string, id: number, userId: number, reason: string) =>
+    req<any>(`/admin/events/${id}/participants/${userId}/remove`,
+      { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  // The admin's own categories route — the public one sits behind the
+  // events_enabled switch, which is off until the feature is rolled out.
+  categories: (token: string) =>
+    req<any>('/admin/events/categories', {}, token),
+  // The key is derived from the label server-side, so it is never sent.
+  createCategory: (token: string, body: { label: string; icon?: string; sort_order?: number }) =>
+    req<any>('/admin/events/categories', { method: 'POST', body: JSON.stringify(body) }, token),
+  updateCategory: (token: string, id: number, body: Record<string, unknown>) =>
+    req<any>(`/admin/events/categories/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  deleteCategory: (token: string, id: number) =>
+    req<any>(`/admin/events/categories/${id}`, { method: 'DELETE' }, token),
+  settings: (token: string) =>
+    req<any>('/admin/events/settings', {}, token),
+  updateSettings: (token: string, settings: Record<string, boolean>) =>
+    req<any>('/admin/events/settings', { method: 'PUT', body: JSON.stringify({ settings }) }, token),
+  // No `publicList` here on purpose: the website reads events through
+  // publicEventApi, which hits /public/events. The version that used to sit
+  // here pointed at the app's authenticated /events and would have 401'd.
+  createEvent: (token: string, body: FormData | Record<string, unknown>) =>
+    body instanceof FormData
+      ? reqForm<any>('/admin/events', body, token)
+      : req<any>('/admin/events', { method: 'POST', body: JSON.stringify(body) }, token),
+  updateEvent: (token: string, id: number, body: Record<string, unknown>) =>
+    req<any>(`/admin/events/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  postpone: (token: string, id: number, body: { starts_at: string; ends_at: string; reason?: string }) =>
+    req<any>(`/admin/events/${id}/postpone`, { method: 'POST', body: JSON.stringify(body) }, token),
+  uploadCover: (token: string, id: number, file: File) => {
+    const fd = new FormData()
+    fd.append('cover', file)
+    return reqForm<any>(`/admin/events/${id}/cover`, fd, token)
+  },
+  addParticipant: (token: string, id: number, userId: number) =>
+    req<any>(`/admin/events/${id}/participants`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }, token),
+}
+
+export type AdminLocation = {
+  id: number
+  name: string
+  slug: string | null
+  source_type: 'google' | 'manual'
+  status: 'pending' | 'approved' | 'rejected' | 'inactive'
+  is_verified: boolean
+  is_featured: boolean
+  category_id: number | null
+  category: string | null
+  description: string | null
+  address: string | null
+  city: string | null
+  latitude: number | null
+  longitude: number | null
+  phone: string | null
+  website: string | null
+  rating: number | null
+  review_count: number
+  events_count: number
+  photos: { id: number; url: string | null; attribution: string | null }[]
+  created_at: string | null
+}
+
+/* ─── Admin Locations (venue master) ──────────────────────────── */
+export const locationsApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/event-locations?${new URLSearchParams(params)}`, {}, token),
+  stats: (token: string) => req<any>('/admin/event-locations/stats', {}, token),
+  categories: (token: string) => req<any>('/admin/event-locations/categories', {}, token),
+  get: (token: string, id: number) => req<any>(`/admin/event-locations/${id}`, {}, token),
+
+  // Google lives behind the API — the panel never calls Google directly, so
+  // the key stays server-side. `session` groups the keystrokes and the
+  // details call that follows into one billable Google session.
+  googleSearch: (token: string, q: string, session: string) =>
+    req<any>(`/admin/event-locations/google/search?${new URLSearchParams({ q, session })}`, {}, token),
+  googleTextSearch: (token: string, q: string) =>
+    req<any>(`/admin/event-locations/google/text-search?${new URLSearchParams({ q })}`, {}, token),
+  googleDetails: (token: string, placeId: string, session: string) =>
+    req<any>(`/admin/event-locations/google/${encodeURIComponent(placeId)}?${new URLSearchParams({ session })}`, {}, token),
+  import: (token: string, body: Record<string, unknown>) =>
+    req<any>('/admin/event-locations/import', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  create: (token: string, body: Record<string, unknown>) =>
+    req<any>('/admin/event-locations', { method: 'POST', body: JSON.stringify(body) }, token),
+  update: (token: string, id: number, body: Record<string, unknown>) =>
+    req<any>(`/admin/event-locations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}`, { method: 'DELETE' }, token),
+
+  approve: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}/approve`, { method: 'POST' }, token),
+  reject: (token: string, id: number, reason: string) =>
+    req<any>(`/admin/event-locations/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  deactivate: (token: string, id: number, reason = '') =>
+    req<any>(`/admin/event-locations/${id}/deactivate`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  reactivate: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}/reactivate`, { method: 'POST' }, token),
 }
 
 /* ─── Admin Payments ──────────────────────────────────────────── */
@@ -510,6 +634,59 @@ async function publicGet<T>(path: string, revalidate: number, pick: (j: any) => 
   } catch {
     return fallback
   }
+}
+
+export type PublicEvent = {
+  id: number
+  slug: string | null
+  title: string
+  summary: string
+  cover_url: string | null
+  category: string | null
+  category_label: string | null
+  city: string | null
+  location_name: string | null
+  starts_at: string | null
+  price: number
+  is_free: boolean
+  capacity: number
+  participants_count: number
+  seats_left: number
+  is_full: boolean
+  is_live: boolean
+  status: 'published' | 'completed' | 'cancelled' | 'draft' | 'pending_approval'
+  host_name: string | null
+  host_photo: string | null
+  host_verified: boolean
+}
+
+export type PublicEventDetail = PublicEvent & {
+  description: string
+  ends_at: string | null
+  age_min: number | null
+  age_max: number | null
+  latitude: number | null
+  longitude: number | null
+  rating: number | null
+  review_count: number
+}
+
+/* ─── Public events (no auth) ─────────────────────────────────── */
+export const publicEventApi = {
+  list: (params: { category?: string; city?: string; search?: string; per_page?: number } = {}) => {
+    const p = new URLSearchParams()
+    if (params.category) p.set('category', params.category)
+    if (params.city) p.set('city', params.city)
+    if (params.search) p.set('search', params.search)
+    if (params.per_page) p.set('per_page', String(params.per_page))
+    return publicGet<PublicEvent[]>(`/public/events?${p}`, 120, j => j?.data, [])
+  },
+  categories: () =>
+    publicGet<{ key: string; label: string }[]>('/public/events/categories', 600, j => j?.data, []),
+  // A shared link lands here, so it is revalidated more eagerly than the
+  // listing — a seat count that is an hour stale reads as broken.
+  get: (id: string | number) =>
+    publicGet<PublicEventDetail | null>(`/public/events/${id}`, 60, j => j?.data, null),
 }
 
 export const publicCompanionApi = {

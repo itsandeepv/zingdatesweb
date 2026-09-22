@@ -17,6 +17,8 @@ const TITLES: Record<string, string> = {
   '/admin/subscriptions':'Subscription Management',
   '/admin/payments':     'Payments & Transactions',
   '/admin/events':       'Event Management',
+  '/admin/events/settings': 'Events Settings',
+  '/admin/locations':    'Venue Locations',
   '/admin/social':       'Social Networking',
   '/admin/messaging':    'Messaging & Notifications',
   '/admin/content':      'Content Management',
@@ -46,7 +48,14 @@ export default function AdminHeader() {
   const [showProfile, setShowProfile] = useState(false)
   const [search, setSearch] = useState('')
 
-  const title = TITLES[pathname] ?? 'Admin'
+  // Exact match first, so every existing entry resolves exactly as before.
+  // Detail routes (/admin/events/12) fall back to their section's title —
+  // without this they read simply "Admin".
+  const title = TITLES[pathname]
+    ?? Object.entries(TITLES)
+         .filter(([href]) => href !== '/admin' && pathname.startsWith(href + '/'))
+         .sort((a, b) => b[0].length - a[0].length)[0]?.[1]
+    ?? 'Admin'
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 gap-4 flex-shrink-0 z-30">

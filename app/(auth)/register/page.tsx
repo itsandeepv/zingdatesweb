@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -14,10 +14,38 @@ const INTERESTS = [
 ]
 
 const STEPS = [
-  { label: 'Basic', title: 'Basic Info',    sub: 'Tell us who you are' },
+  { label: 'Basic', title: 'Basic Info',    sub: 'A photo and a few details so people know who you are' },
   { label: 'About', title: 'About You',     sub: 'Share a bit more about yourself' },
   { label: 'Vibes', title: 'Your Interests', sub: 'Pick at least 3 that match you' },
 ]
+
+const MIN_AGE      = 18
+const MIN_BIO      = 20
+const MIN_INTERESTS = 3
+const MAX_PHOTO_MB = 5
+
+// ApiError extends Error, so its server message comes through here.
+function errMessage(err: unknown, fallback: string) {
+  return err instanceof Error && err.message ? err.message : fallback
+}
+
+function calcAge(dob: string): number | null {
+  if (!dob) return null
+  const d = new Date(dob)
+  if (isNaN(d.getTime())) return null
+  const today = new Date()
+  let age = today.getFullYear() - d.getFullYear()
+  const m = today.getMonth() - d.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--
+  return age
+}
+
+// Latest birth date that still clears the age gate — also caps the native picker.
+function maxDob(): string {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() - MIN_AGE)
+  return d.toISOString().slice(0, 10)
+}
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -33,10 +61,20 @@ export default function RegisterPage() {
     interests: [] as string[],
   })
 
+  // The photo goes up as soon as it is picked (same endpoint the profile page
+  // uses), so by submit time we only have to save its URL with the rest.
+  const [photoUrl, setPhotoUrl]         = useState('')
+  const [photoPreview, setPhotoPreview] = useState('')
+  const [uploading, setUploading]       = useState(false)
+  const fileRef    = useRef<HTMLInputElement>(null)
+  const previewRef = useRef('')
+
   useEffect(() => {
     if (!_hasHydrated) return   // wait for Zustand to rehydrate from localStorage
     if (!token) router.replace('/login')
   }, [_hasHydrated, token, router])
+
+  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
 
   function set(key: keyof typeof form, val: string | string[]) {
     setForm(f => ({ ...f, [key]: val }))
@@ -47,25 +85,86 @@ export default function RegisterPage() {
       : [...form.interests, tag])
   }
 
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Please choose an image file'); return }
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) { toast.error(`Photo must be under ${MAX_PHOTO_MB} MB`); return }
+
+    const preview = URL.createObjectURL(file)
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
+    previewRef.current = preview
+    setPhotoPreview(preview)
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('photo', file)
+      const res = await meApi.uploadPhoto(token!, fd)
+      const url = res?.photo ?? res?.url ?? res?.photo_url
+      if (!url) throw new Error('Upload did not return a photo')
+      setPhotoUrl(url)
+      toast.success('Photo uploaded!')
+    } catch (err) {
+      URL.revokeObjectURL(preview)
+      previewRef.current = ''
+      setPhotoPreview('')
+      setPhotoUrl('')
+      toast.error(errMessage(err, 'Failed to upload photo'))
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const age = calcAge(form.dob)
+
+  /* What is still missing on a given step — drives both the hint line and the
+     disabled button, so the two can never disagree. */
+  function stepIssue(n: 1 | 2 | 3): string | null {
+    if (n === 1) {
+      if (uploading)                    return 'Uploading your photo…'
+      if (!photoUrl)                    return 'Add a profile photo'
+      if (form.name.trim().length < 2)  return 'Enter your full name'
+      if (!form.gender)                 return 'Select your gender'
+      if (!form.dob)                    return 'Enter your date of birth'
+      if (age === null)                 return 'Enter a valid date of birth'
+      if (age < MIN_AGE)                return `You must be at least ${MIN_AGE} to join`
+      return null
+    }
+    if (n === 2) {
+      const bio = form.bio.trim().length
+      if (bio < MIN_BIO)                return `Write ${MIN_BIO - bio} more character${MIN_BIO - bio === 1 ? '' : 's'} in your bio`
+      if (form.city.trim().length < 2)  return 'Enter your city'
+      return null
+    }
+    const left = MIN_INTERESTS - form.interests.length
+    if (left > 0) return `Select ${left} more interest${left === 1 ? '' : 's'} to continue`
+    return null
+  }
+
+  const issue = stepIssue(step)
+
   async function next(e: { preventDefault(): void }) {
     e.preventDefault()
+    if (issue) { toast.error(issue); return }
     if (step < 3) { setStep(s => (s + 1) as 1 | 2 | 3); return }
 
     setLoading(true)
     try {
       const res = await meApi.update(token!, {
-        name:   form.name   || undefined,
-        gender: form.gender ? form.gender.toLowerCase() : undefined,
-        dob:    form.dob    || undefined,
-        bio:    form.bio    || undefined,
-        about:  form.about  || undefined,
-        city:   form.city   || undefined,
+        name:      form.name.trim(),
+        gender:    form.gender.toLowerCase(),
+        dob:       form.dob,
+        bio:       form.bio.trim(),
+        about:     form.about.trim() || undefined,
+        city:      form.city.trim(),
+        interests: form.interests,
       })
       setAuth(token!, res.user ?? res)
       toast.success('Welcome to zingDates!')
       window.location.href = '/discover'
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to save profile. Please try again.')
+    } catch (err) {
+      toast.error(errMessage(err, 'Failed to save profile. Please try again.'))
     } finally {
       setLoading(false)
     }
@@ -125,12 +224,58 @@ export default function RegisterPage() {
         {/* Step 1 — Basic Info */}
         {step === 1 && (
           <>
+            {/* Profile photo */}
+            <div className="flex flex-col items-center gap-2 pb-1">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="relative w-28 h-28 rounded-full overflow-hidden flex items-center justify-center transition-all disabled:cursor-wait group"
+                style={{
+                  border: photoPreview ? '3px solid #E91E8C' : '2px dashed #e5e7eb',
+                  background: photoPreview ? 'transparent' : '#fafafa',
+                  boxShadow: photoPreview ? '0 4px 18px rgba(233,30,140,0.25)' : 'none',
+                }}
+                aria-label={photoPreview ? 'Change profile photo' : 'Add profile photo'}>
+                {photoPreview ? (
+                  <>
+                    {/* Blob / CDN URL, so a plain img rather than next/image. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photoPreview} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute inset-0 bg-black/45 text-white text-[11px] font-semibold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      Change
+                    </span>
+                  </>
+                ) : (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="2">
+                    <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                )}
+                {uploading && (
+                  <span className="absolute inset-0 bg-white/75 flex items-center justify-center">
+                    <svg className="animate-spin w-6 h-6 text-pink-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                  </span>
+                )}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
+                Profile Photo <span className="text-pink-500">*</span>
+              </p>
+              <p className="text-[11px] text-gray-400">
+                {photoUrl ? 'Looking good — tap the photo to change it' : `A clear face photo, under ${MAX_PHOTO_MB} MB`}
+              </p>
+            </div>
+
             <Field label="Full Name" type="text" value={form.name} onChange={v => set('name', v)}
                    placeholder="Priya Sharma" required />
 
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
-                Gender
+                Gender <span className="text-pink-500">*</span>
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {['Male', 'Female', 'Other'].map(g => (
@@ -149,7 +294,8 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <Field label="Date of Birth" type="date" value={form.dob} onChange={v => set('dob', v)} required />
+            <Field label="Date of Birth" type="date" value={form.dob} onChange={v => set('dob', v)}
+                   max={maxDob()} hint={`You must be ${MIN_AGE} or older to join`} required />
           </>
         )}
 
@@ -157,30 +303,25 @@ export default function RegisterPage() {
         {step === 2 && (
           <>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">Bio</label>
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                Bio <span className="text-pink-500">*</span>
+              </label>
               <textarea
                 value={form.bio}
                 onChange={e => set('bio', e.target.value)}
                 placeholder="Tell people about yourself..."
                 rows={3}
+                required
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all resize-none text-gray-900 placeholder:text-gray-300" />
+              <p className="text-[11px] mt-1.5"
+                 style={{ color: form.bio.trim().length >= MIN_BIO ? '#10b981' : '#9ca3af' }}>
+                {form.bio.trim().length}/{MIN_BIO} characters minimum
+              </p>
             </div>
             <Field label="Short Tagline" type="text" value={form.about} onChange={v => set('about', v)}
-                   placeholder="e.g. Coffee lover, dog dad" />
-            <Field label="City" type="text" value={form.city} onChange={v => set('city', v)} placeholder="Mumbai" />
-
-            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3 flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl gradient-brand-soft flex items-center justify-center flex-shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E91E8C" strokeWidth="2">
-                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-gray-700">Profile Photo</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Add photos from your profile settings after signup.</p>
-              </div>
-            </div>
+                   placeholder="e.g. Coffee lover, dog dad" hint="Optional" />
+            <Field label="City" type="text" value={form.city} onChange={v => set('city', v)}
+                   placeholder="Mumbai" hint="So we can show you people and events nearby" required />
           </>
         )}
 
@@ -209,30 +350,39 @@ export default function RegisterPage() {
             <div
               className="flex items-center gap-2 rounded-2xl px-4 py-3 border transition-all"
               style={{
-                background:   form.interests.length >= 3 ? 'rgba(16,185,129,0.06)'  : '#f9fafb',
-                borderColor:  form.interests.length >= 3 ? 'rgba(16,185,129,0.25)'  : '#f3f4f6',
+                background:   form.interests.length >= MIN_INTERESTS ? 'rgba(16,185,129,0.06)'  : '#f9fafb',
+                borderColor:  form.interests.length >= MIN_INTERESTS ? 'rgba(16,185,129,0.25)'  : '#f3f4f6',
               }}>
               <div
                 className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold"
                 style={{
-                  background: form.interests.length >= 3 ? '#10b981' : '#e5e7eb',
+                  background: form.interests.length >= MIN_INTERESTS ? '#10b981' : '#e5e7eb',
                   color:      '#fff',
                 }}>
-                {form.interests.length >= 3 ? '✓' : form.interests.length}
+                {form.interests.length >= MIN_INTERESTS ? '✓' : form.interests.length}
               </div>
-              <p className="text-xs font-medium" style={{ color: form.interests.length >= 3 ? '#065f46' : '#9ca3af' }}>
-                {form.interests.length < 3
-                  ? `Select ${3 - form.interests.length} more to continue`
-                  : `${form.interests.length} interests selected — looking good!`}
+              <p className="text-xs font-medium" style={{ color: form.interests.length >= MIN_INTERESTS ? '#065f46' : '#9ca3af' }}>
+                {issue ?? `${form.interests.length} interests selected — looking good!`}
               </p>
             </div>
           </>
         )}
 
+        {/* What is still needed before this step can be completed. Step 3 says
+            it in its own counter card, so it is not repeated here. */}
+        {issue && step < 3 && (
+          <p className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-shrink-0">
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+            </svg>
+            {issue}
+          </p>
+        )}
+
         {/* ── Submit ── */}
         <button
           type="submit"
-          disabled={loading || (step === 3 && form.interests.length < 3)}
+          disabled={loading || !!issue}
           className="w-full gradient-brand text-white font-bold py-4 rounded-2xl shadow-brand hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed text-[15px] tracking-wide mt-2">
           {loading
             ? <span className="flex items-center justify-center gap-2">
@@ -276,16 +426,20 @@ export default function RegisterPage() {
   )
 }
 
-function Field({ label, type, value, onChange, placeholder, required }: {
-  label: string; type: string; value: string; onChange: (v: string) => void; placeholder?: string; required?: boolean
+function Field({ label, type, value, onChange, placeholder, required, max, hint }: {
+  label: string; type: string; value: string; onChange: (v: string) => void
+  placeholder?: string; required?: boolean; max?: string; hint?: string
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">{label}</label>
+      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+        {label}{required && <span className="text-pink-500"> *</span>}
+      </label>
       <input
         type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder} required={required}
+        placeholder={placeholder} required={required} max={max}
         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300" />
+      {hint && <p className="text-[11px] text-gray-400 mt-1.5">{hint}</p>}
     </div>
   )
 }

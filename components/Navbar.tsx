@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
 import { blogApi, podcastApi } from '@/lib/api'
@@ -12,12 +13,14 @@ function NavMenu({
   label,
   href,
   loadCategories,
-  light,
+  className,
+  active,
 }: {
   label: string
   href: string
   loadCategories: () => Promise<string[]>
-  light?: boolean
+  className: string
+  active: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [cats, setCats] = useState<string[] | null>(null)
@@ -38,7 +41,8 @@ function NavMenu({
     <div className="relative" onMouseEnter={show} onMouseLeave={hide}>
       <Link
         href={href}
-        className={`flex items-center gap-1 text-sm font-medium transition-colors ${light ? 'text-white/85 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+        aria-current={active ? 'page' : undefined}
+        className={`flex items-center gap-1 ${className}`}
       >
         {label}
         <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -98,6 +102,23 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
   const light = overlay && !scrolled && !mobileOpen
   const linkCls = light ? 'text-white/85 hover:text-white' : 'text-gray-600 hover:text-gray-900'
 
+  // A section counts as current for its own page and anything nested under it
+  // (/events also lights up on /events/42). Hash links point at the home page,
+  // so they never win.
+  const pathname = usePathname()
+  const isActive = (href: string) =>
+    href.startsWith('/') && !href.includes('#') &&
+    (pathname === href || pathname.startsWith(`${href}/`))
+
+  // Current section: brand pink on the white bar, solid white on the overlay,
+  // with a matching underline so it reads at a glance either way.
+  const navLink = (href: string) =>
+    `relative text-sm font-medium transition-colors ${
+      isActive(href)
+        ? `${light ? 'text-white' : 'text-pink-600'} after:absolute after:left-0 after:right-0 after:-bottom-2 after:h-0.5 after:rounded-full after:bg-current`
+        : linkCls
+    }`
+
   const blogCats = () => blogApi.categories().then(r => toList(r).map((c: any) => (typeof c === 'string' ? c : c?.name ?? c?.category)).filter(Boolean))
   const podcastCats = () => podcastApi.categories().then(r => toList(r).map((c: any) => (typeof c === 'string' ? c : c?.name ?? c?.category)).filter(Boolean))
 
@@ -113,11 +134,12 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-7">
-          <NavMenu label="Blog" href="/blog" loadCategories={blogCats} light={light} />
-          <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} light={light} />
-          <Link href="/companions" className={`text-sm font-medium transition-colors ${linkCls}`}>Companions</Link>
-          <Link href="/about" className={`text-sm font-medium transition-colors ${linkCls}`}>About</Link>
-          <Link href="/help" className={`text-sm font-medium transition-colors ${linkCls}`}>Support</Link>
+          <NavMenu label="Blog" href="/blog" loadCategories={blogCats} className={navLink('/blog')} active={isActive('/blog')} />
+          <NavMenu label="Podcasts" href="/podcasts" loadCategories={podcastCats} className={navLink('/podcasts')} active={isActive('/podcasts')} />
+          <Link href="/events" aria-current={isActive('/events') ? 'page' : undefined} className={navLink('/events')}>Events</Link>
+          <Link href="/companions" aria-current={isActive('/companions') ? 'page' : undefined} className={navLink('/companions')}>Companions</Link>
+          <Link href="/about" aria-current={isActive('/about') ? 'page' : undefined} className={navLink('/about')}>About</Link>
+          <Link href="/help" aria-current={isActive('/help') ? 'page' : undefined} className={navLink('/help')}>Support</Link>
           <a href="/#features" className={`text-sm font-medium transition-colors ${linkCls}`}>Features</a>
         </div>
 
@@ -161,6 +183,7 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
           {[
             { label: 'Blog', href: '/blog' },
             { label: 'Podcasts', href: '/podcasts' },
+            { label: 'Events', href: '/events' },
             { label: 'Companions', href: '/companions' },
             { label: 'About', href: '/about' },
             { label: 'Support', href: '/help' },
@@ -168,7 +191,12 @@ export default function Navbar({ overlay = false }: { overlay?: boolean }) {
             { label: 'How It Works', href: '/#how-it-works' },
           ].map(l => (
             <Link key={l.label} href={l.href} onClick={() => setMobileOpen(false)}
-              className="block px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:bg-pink-50 hover:text-pink-600">
+              aria-current={isActive(l.href) ? 'page' : undefined}
+              className={`block px-3 py-2 rounded-xl text-sm font-medium ${
+                isActive(l.href)
+                  ? 'bg-pink-50 text-pink-600'
+                  : 'text-gray-700 hover:bg-pink-50 hover:text-pink-600'
+              }`}>
               {l.label}
             </Link>
           ))}
