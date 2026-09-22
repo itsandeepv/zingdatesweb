@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { eventsApi, usersApi } from '@/lib/api'
+import { eventsApi } from '@/lib/api'
+import UserSearch from '@/components/admin/UserSearch'
 import EventForm, { EMPTY_EVENT, toPayload, type EventFormValues } from '@/components/admin/EventForm'
 
 export default function NewEventPage() {
@@ -16,21 +17,8 @@ export default function NewEventPage() {
   const [cover, setCover] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Host search — an admin creating an event on someone else's behalf.
-  const [hostQuery, setHostQuery] = useState('')
-  const [hostResults, setHostResults] = useState<any[]>([])
-  const [host, setHost] = useState<any | null>(null)
-  const [searching, setSearching] = useState(false)
-
-  async function searchHosts() {
-    if (!hostQuery.trim()) return
-    setSearching(true)
-    try {
-      const res = await usersApi.list(token, { search: hostQuery.trim() })
-      setHostResults((res.data ?? res ?? []).slice(0, 6))
-    } catch (err: any) { toast.error(err.message || 'Search failed') }
-    finally { setSearching(false) }
-  }
+  // Host — an admin creating an event on someone else's behalf.
+  const [host, setHost] = useState<{ id: number; name: string | null } | null>(null)
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
@@ -105,32 +93,7 @@ export default function NewEventPage() {
             </div>
           ) : (
             <>
-              <div className="flex gap-2">
-                <input
-                  value={hostQuery}
-                  onChange={e => setHostQuery(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchHosts() } }}
-                  placeholder="Search a user by name or phone"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200"
-                />
-                <button type="button" onClick={searchHosts} disabled={searching}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-                  {searching ? '…' : 'Search'}
-                </button>
-              </div>
-              {hostResults.length > 0 && (
-                <div className="mt-2 border border-gray-100 rounded-lg divide-y divide-gray-50">
-                  {hostResults.map((u: any) => (
-                    <button
-                      key={u.id} type="button"
-                      onClick={() => { setHost(u); setHostResults([]); setHostQuery('') }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-pink-50"
-                    >
-                      {u.name} <span className="text-gray-400">#{u.id}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <UserSearch token={token} onPick={u => setHost(u)} />
               <p className="text-xs text-gray-400 mt-1">Leave blank to host it yourself.</p>
             </>
           )}

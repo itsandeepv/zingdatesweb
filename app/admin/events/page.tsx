@@ -207,12 +207,21 @@ export default function EventsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Event Management</h1>
           <p className="text-sm text-gray-500 mt-0.5">Review, approve, and manage all events on the platform</p>
         </div>
-        <Link
-          href="/admin/events/new"
-          className="px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand"
-        >
-          + Create Event
-        </Link>
+        {/* One group, or justify-between pushes them to opposite ends. */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/events/settings"
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Settings
+          </Link>
+          <Link
+            href="/admin/events/new"
+            className="px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand"
+          >
+            + Create Event
+          </Link>
+        </div>
       </div>
 
       {/* Rollout switches. Shown first because while Events is off, nothing

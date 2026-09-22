@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import { publicEventApi, type PublicEvent } from '@/lib/api'
@@ -99,9 +100,11 @@ export default async function EventsPage({
       <Navbar overlay />
 
       <section className="relative overflow-hidden min-h-[60svh] flex items-center bg-[#160a2a]">
+        {/* Photo background with a dark wash so the copy stays readable over any part of the image. */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.82) 0%, rgba(42,16,51,0.7) 45%, rgba(12,7,32,0.94) 100%)' }} />
-          <div className="absolute inset-0 opacity-50" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.4), transparent 70%)' }} />
+          <Image src="/events-bg.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center" />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(12,7,32,0.78) 0%, rgba(42,16,51,0.5) 45%, rgba(12,7,32,0.92) 100%)' }} />
+          <div className="absolute inset-0 opacity-40" style={{ background: 'radial-gradient(60% 50% at 50% 55%, rgba(233,30,140,0.35), transparent 70%)' }} />
         </div>
 
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20 text-center">

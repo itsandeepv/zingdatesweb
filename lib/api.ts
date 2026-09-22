@@ -227,6 +227,67 @@ export const eventsApi = {
     req<any>(`/admin/events/${id}/participants`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }, token),
 }
 
+export type AdminLocation = {
+  id: number
+  name: string
+  slug: string | null
+  source_type: 'google' | 'manual'
+  status: 'pending' | 'approved' | 'rejected' | 'inactive'
+  is_verified: boolean
+  is_featured: boolean
+  category_id: number | null
+  category: string | null
+  description: string | null
+  address: string | null
+  city: string | null
+  latitude: number | null
+  longitude: number | null
+  phone: string | null
+  website: string | null
+  rating: number | null
+  review_count: number
+  events_count: number
+  photos: { id: number; url: string | null; attribution: string | null }[]
+  created_at: string | null
+}
+
+/* ─── Admin Locations (venue master) ──────────────────────────── */
+export const locationsApi = {
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/admin/event-locations?${new URLSearchParams(params)}`, {}, token),
+  stats: (token: string) => req<any>('/admin/event-locations/stats', {}, token),
+  categories: (token: string) => req<any>('/admin/event-locations/categories', {}, token),
+  get: (token: string, id: number) => req<any>(`/admin/event-locations/${id}`, {}, token),
+
+  // Google lives behind the API — the panel never calls Google directly, so
+  // the key stays server-side. `session` groups the keystrokes and the
+  // details call that follows into one billable Google session.
+  googleSearch: (token: string, q: string, session: string) =>
+    req<any>(`/admin/event-locations/google/search?${new URLSearchParams({ q, session })}`, {}, token),
+  googleTextSearch: (token: string, q: string) =>
+    req<any>(`/admin/event-locations/google/text-search?${new URLSearchParams({ q })}`, {}, token),
+  googleDetails: (token: string, placeId: string, session: string) =>
+    req<any>(`/admin/event-locations/google/${encodeURIComponent(placeId)}?${new URLSearchParams({ session })}`, {}, token),
+  import: (token: string, body: Record<string, unknown>) =>
+    req<any>('/admin/event-locations/import', { method: 'POST', body: JSON.stringify(body) }, token),
+
+  create: (token: string, body: Record<string, unknown>) =>
+    req<any>('/admin/event-locations', { method: 'POST', body: JSON.stringify(body) }, token),
+  update: (token: string, id: number, body: Record<string, unknown>) =>
+    req<any>(`/admin/event-locations/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}`, { method: 'DELETE' }, token),
+
+  approve: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}/approve`, { method: 'POST' }, token),
+  reject: (token: string, id: number, reason: string) =>
+    req<any>(`/admin/event-locations/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  deactivate: (token: string, id: number, reason = '') =>
+    req<any>(`/admin/event-locations/${id}/deactivate`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
+  reactivate: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/${id}/reactivate`, { method: 'POST' }, token),
+}
+
 /* ─── Admin Payments ──────────────────────────────────────────── */
 export const paymentsApi = {
   list: (token: string, params: Record<string, string> = {}) =>

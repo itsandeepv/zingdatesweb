@@ -17,6 +17,8 @@ const TITLES: Record<string, string> = {
   '/admin/subscriptions':'Subscription Management',
   '/admin/payments':     'Payments & Transactions',
   '/admin/events':       'Event Management',
+  '/admin/events/settings': 'Events Settings',
+  '/admin/locations':    'Venue Locations',
   '/admin/social':       'Social Networking',
   '/admin/messaging':    'Messaging & Notifications',
   '/admin/content':      'Content Management',

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { eventsApi, usersApi } from '@/lib/api'
+import UserSearch from '@/components/admin/UserSearch'
 import EventForm, {
   EMPTY_EVENT, toPayload, toLocalInput, toIso, type EventFormValues,
 } from '@/components/admin/EventForm'
@@ -109,8 +110,6 @@ export default function EventDetailPage() {
   const [newEnd, setNewEnd] = useState('')
   const [postponeReason, setPostponeReason] = useState('')
 
-  const [userQuery, setUserQuery] = useState('')
-  const [userResults, setUserResults] = useState<any[]>([])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -122,6 +121,16 @@ export default function EventDetailPage() {
         category: e.category ?? '',
         starts_at: toLocalInput(e.starts_at), ends_at: toLocalInput(e.ends_at),
         city: e.venue_city ?? '', public_location_name: e.venue_name ?? '',
+        event_location_id: e.event_location_id != null ? String(e.event_location_id) : '',
+        // Seeded from the payload for the same reason as the venue and the
+        // visibility: a field the form does not know about is a field every
+        // save silently resets.
+        food: e.food ?? 'unspecified',
+        drinks: e.drinks ?? 'unspecified',
+        cost_sharing: e.cost_sharing ?? 'unspecified',
+        dress_code: e.dress_code ?? '',
+        what_to_bring: e.what_to_bring ?? '',
+        amenities: e.amenities ?? [],
         max_participants: e.capacity ?? 20,
         age_min: e.age_min != null ? String(e.age_min) : '',
         age_max: e.age_max != null ? String(e.age_max) : '',
@@ -228,20 +237,11 @@ export default function EventDetailPage() {
     finally { setActing(false) }
   }
 
-  async function searchUsers() {
-    if (!userQuery.trim()) return
-    try {
-      const res = await usersApi.list(token, { search: userQuery.trim() })
-      setUserResults((res.data ?? res ?? []).slice(0, 6))
-    } catch (err: any) { toast.error(err.message || 'Search failed') }
-  }
-
   async function addParticipant(userId: number, name: string) {
     setActing(true)
     try {
       await eventsApi.addParticipant(token, id, userId)
       toast.success(`${name} added`)
-      setUserQuery(''); setUserResults([])
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to add') }
     finally { setActing(false) }
@@ -446,29 +446,11 @@ export default function EventDetailPage() {
             </div>
             <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/60">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Add someone</label>
-              <div className="flex gap-2">
-                <input
-                  value={userQuery}
-                  onChange={e => setUserQuery(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); searchUsers() } }}
-                  placeholder="Search by name or phone"
-                  className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-pink-200"
-                />
-                <button onClick={searchUsers} disabled={acting}
-                  className="px-4 py-2 text-sm rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-                  Search
-                </button>
-              </div>
-              {userResults.length > 0 && (
-                <div className="mt-2 border border-gray-100 rounded-lg bg-white divide-y divide-gray-50">
-                  {userResults.map((u: any) => (
-                    <button key={u.id} onClick={() => addParticipant(u.id, u.name)} disabled={acting}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-pink-50 disabled:opacity-50">
-                      {u.name} <span className="text-gray-400">#{u.id}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <UserSearch
+                token={token}
+                disabled={acting}
+                onPick={u => addParticipant(u.id, u.name ?? 'That user')}
+              />
               <p className="text-xs text-gray-400 mt-1">
                 Age, gender and verification rules are skipped — capacity is not.
               </p>
