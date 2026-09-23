@@ -27,6 +27,8 @@ interface ApiUser {
   country?: string
   bio?: string
   created_at: string
+  signup_source?: string
+  signup_source_label?: string
   last_login_at: string | null
 }
 
@@ -745,6 +747,7 @@ function ViewUserModal({ user, onClose, onEdit, onPlan, token, onRefresh }: {
                   ? `${user.plan_name ?? user.subscription_plan} · until ${fmtDate(user.plan_expires_at)}`
                   : (user.subscription_plan ? `${user.plan_name ?? user.subscription_plan} (expired)` : 'Free') },
               { label: 'Joined',      value: fmtDate(user.created_at) },
+              { label: 'Signed up on', value: user.signup_source_label ?? 'Unknown' },
               { label: 'Last Active', value: fmtDate(user.last_login_at) },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start justify-between gap-4">
@@ -887,11 +890,12 @@ function ModalFooter({ onClose, formId, loading, label }: { onClose: () => void;
 
 /* ── CSV export helper ───────────────────────────────── */
 function exportUsersCSV(users: ApiUser[]) {
-  const headers = ['ID', 'Name', 'Email', 'Phone', 'Role', 'Plan', 'Status', 'Verification', 'City', 'Country', 'Joined', 'Last Active']
+  const headers = ['ID', 'Name', 'Email', 'Phone', 'Role', 'Plan', 'Status', 'Verification', 'City', 'Country', 'Signed up on', 'Joined', 'Last Active']
   const rows = users.map(u => [
     u.id, u.name || '', u.email || '', u.phone || '', u.role,
     u.subscription_plan || 'Free', u.status, u.verification_status,
-    u.city || '', u.country || '', fmtDate(u.created_at), fmtDate(u.last_login_at),
+    u.city || '', u.country || '', u.signup_source_label || 'Unknown',
+    fmtDate(u.created_at), fmtDate(u.last_login_at),
   ])
   const csv = [headers, ...rows]
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -908,6 +912,27 @@ function exportUsersCSV(users: ApiUser[]) {
 }
 
 /* ── Main page ───────────────────────────────────────── */
+/**
+ * Where the account was created. Mirrors App\Support\SignupSource — 'unknown'
+ * is every account that predates the column, and says so rather than being
+ * quietly folded into one of the real buckets.
+ */
+const SOURCE_STYLE: Record<string, string> = {
+  web:     'bg-blue-50 text-blue-700',
+  android: 'bg-green-50 text-green-700',
+  ios:     'bg-gray-100 text-gray-700',
+  unknown: 'bg-gray-50 text-gray-400',
+}
+
+function SignupSourceBadge({ source, label }: { source?: string; label?: string }) {
+  const key = source ?? 'unknown'
+  return (
+    <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${SOURCE_STYLE[key] ?? SOURCE_STYLE.unknown}`}>
+      {label ?? 'Unknown'}
+    </span>
+  )
+}
+
 export default function UsersPage() {
   const token = useAuthStore(s => s.token) ?? ''
 
@@ -919,6 +944,7 @@ export default function UsersPage() {
   const [search, setSearch]                       = useState('')
   const [debouncedSearch, setDebouncedSearch]     = useState('')
   const [statusFilter, setStatusFilter]           = useState('all')
+  const [sourceFilter, setSourceFilter]           = useState('all')
   const [roleFilter, setRoleFilter]               = useState('all')
   const [verificationFilter, setVerificationFilter] = useState('all')
   const [page, setPage]                           = useState(1)
@@ -954,7 +980,7 @@ export default function UsersPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [search])
 
-  useEffect(() => { setPage(1) }, [statusFilter, roleFilter, verificationFilter])
+  useEffect(() => { setPage(1) }, [statusFilter, roleFilter, verificationFilter, sourceFilter])
 
   const fetchUsers = useCallback(async () => {
     if (!token) return
@@ -967,6 +993,7 @@ export default function UsersPage() {
       if (statusFilter !== 'all')       params.status              = statusFilter
       if (roleFilter !== 'all')         params.role                = roleFilter
       if (verificationFilter !== 'all') params.verification_status = verificationFilter
+      if (sourceFilter !== 'all')       params.signup_source        = sourceFilter
 
       const res   = await usersApi.list(token, params)
       const data: ApiUser[] = res.data ?? []
@@ -991,7 +1018,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, page, debouncedSearch, statusFilter, roleFilter, verificationFilter])
+  }, [token, page, debouncedSearch, statusFilter, roleFilter, verificationFilter, sourceFilter])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -1171,9 +1198,20 @@ export default function UsersPage() {
               <option value="unverified">Unverified</option>
             </select>
 
-            {(statusFilter !== 'all' || roleFilter !== 'all' || verificationFilter !== 'all' || search) && (
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)}
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
+              <option value="all">Signed up anywhere</option>
+              <option value="web">Website</option>
+              {/* 'app' is both stores together, because that is how it gets asked. */}
+              <option value="app">App (either store)</option>
+              <option value="android">Android app</option>
+              <option value="ios">iOS app</option>
+              <option value="unknown">Unknown (before tracking)</option>
+            </select>
+
+            {(statusFilter !== 'all' || roleFilter !== 'all' || verificationFilter !== 'all' || sourceFilter !== 'all' || search) && (
               <button
-                onClick={() => { setSearch(''); setStatusFilter('all'); setRoleFilter('all'); setVerificationFilter('all') }}
+                onClick={() => { setSearch(''); setStatusFilter('all'); setRoleFilter('all'); setVerificationFilter('all'); setSourceFilter('all') }}
                 className="px-3.5 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
                 Reset
               </button>
@@ -1260,7 +1298,10 @@ export default function UsersPage() {
                       <td className="px-4 py-3.5"><VerificationBadge status={user.verification_status} /></td>
                       <td className="px-4 py-3.5"><StatusBadge status={user.status} /></td>
 
-                      <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap text-xs tabular-nums">{fmtDate(user.created_at)}</td>
+                      <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap text-xs tabular-nums">
+                        {fmtDate(user.created_at)}
+                        <SignupSourceBadge source={user.signup_source} label={user.signup_source_label} />
+                      </td>
                       <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap text-xs tabular-nums">{fmtDate(user.last_login_at)}</td>
 
                       <td className="pr-4 py-3.5">

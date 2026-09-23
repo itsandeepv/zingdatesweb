@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { eventsApi } from '@/lib/api'
+import { locationsApi } from '@/lib/api'
 
 type Category = {
   id: number
@@ -13,7 +13,7 @@ type Category = {
   icon: string | null
   sort_order: number
   is_active: boolean
-  events: number
+  locations: number
 }
 
 /**
@@ -22,13 +22,12 @@ type Category = {
  * silently renders nothing when someone guesses a name wrong.
  */
 const ICON_CHOICES = [
-  'moon', 'airplane', 'musical-notes', 'restaurant', 'trail-sign', 'film',
-  'basketball', 'cafe', 'color-palette', 'people', 'calendar', 'wine',
-  'game-controller', 'barbell', 'book', 'camera', 'flame', 'heart',
-  'ellipsis-horizontal',
+  'cafe', 'restaurant', 'wine', 'bed', 'business', 'home', 'leaf', 'sunny',
+  'film', 'basketball', 'trail-sign', 'bonfire', 'people', 'camera',
+  'musical-notes', 'boat', 'storefront', 'library', 'ellipsis-horizontal',
 ]
 
-export default function EventCategoriesPage() {
+export default function VenueCategoriesPage() {
   const token = useAuthStore(s => s.token) ?? ''
   const [cats, setCats] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +43,7 @@ export default function EventCategoriesPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      setCats((await eventsApi.categories(token)).data ?? [])
+      setCats((await locationsApi.categories(token)).data ?? [])
     } catch (err: any) {
       toast.error(err.message || 'Failed to load categories')
     } finally {
@@ -59,8 +58,8 @@ export default function EventCategoriesPage() {
     if (!label.trim()) return
     setBusy('new')
     try {
-      await eventsApi.createCategory(token, { label: label.trim(), icon })
-      toast.success('Category added')
+      await locationsApi.createCategory(token, { label: label.trim(), icon })
+      toast.success('Venue category added')
       setLabel('')
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to add') }
@@ -70,7 +69,7 @@ export default function EventCategoriesPage() {
   async function toggle(c: Category) {
     setBusy(c.id)
     try {
-      await eventsApi.updateCategory(token, c.id, { is_active: !c.is_active })
+      await locationsApi.updateCategory(token, c.id, { is_active: !c.is_active })
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to update') }
     finally { setBusy(null) }
@@ -80,8 +79,8 @@ export default function EventCategoriesPage() {
     if (!editing) return
     setBusy(editing.id)
     try {
-      await eventsApi.updateCategory(token, editing.id, { label: editLabel.trim(), icon: editIcon })
-      toast.success('Category updated')
+      await locationsApi.updateCategory(token, editing.id, { label: editLabel.trim(), icon: editIcon })
+      toast.success('Venue category updated')
       setEditing(null)
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to update') }
@@ -98,23 +97,23 @@ export default function EventCategoriesPage() {
     try {
       // Swap the two sort values — the list is small and this keeps the
       // numbers stable rather than renumbering everything on every nudge.
-      await eventsApi.updateCategory(token, c.id, { sort_order: swap.sort_order })
-      await eventsApi.updateCategory(token, swap.id, { sort_order: c.sort_order })
+      await locationsApi.updateCategory(token, c.id, { sort_order: swap.sort_order })
+      await locationsApi.updateCategory(token, swap.id, { sort_order: c.sort_order })
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to reorder') }
     finally { setBusy(null) }
   }
 
   async function remove(c: Category) {
-    if (c.events > 0) {
-      toast.error(`${c.events} event(s) use this. Turn it off instead.`)
+    if (c.locations > 0) {
+      toast.error(`${c.locations} venue(s) use this. Turn it off instead.`)
       return
     }
     if (!confirm(`Delete "${c.label}"?`)) return
     setBusy(c.id)
     try {
-      await eventsApi.deleteCategory(token, c.id)
-      toast.success('Category deleted')
+      await locationsApi.deleteCategory(token, c.id)
+      toast.success('Venue category deleted')
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to delete') }
     finally { setBusy(null) }
@@ -125,20 +124,21 @@ export default function EventCategoriesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/admin/events" className="text-xs text-gray-500 hover:text-pink-600">&larr; Events</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-1">Event Categories</h1>
+        <Link href="/admin/locations" className="text-xs text-gray-500 hover:text-pink-600">&larr; Locations</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mt-1">Venue Categories</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          These are the filter chips in the app and the choices a host picks from. Order here is the order there.
+          What kind of PLACE a venue is — Cafe, Banquet Hall, Park. Separate from
+          event categories, which say what you are going to DO there.
         </p>
       </div>
 
 
       <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-3.5">
         <p className="text-sm text-blue-800">
-          These say what people will <strong>do</strong> — Night Out, Trips, Food.
+          These say what kind of <strong>place</strong> a venue is — Cafe, Banquet Hall, Park.
           They are a separate list from{' '}
-          <Link href="/admin/locations/categories" className="font-semibold underline">venue categories</Link>
-          {' '}(what kind of place it is) and from{' '}
+          <Link href="/admin/events/categories" className="font-semibold underline">event categories</Link>
+          {' '}(what people will do) and from{' '}
           <Link href="/admin/companions?tab=categories" className="font-semibold underline">companion categories</Link>.
           The same word can appear in more than one — editing here changes nothing in the others.
         </p>
@@ -227,7 +227,7 @@ export default function EventCategoriesPage() {
                     <>
                       <p className="font-semibold text-gray-900 text-sm">{c.label}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        <code>{c.key}</code>{c.icon ? ` · ${c.icon}` : ''} · {c.events} event{c.events === 1 ? '' : 's'}
+                        <code>{c.key}</code>{c.icon ? ` · ${c.icon}` : ''} · {c.locations} venue{c.locations === 1 ? '' : 's'}
                       </p>
                     </>
                   )}
@@ -253,7 +253,7 @@ export default function EventCategoriesPage() {
                   <button
                     onClick={() => remove(c)}
                     disabled={busy === c.id}
-                    title={c.events > 0 ? 'In use — turn it off instead' : 'Delete'}
+                    title={c.locations > 0 ? 'In use — turn it off instead' : 'Delete'}
                     className="px-2 py-1 text-xs rounded border border-gray-200 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                   >
                     Del

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { eventsApi, locationsApi } from '@/lib/api'
+import CityInput from '@/components/CityInput'
 
 export type EventFormValues = {
   title: string
@@ -217,8 +218,8 @@ export default function EventForm({
             onChange={e => set({ public_location_name: e.target.value })} placeholder="Cyber Hub, Gurugram" />
         </Field>
         <Field label="City">
-          <input className={input} value={value.city} maxLength={100}
-            onChange={e => set({ city: e.target.value })} placeholder="Gurugram" />
+          <CityInput value={value.city} onChange={city => set({ city })}
+            placeholder="Start typing — Gurugram, Mumbai…" className={input} />
         </Field>
       </div>
 

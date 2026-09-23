@@ -5,7 +5,8 @@ import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/lib/store/auth'
-import { callApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
+import { callApi, meApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
+import { isProfileComplete, unwrapProfile } from '@/lib/profile'
 import NoPlanModal from '@/components/NoPlanModal'
 import DownloadAppModal from '@/components/DownloadAppModal'
 
@@ -97,6 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { token, user, _hasHydrated, clearAuth } = useAuthStore()
   const [incomingCall, setIncomingCall] = useState<any>(null)
+  const [profileChecked, setProfileChecked] = useState(false)
 
   const isCallPage    = pathname?.startsWith('/call')
   const isConvoPage   = /^\/chat\//.test(pathname ?? '')
@@ -122,6 +124,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!token) router.replace('/login')
   }, [_hasHydrated, token])
 
+  // Setup gate. Nothing in here is usable without a profile, so anyone still
+  // missing a required field goes back to /register — this is what stops a
+  // direct URL from skipping the flow. A failed lookup opens the gate rather
+  // than locking everyone out of the app over a backend blip.
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    meApi.profile(token)
+      .then(res => {
+        if (cancelled) return
+        if (!isProfileComplete(unwrapProfile(res))) router.replace('/register')
+        else setProfileChecked(true)
+      })
+      .catch(() => { if (!cancelled) setProfileChecked(true) })
+    return () => { cancelled = true }
+  }, [token, router])
+
   useEffect(() => {
     if (!token || isCallPage) return
     const iv = setInterval(async () => {
@@ -132,6 +151,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }, 6000)
     return () => clearInterval(iv)
   }, [token, isCallPage, incomingCall])
+
+  // Hold the shell back until the gate has answered, so an incomplete profile
+  // never gets a frame of the app before the redirect lands.
+  if (token && !profileChecked) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gray-50">
+      <div className="w-10 h-10 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
+      <p className="text-sm text-gray-400">Loading your profile…</p>
+    </div>
+  )
 
   if (isCallPage) return <>{children}</>
 

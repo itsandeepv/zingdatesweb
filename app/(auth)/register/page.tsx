@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import CityInput from '@/components/CityInput'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useShallow } from 'zustand/react/shallow'
 import { meApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
+import { isProfileComplete, unwrapProfile } from '@/lib/profile'
 
 const INTERESTS = [
   'Travel', 'Music', 'Fitness', 'Photography', 'Cooking', 'Movies',
@@ -63,6 +65,7 @@ export default function RegisterPage() {
 
   // The photo goes up as soon as it is picked (same endpoint the profile page
   // uses), so by submit time we only have to save its URL with the rest.
+  const [alreadySetUp, setAlreadySetUp] = useState(false)
   const [photoUrl, setPhotoUrl]         = useState('')
   const [photoPreview, setPhotoPreview] = useState('')
   const [uploading, setUploading]       = useState(false)
@@ -75,6 +78,33 @@ export default function RegisterPage() {
   }, [_hasHydrated, token, router])
 
   useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
+
+  // Pick up whatever is already on file — someone who half-finished setup, or
+  // who was sent back here by the app's gate, should not start from scratch.
+  // It also decides whether the "Go to Discover" way out is offered at all.
+  useEffect(() => {
+    if (!token) return
+    let cancelled = false
+    meApi.profile(token).then(res => {
+      if (cancelled) return
+      const d = unwrapProfile(res) as Record<string, string | string[]> | null
+      if (!d) return
+      const str = (k: string) => (typeof d[k] === 'string' ? (d[k] as string) : '')
+      setForm(f => ({
+        ...f,
+        name:   str('name')  || f.name,
+        gender: str('gender') ? str('gender')[0].toUpperCase() + str('gender').slice(1) : f.gender,
+        dob:    str('dob').slice(0, 10) || f.dob,
+        bio:    str('bio')   || f.bio,
+        about:  str('about') || f.about,
+        city:   str('city')  || f.city,
+        interests: Array.isArray(d.interests) ? (d.interests as string[]) : f.interests,
+      }))
+      if (str('photo')) { setPhotoUrl(str('photo')); setPhotoPreview(str('photo')) }
+      setAlreadySetUp(isProfileComplete(d))
+    }).catch(() => { /* a fresh account has nothing to prefill */ })
+    return () => { cancelled = true }
+  }, [token])
 
   function set(key: keyof typeof form, val: string | string[]) {
     setForm(f => ({ ...f, [key]: val }))
@@ -320,8 +350,21 @@ export default function RegisterPage() {
             </div>
             <Field label="Short Tagline" type="text" value={form.about} onChange={v => set('about', v)}
                    placeholder="e.g. Coffee lover, dog dad" hint="Optional" />
-            <Field label="City" type="text" value={form.city} onChange={v => set('city', v)}
-                   placeholder="Mumbai" hint="So we can show you people and events nearby" required />
+            {/* Suggests as you type, the way the app's city field does.
+                Typing a name Google has never heard of still works. */}
+            <div>
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+                City<span className="text-pink-500"> *</span>
+              </label>
+              <CityInput
+                value={form.city}
+                onChange={v => set('city', v)}
+                placeholder="Start typing — Mumbai, Gurgaon…"
+                required
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300"
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">So we can show you people and events nearby</p>
+            </div>
           </>
         )}
 
@@ -405,23 +448,28 @@ export default function RegisterPage() {
         )}
       </form>
 
-      {/* ── Already set up ── */}
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-100" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-white px-3 text-[11px] text-gray-400 font-medium uppercase tracking-wider">
-            Already set up?
-          </span>
-        </div>
-      </div>
+      {/* ── Already set up ── Only a profile that already clears the app's gate
+           gets this way out; otherwise it would skip the setup it is here for. */}
+      {alreadySetUp && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-100" />
+            </div>
+            <div className="relative flex justify-center">
+              <span className="bg-white px-3 text-[11px] text-gray-400 font-medium uppercase tracking-wider">
+                Already set up?
+              </span>
+            </div>
+          </div>
 
-      <Link
-        href="/discover"
-        className="block w-full text-center py-3.5 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-500 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 transition-all">
-        Go to Discover
-      </Link>
+          <Link
+            href="/discover"
+            className="block w-full text-center py-3.5 rounded-2xl border-2 border-gray-100 text-sm font-bold text-gray-500 hover:border-pink-300 hover:text-pink-600 hover:bg-pink-50 transition-all">
+            Go to Discover
+          </Link>
+        </>
+      )}
     </div>
   )
 }

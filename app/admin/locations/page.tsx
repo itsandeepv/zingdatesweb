@@ -102,10 +102,16 @@ export default function LocationsPage() {
             Only approved venues appear when someone creates an event. Google is the source; you are the gate.
           </p>
         </div>
-        <Link href="/admin/locations/new"
-          className="px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand">
-          + Add Location
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/locations/categories"
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            Categories
+          </Link>
+          <Link href="/admin/locations/new"
+            className="px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand">
+            + Add Location
+          </Link>
+        </div>
       </div>
 
       {/* Google not being enabled is a server-side fact an admin needs to see

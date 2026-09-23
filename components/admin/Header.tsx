@@ -19,6 +19,8 @@ const TITLES: Record<string, string> = {
   '/admin/events':       'Event Management',
   '/admin/events/settings': 'Events Settings',
   '/admin/locations':    'Venue Locations',
+  '/admin/locations/categories': 'Venue Categories',
+  '/admin/events/categories':    'Event Categories',
   '/admin/social':       'Social Networking',
   '/admin/messaging':    'Messaging & Notifications',
   '/admin/content':      'Content Management',

@@ -28,6 +28,9 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    // Lets the server record whether an account was created here or in the
+    // app. Read on registration only.
+    'X-Client-Platform': 'web',
     ...(options.headers as Record<string, string>),
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
@@ -42,6 +45,22 @@ async function req<T>(path: string, options: RequestInit = {}, token?: string | 
 }
 
 /* ─── Auth ────────────────────────────────────────────────────── */
+/** Mirrors Event::MAX_PHOTOS on the API. */
+export const MAX_EVENT_PHOTOS = 5
+
+/** City lookup. Public: the sign-up form runs before there is a token. */
+export type CitySuggestion = {
+  place_id: string
+  description: string
+  main: string
+  secondary: string
+}
+
+export const placesApi = {
+  cities: (q: string) =>
+    req<{ places: CitySuggestion[] }>(`/public/cities?${new URLSearchParams({ q })}`),
+}
+
 export const authApi = {
   sendOtp: (phone: string, countryCode: string) =>
     req<any>('/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone, country_code: countryCode }) })
@@ -155,7 +174,10 @@ export const usersApi = {
  * itself so it can add the multipart boundary.
  */
 async function reqForm<T>(path: string, body: FormData, token?: string | null): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'X-Client-Platform': 'web',
+  }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body })
@@ -218,11 +240,16 @@ export const eventsApi = {
     req<any>(`/admin/events/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
   postpone: (token: string, id: number, body: { starts_at: string; ends_at: string; reason?: string }) =>
     req<any>(`/admin/events/${id}/postpone`, { method: 'POST', body: JSON.stringify(body) }, token),
-  uploadCover: (token: string, id: number, file: File) => {
+  // Up to MAX_EVENT_PHOTOS. The first one becomes the cover the cards read.
+  uploadPhotos: (token: string, id: number, files: File[]) => {
     const fd = new FormData()
-    fd.append('cover', file)
-    return reqForm<any>(`/admin/events/${id}/cover`, fd, token)
+    files.forEach(f => fd.append('photos[]', f))
+    return reqForm<any>(`/admin/events/${id}/photos`, fd, token)
   },
+  deletePhoto: (token: string, eventId: number, photoId: number) =>
+    req<any>(`/admin/events/${eventId}/photos/${photoId}`, { method: 'DELETE' }, token),
+  reorderPhotos: (token: string, eventId: number, ids: number[]) =>
+    req<any>(`/admin/events/${eventId}/photos/reorder`, { method: 'POST', body: JSON.stringify({ ids }) }, token),
   addParticipant: (token: string, id: number, userId: number) =>
     req<any>(`/admin/events/${id}/participants`, { method: 'POST', body: JSON.stringify({ user_id: userId }) }, token),
 }
@@ -257,6 +284,14 @@ export const locationsApi = {
     req<any>(`/admin/event-locations?${new URLSearchParams(params)}`, {}, token),
   stats: (token: string) => req<any>('/admin/event-locations/stats', {}, token),
   categories: (token: string) => req<any>('/admin/event-locations/categories', {}, token),
+  // Venue categories are their own vocabulary, separate from event
+  // categories. The same word may appear in both.
+  createCategory: (token: string, body: { label: string; icon?: string }) =>
+    req<any>('/admin/event-locations/categories', { method: 'POST', body: JSON.stringify(body) }, token),
+  updateCategory: (token: string, id: number, body: Record<string, unknown>) =>
+    req<any>(`/admin/event-locations/categories/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  deleteCategory: (token: string, id: number) =>
+    req<any>(`/admin/event-locations/categories/${id}`, { method: 'DELETE' }, token),
   get: (token: string, id: number) => req<any>(`/admin/event-locations/${id}`, {}, token),
 
   // Google lives behind the API — the panel never calls Google directly, so
@@ -585,6 +620,31 @@ export const messagingApi = {
 export const plansApi = {
   info: (token: string) => req<any>('/plans', {}, token),
   list: (token?: string) => req<any>('/plans', {}, token),
+}
+
+/* ─── Public Plans (no auth) ──────────────────────────────────── */
+// The marketing site is public, so it can use neither `/plans` (needs a user
+// token) nor `/admin/plans` (needs an admin token). This reads the same
+// admin-managed rows from a public mirror; if that route is missing the caller
+// falls back to its own copy, so the page never renders an empty plan list.
+export type PublicPlan = {
+  key: string
+  name: string
+  price: number | string
+  duration_days: number
+  features: string[]
+  tag: string | null
+  is_active: boolean
+  sort_order: number
+}
+export type PublicPlans = { plans: PublicPlan[]; feature_labels: Record<string, string> }
+
+export const publicPlansApi = {
+  list: () => publicGet<PublicPlans>(
+    '/public/plans', 300,
+    j => ({ plans: j?.plans ?? [], feature_labels: j?.feature_labels ?? {} }),
+    { plans: [], feature_labels: {} },
+  ),
 }
 
 /* ─── Public Contact / Support (no auth) ──────────────────────── */

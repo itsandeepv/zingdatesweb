@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { eventsApi } from '@/lib/api'
 import UserSearch from '@/components/admin/UserSearch'
+import EventPhotoPicker from '@/components/admin/EventPhotoPicker'
 import EventForm, { EMPTY_EVENT, toPayload, type EventFormValues } from '@/components/admin/EventForm'
 
 export default function NewEventPage() {
@@ -14,7 +15,7 @@ export default function NewEventPage() {
   const token = useAuthStore(s => s.token) ?? ''
 
   const [values, setValues] = useState<EventFormValues>(EMPTY_EVENT)
-  const [cover, setCover] = useState<File | null>(null)
+  const [photos, setPhotos] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
 
   // Host — an admin creating an event on someone else's behalf.
@@ -42,11 +43,11 @@ export default function NewEventPage() {
       const res = await eventsApi.createEvent(token, body)
       const id = res.data?.id
 
-      // The cover goes up after the event exists, so a failed upload leaves a
-      // coverless event rather than losing everything that was typed.
-      if (cover && id) {
-        try { await eventsApi.uploadCover(token, id, cover) }
-        catch { toast.error('Event created, but the cover failed to upload.') }
+      // Pictures go up after the event exists, so a failed upload leaves a
+      // picture-less event rather than losing everything that was typed.
+      if (photos.length > 0 && id) {
+        try { await eventsApi.uploadPhotos(token, id, photos) }
+        catch { toast.error('Event created, but the pictures failed to upload.') }
       }
 
       toast.success('Event created and published')
@@ -73,15 +74,7 @@ export default function NewEventPage() {
       </div>
 
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1">Cover photo</label>
-          <input
-            type="file" accept="image/*"
-            onChange={e => setCover(e.target.files?.[0] ?? null)}
-            className="text-sm text-gray-600"
-          />
-          {cover && <p className="text-xs text-gray-400 mt-1">{cover.name}</p>}
-        </div>
+        <EventPhotoPicker files={photos} onFilesChange={setPhotos} required />
 
         <div>
           <label className="block text-xs font-semibold text-gray-600 mb-1">Host</label>

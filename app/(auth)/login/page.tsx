@@ -109,7 +109,11 @@ function LoginForm() {
     }
   }
 
-  const inputReady = phone.length >= 7
+  // Consent is its own step, not something buried in fine print under the
+  // button. The Continue button stays disabled until it is ticked.
+  const [agreed, setAgreed] = useState(false)
+
+  const inputReady = phone.length >= 7 && agreed
   const otpReady   = otp.join('').length === 6
 
   return (
@@ -165,6 +169,26 @@ function LoginForm() {
             </div>
           </div>
 
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={agreed}
+              onChange={e => setAgreed(e.target.checked)}
+              required
+              className="mt-0.5 w-4 h-4 accent-pink-500 cursor-pointer shrink-0"
+            />
+            <span className="text-[12px] text-gray-500 leading-relaxed">
+              I agree to the{' '}
+              {/* target=_blank so reading them does not lose the number
+                  already typed in. */}
+              <a href="/terms" target="_blank" rel="noreferrer"
+                 className="text-pink-600 font-semibold underline underline-offset-2">Terms &amp; Conditions</a>
+              {' '}and{' '}
+              <a href="/privacy" target="_blank" rel="noreferrer"
+                 className="text-pink-600 font-semibold underline underline-offset-2">Privacy Policy</a>
+            </span>
+          </label>
+
           <button
             type="submit"
             disabled={loading || !inputReady}
@@ -180,12 +204,6 @@ function LoginForm() {
               : 'Continue →'}
           </button>
 
-          <p className="text-[11px] text-gray-400 text-center leading-relaxed">
-            By continuing, you agree to our{' '}
-            <a href="#" className="underline underline-offset-2 hover:text-gray-600 transition-colors">Terms</a>
-            {' '}and{' '}
-            <a href="#" className="underline underline-offset-2 hover:text-gray-600 transition-colors">Privacy Policy</a>
-          </p>
         </form>
 
       ) : (

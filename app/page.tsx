@@ -9,6 +9,7 @@ import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import CompanionsSection from '@/components/CompanionsSection'
 import { screen } from '@/lib/screens'
 import { PLAY_STORE_URL } from '@/lib/site'
+import { publicPlansApi, type PublicPlans } from '@/lib/api'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
 import { pageMetadata } from '@/lib/seo-meta'
@@ -39,16 +40,35 @@ const STEPS = [
   { n: '03', title: 'Start Connecting', desc: 'Chat, call, and meet up. Build real connections that truly last.' },
 ]
 
-// Product facts, not invented metrics. Every line here is something the app
-// actually does, so nothing on this page has to be walked back later.
-// Mirrors WalletController::PLANS on the API — the only things the product
-// actually sells. `POST /wallet/create-order` accepts trial | monthly | vip and
-// nothing else, so there is no coin pack or gift to advertise here.
-const PLANS = [
-  { name: '1 Day Free Trial', price: '\u20b91',   duration: '1 day',   features: 'Chat, likes & search',                    featured: false },
-  { name: 'Monthly Premium',  price: '\u20b999',  duration: '30 days', features: 'Chat, likes & search',                    featured: false },
-  { name: 'VIP Plan',         price: '\u20b9199', duration: '30 days', features: 'Chat, likes, search + audio & video calls', featured: true  },
+// Plans are admin-managed (Admin → Plans), so the cards below are built from
+// the API rather than written here. These values are only the fallback for when
+// the public plan list cannot be reached — they mirror what the admin panel
+// currently holds so the section never renders empty or wrong.
+type PlanCard = { name: string; price: string; duration: string; features: string; tag: string | null }
+
+const FALLBACK_PLANS: PlanCard[] = [
+  { name: '1 Day Free Trial', price: '\u20b91',   duration: '1 day',   features: 'Chat, likes & search',                     tag: null },
+  { name: 'Monthly Premium',  price: '\u20b999',  duration: '30 days', features: 'Chat, likes & search',                     tag: null },
+  { name: 'VIP Plan',         price: '\u20b9199', duration: '30 days', features: 'Chat, likes, search + audio & video calls', tag: 'Includes calls' },
 ]
+
+// Admin rows → what the card actually shows. Inactive plans are dropped and the
+// admin's own sort order decides the sequence, so reordering in the panel
+// reorders the landing page.
+function toPlanCards(res: PublicPlans): PlanCard[] {
+  const rows = (res.plans ?? []).filter(p => p.is_active !== false)
+  if (!rows.length) return FALLBACK_PLANS
+  const labels = res.feature_labels ?? {}
+  return [...rows]
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    .map(p => ({
+      name: p.name,
+      price: `\u20b9${Number(p.price)}`,
+      duration: p.duration_days === 1 ? '1 day' : `${p.duration_days} days`,
+      features: (p.features ?? []).map(f => labels[f] ?? f).join(', '),
+      tag: p.tag || null,
+    }))
+}
 
 // Hero background. Drop your own clip at public/hero-bg.mp4 (landscape,
 // 10–20 s, muted, ideally under 4 MB) and point HERO_VIDEO at it; the poster
@@ -65,7 +85,9 @@ const HIGHLIGHTS = [
   { v: '24/7', l: 'Support' },
 ]
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const plans = toPlanCards(await publicPlansApi.list())
+
   return (
     <div className="min-h-screen bg-white">
       <JsonLd data={structuredData} />
@@ -233,11 +255,11 @@ export default function LandingPage() {
             </ScrollReveal>
 
             <ScrollReveal direction="right" delay={100} className="relative z-10 flex flex-col gap-4">
-              {PLANS.map((plan, i) => (
+              {plans.map((plan, i) => (
                 <div
                   key={plan.name}
                   className={`flex items-center gap-4 rounded-2xl p-4 transition-all duration-200 hover:translate-x-2 ${
-                    plan.featured
+                    plan.tag
                       ? 'bg-white/25 ring-2 ring-white/60 hover:bg-white/30'
                       : 'bg-white/15 hover:bg-white/25'
                   }`}
@@ -245,9 +267,9 @@ export default function LandingPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-semibold text-white">{plan.name}</p>
-                      {plan.featured && (
+                      {plan.tag && (
                         <span className="bg-white text-pink-600 text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
-                          Includes calls
+                          {plan.tag}
                         </span>
                       )}
                     </div>

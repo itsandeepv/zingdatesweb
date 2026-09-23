@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { eventsApi, usersApi } from '@/lib/api'
 import UserSearch from '@/components/admin/UserSearch'
+import EventPhotoPicker from '@/components/admin/EventPhotoPicker'
 import EventForm, {
   EMPTY_EVENT, toPayload, toLocalInput, toIso, type EventFormValues,
 } from '@/components/admin/EventForm'
@@ -33,6 +34,7 @@ type Report = {
 type EventDetail = {
   id: number
   category: string | null
+  photos?: { id: number; url: string }[]
   location_visibility?: 'public' | 'participants_only'
   name: string
   status: EventStatus
@@ -227,13 +229,23 @@ export default function EventDetailPage() {
     finally { setActing(false) }
   }
 
-  async function changeCover(file: File) {
+  async function addPhotos(files: File[]) {
+    if (files.length === 0) return
     setActing(true)
     try {
-      await eventsApi.uploadCover(token, id, file)
-      toast.success('Cover updated')
+      await eventsApi.uploadPhotos(token, id, files)
+      toast.success(files.length === 1 ? 'Picture added' : 'Pictures added')
       await load()
     } catch (err: any) { toast.error(err.message || 'Failed to upload') }
+    finally { setActing(false) }
+  }
+
+  async function removePhoto(photoId: number) {
+    setActing(true)
+    try {
+      await eventsApi.deletePhoto(token, id, photoId)
+      await load()
+    } catch (err: any) { toast.error(err.message || 'Failed to remove') }
     finally { setActing(false) }
   }
 
@@ -408,13 +420,17 @@ export default function EventDetailPage() {
                 ? <img src={event.cover_url} alt="" className="w-full h-48 object-cover" />
                 : <div className="w-full h-48 bg-gradient-to-br from-pink-400 to-purple-600" />}
 
-              <label className="absolute bottom-3 right-3 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/90 text-gray-800 cursor-pointer hover:bg-white shadow">
-                {acting ? 'Uploading…' : 'Replace cover'}
-                <input
-                  type="file" accept="image/*" className="hidden" disabled={acting}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) changeCover(f) }}
-                />
-              </label>
+            </div>
+
+            {/* The gallery, with the cover shown above it. Uploads go up as
+                soon as they are picked — the event already exists here. */}
+            <div className="px-6 pt-5">
+              <EventPhotoPicker
+                files={[]}
+                onFilesChange={addPhotos}
+                existing={event.photos ?? []}
+                onRemoveExisting={removePhoto}
+              />
             </div>
             <div className="p-6 space-y-5">
               <div>

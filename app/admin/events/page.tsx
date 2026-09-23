@@ -210,6 +210,12 @@ export default function EventsPage() {
         {/* One group, or justify-between pushes them to opposite ends. */}
         <div className="flex items-center gap-2">
           <Link
+            href="/admin/events/categories"
+            className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Categories
+          </Link>
+          <Link
             href="/admin/events/settings"
             className="px-4 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
@@ -413,14 +419,29 @@ export default function EventsPage() {
         )}
       </div>
 
-      {categories.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
+      {/* Always rendered. This section used to be hidden when the list was
+          empty — and it held the only link to the page where you ADD one, so
+          an install with no categories had no way to get any. */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-gray-900">Event Categories</h2>
             <Link href="/admin/events/categories" className="text-sm font-semibold text-pink-600 hover:text-pink-700">
               Manage &rsaquo;
             </Link>
           </div>
+
+          {categories.length === 0 && (
+            <div className="text-center py-8">
+              <p className="text-sm font-semibold text-gray-900">No categories yet</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Without one, the category picker is empty in the app and here.
+              </p>
+              <Link href="/admin/events/categories"
+                className="inline-block mt-4 px-5 py-2.5 rounded-lg gradient-brand text-white text-sm font-semibold shadow-brand">
+                Add categories
+              </Link>
+            </div>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {categories.map(cat => (
               <button
@@ -433,8 +454,7 @@ export default function EventsPage() {
               </button>
             ))}
           </div>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
