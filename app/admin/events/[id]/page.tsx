@@ -133,6 +133,8 @@ export default function EventDetailPage() {
         dress_code: e.dress_code ?? '',
         what_to_bring: e.what_to_bring ?? '',
         amenities: e.amenities ?? [],
+        payment_mode: (e.payment_mode ?? 'free') as EventFormValues['payment_mode'],
+        price: e.price ? String(e.price) : '',
         max_participants: e.capacity ?? 20,
         age_min: e.age_min != null ? String(e.age_min) : '',
         age_max: e.age_max != null ? String(e.age_max) : '',

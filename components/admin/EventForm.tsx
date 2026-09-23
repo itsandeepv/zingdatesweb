@@ -26,6 +26,8 @@ export type EventFormValues = {
   dress_code: string
   what_to_bring: string
   amenities: string[]
+  payment_mode: 'free' | 'cash' | 'online'
+  price: string
 }
 
 /** Mirrors App\Support\EventAmenities on the API. */
@@ -82,6 +84,8 @@ export const EMPTY_EVENT: EventFormValues = {
   dress_code: '',
   what_to_bring: '',
   amenities: [],
+  payment_mode: 'free',
+  price: '',
 }
 
 /** `datetime-local` wants "YYYY-MM-DDTHH:mm" in LOCAL time; the API sends ISO. */
@@ -248,6 +252,27 @@ export default function EventForm({
         </Field>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Field label="Entry" hint="Cash is collected by the host at the venue.">
+          <select className={input} value={value.payment_mode}
+            onChange={e => {
+              const mode = e.target.value as EventFormValues['payment_mode']
+              // Going back to free clears the price — a stale one would keep
+              // showing on the card.
+              set(mode === 'free' ? { payment_mode: mode, price: '' } : { payment_mode: mode })
+            }}>
+            <option value="free">Free</option>
+            <option value="cash">Paid — cash at the venue</option>
+          </select>
+        </Field>
+        {value.payment_mode !== 'free' && (
+          <Field label="Ticket price (₹)" required>
+            <input type="number" min={1} max={100000} className={input} value={value.price}
+              onChange={e => set({ price: e.target.value })} placeholder="500" />
+          </Field>
+        )}
+      </div>
+
       {/* ── What's included ─────────────────────────────────────
           The questions people ask before deciding to come. All
           optional: "not mentioned" is a different answer from "no". */}
@@ -352,6 +377,9 @@ export function toPayload(v: EventFormValues): Record<string, unknown> {
   if (v.city.trim()) body.city = v.city.trim()
   if (v.age_min) body.age_min = Number(v.age_min)
   if (v.age_max) body.age_max = Number(v.age_max)
+
+  body.payment_mode = v.payment_mode
+  body.price = v.payment_mode === 'free' ? 0 : Number(v.price || 0)
 
   // 'unspecified' is a real stored answer, so it is sent rather than skipped.
   body.food = v.food

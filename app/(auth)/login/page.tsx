@@ -1,21 +1,47 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { authApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 
-const COUNTRY_CODES = [
-  { code: '+91', flag: '🇮🇳', name: 'IN' },
-  { code: '+1',  flag: '🇺🇸', name: 'US' },
-  { code: '+44', flag: '🇬🇧', name: 'GB' },
-  { code: '+971',flag: '🇦🇪', name: 'AE' },
-  { code: '+86', flag: '🇨🇳', name: 'CN' },
-  { code: '+55', flag: '🇧🇷', name: 'BR' },
-  { code: '+49', flag: '🇩🇪', name: 'DE' },
+/* Mobile-number rules per country, national format (no trunk '0'). `lengths`
+   is every digit count that country allows; `prefix` is the opening digit(s)
+   a mobile line can actually start with. Without these the form happily took
+   a 24-digit number and sent it to the OTP endpoint. */
+type Country = {
+  code: string; flag: string; name: string
+  lengths: number[]; prefix?: RegExp; example: string
+}
+
+const COUNTRY_CODES: Country[] = [
+  { code: '+91', flag: '🇮🇳', name: 'IN', lengths: [10],     prefix: /^[6-9]/, example: '98765 43210' },
+  { code: '+1',  flag: '🇺🇸', name: 'US', lengths: [10],     prefix: /^[2-9]/, example: '415 555 0132' },
+  { code: '+44', flag: '🇬🇧', name: 'GB', lengths: [10],     prefix: /^7/,     example: '7700 900123' },
+  { code: '+971',flag: '🇦🇪', name: 'AE', lengths: [9],      prefix: /^5/,     example: '50 123 4567' },
+  { code: '+86', flag: '🇨🇳', name: 'CN', lengths: [11],     prefix: /^1/,     example: '138 0013 8000' },
+  { code: '+55', flag: '🇧🇷', name: 'BR', lengths: [10, 11],                   example: '11 91234 5678' },
+  { code: '+49', flag: '🇩🇪', name: 'DE', lengths: [10, 11],                   example: '1512 3456789' },
 ]
+
+const countryFor = (cc: string) => COUNTRY_CODES.find(c => c.code === cc) ?? COUNTRY_CODES[0]
+
+/* The first thing wrong with the number, or null when it is dialable. */
+function phoneIssue(digits: string, c: Country): string | null {
+  if (!digits) return 'Enter your mobile number'
+  const min = Math.min(...c.lengths)
+  if (digits.length < min) {
+    const need = min - digits.length
+    return `${need} more digit${need === 1 ? '' : 's'} to go`
+  }
+  if (!c.lengths.includes(digits.length))
+    return `${c.name} mobile numbers are ${c.lengths.join(' or ')} digits`
+  if (c.prefix && !c.prefix.test(digits))
+    return `That is not a valid ${c.name} mobile number`
+  return null
+}
 
 type Step = 'input' | 'otp'
 
@@ -42,6 +68,27 @@ function LoginForm() {
   const [otp, setOtp]         = useState(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
   const [devOtp, setDevOtp]   = useState<string | null>(null)
+  const [agreed, setAgreed]   = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+
+  const country    = countryFor(cc)
+  const phoneError = phoneIssue(phone, country)
+  const maxDigits  = Math.max(...country.lengths)
+
+  // Resend throttle — without it the button can be hammered, and every press
+  // costs a real SMS.
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cooldown])
+
+  // Switching country changes what counts as valid, so anything now too long
+  // is trimmed rather than left sitting there silently wrong.
+  function changeCountry(code: string) {
+    setCC(code)
+    setPhone(p => p.slice(0, Math.max(...countryFor(code).lengths)))
+  }
 
   function handleOtpChange(val: string, idx: number) {
     if (!/^\d?$/.test(val)) return
@@ -69,6 +116,10 @@ function LoginForm() {
 
   async function handleSendOtp(e: { preventDefault(): void }) {
     e.preventDefault()
+    if (loading || cooldown > 0) return
+    const issue = phoneIssue(phone, countryFor(cc))
+    if (issue) { toast.error(issue); return }
+    if (!agreed) { toast.error('Please accept the Terms and Privacy Policy'); return }
     setLoading(true)
     try {
       const res = await authApi.sendOtp(phone, cc.replace('+', ''))
@@ -83,6 +134,7 @@ function LoginForm() {
         return
       }
       toast.success('OTP sent to your mobile number')
+      setCooldown(30)
       setStep('otp')
     } catch (err: any) {
       toast.error(err.message || 'Failed to send OTP')
@@ -93,6 +145,8 @@ function LoginForm() {
 
   async function handleVerifyOtp(e: { preventDefault(): void }) {
     e.preventDefault()
+    if (loading) return
+    if (otp.join('').length !== 6) { toast.error('Enter all 6 digits of the code'); return }
     setLoading(true)
     try {
       const res = await authApi.verifyOtp(phone, cc.replace('+', ''), otp.join(''))
@@ -111,9 +165,7 @@ function LoginForm() {
 
   // Consent is its own step, not something buried in fine print under the
   // button. The Continue button stays disabled until it is ticked.
-  const [agreed, setAgreed] = useState(false)
-
-  const inputReady = phone.length >= 7 && agreed
+  const inputIssue = phoneError ?? (agreed ? null : 'Accept the Terms and Privacy Policy to continue')
   const otpReady   = otp.join('').length === 6
 
   return (
@@ -152,7 +204,7 @@ function LoginForm() {
             <div className="flex gap-2 w-full">
               <select
                 value={cc}
-                onChange={e => setCC(e.target.value)}
+                onChange={e => changeCountry(e.target.value)}
                 className="flex-shrink-0 w-[108px] border border-gray-200 rounded-xl px-2 py-3 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all cursor-pointer text-gray-700">
                 {COUNTRY_CODES.map(c => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
@@ -160,13 +212,25 @@ function LoginForm() {
               </select>
               <input
                 type="tel"
+                inputMode="numeric"
                 value={phone}
-                onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
-                placeholder="98765 43210"
+                onChange={e => setPhone(e.target.value.replace(/\D/g, '').slice(0, maxDigits))}
+                maxLength={maxDigits}
+                placeholder={country.example}
                 required
                 autoFocus
-                className="flex-1 min-w-0 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300" />
+                aria-invalid={!!phone && !!phoneError}
+                className={`flex-1 min-w-0 border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-300 ${
+                  phone && phoneError
+                    ? 'border-red-300 focus:ring-red-400'
+                    : 'border-gray-200 focus:ring-pink-400'
+                }`} />
             </div>
+            {/* Say what is wrong while they type, instead of only greying the
+                button out and leaving them to guess. */}
+            {phone && phoneError && (
+              <p className="text-[11px] text-red-500 mt-1.5">{phoneError}</p>
+            )}
           </div>
 
           <label className="flex items-start gap-3 cursor-pointer select-none">
@@ -189,9 +253,18 @@ function LoginForm() {
             </span>
           </label>
 
+          {inputIssue && phone && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-gray-400">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="flex-shrink-0">
+                <circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+              </svg>
+              {inputIssue}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={loading || !inputReady}
+            disabled={loading || !!inputIssue}
             className="w-full gradient-brand text-white font-bold py-4 rounded-2xl shadow-brand hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed text-[15px] tracking-wide">
             {loading
               ? <span className="flex items-center justify-center gap-2">
@@ -245,16 +318,17 @@ function LoginForm() {
           <div className="flex items-center justify-between text-sm">
             <button
               type="button"
-              onClick={() => { setStep('input'); setOtp(['','','','','','']); setDevOtp(null) }}
+              onClick={() => { setStep('input'); setOtp(['','','','','','']); setDevOtp(null); setCooldown(0) }}
               className="text-gray-400 hover:text-gray-600 transition-colors font-medium">
               ← Change number
             </button>
             <button
               type="button"
               onClick={handleSendOtp}
-              className="font-semibold hover:opacity-75 transition-opacity"
-              style={{ color: '#E91E8C' }}>
-              Resend code
+              disabled={loading || cooldown > 0}
+              className="font-semibold hover:opacity-75 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:opacity-40"
+              style={{ color: cooldown > 0 ? '#9ca3af' : '#E91E8C' }}>
+              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
             </button>
           </div>
         </form>

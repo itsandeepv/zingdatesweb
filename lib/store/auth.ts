@@ -38,7 +38,13 @@ export const useAuthStore = create<AuthState>()(
       _hasHydrated: false,
       setAuth: (token, user) => {
         if (typeof document !== 'undefined') {
-          document.cookie = `zd-token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`
+          // Can't be HttpOnly — this store reads it back client-side to send
+          // as the Authorization header, and only JS-writable cookies allow
+          // that. Secure at least stops it going out over a plain http://
+          // request; a real fix means proxying API calls through a Next.js
+          // route handler so the token never has to live in readable JS.
+          const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+          document.cookie = `zd-token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax${secure}`
         }
         set({ token, user })
       },

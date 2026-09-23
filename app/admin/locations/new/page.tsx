@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { locationsApi } from '@/lib/api'
+import CityInput from '@/components/CityInput'
 
 type Mode = 'google' | 'manual'
 
@@ -21,6 +22,9 @@ type PlaceDetails = {
   name?: string | null
   address?: string | null
   city?: string | null
+  state?: string | null
+  country?: string | null
+  postal_code?: string | null
   latitude?: number | null
   longitude?: number | null
   phone?: string | null
@@ -72,6 +76,19 @@ export default function NewLocationPage() {
   const [manual, setManual] = useState({ ...EMPTY_MANUAL })
   const [saving, setSaving] = useState(false)
 
+  // Address lookup for the manual tab. Same Google plumbing the other tab
+  // uses, but it only fills the address fields in — the venue stays a record
+  // we own rather than an import, which is the whole point of adding manually.
+  const manualSession = useRef(newSessionToken())
+  const [addrHits, setAddrHits] = useState<Suggestion[]>([])
+  const [addrOpen, setAddrOpen] = useState(false)
+  const [addrLoading, setAddrLoading] = useState(false)
+  const addrSeq = useRef(0)
+  // The last address we wrote ourselves, so filling a field does not make it
+  // search for its own answer.
+  const addrFilled = useRef<string | null>(null)
+  const addrBox = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     locationsApi.categories(token).then(r => setCats(r.data ?? [])).catch(() => {})
     locationsApi.stats(token)
@@ -105,6 +122,70 @@ export default function NewLocationPage() {
 
     return () => clearTimeout(t)
   }, [q, token])
+
+  useEffect(() => {
+    const text = manual.address.trim()
+    if (addrFilled.current === manual.address) return
+    if (text.length < 3) { setAddrHits([]); setAddrOpen(false); return }
+
+    const mine = ++addrSeq.current
+    setAddrLoading(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await locationsApi.googleSearch(token, text, manualSession.current)
+        if (mine !== addrSeq.current) return
+        const list: Suggestion[] = res.data ?? []
+        setAddrHits(list)
+        setAddrOpen(list.length > 0)
+      } catch {
+        if (mine === addrSeq.current) { setAddrHits([]); setAddrOpen(false) }
+      } finally {
+        if (mine === addrSeq.current) setAddrLoading(false)
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [manual.address, token])
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (addrBox.current && !addrBox.current.contains(e.target as Node)) setAddrOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  /** Fill the address block from a picked place, leaving typed answers alone. */
+  const pickAddress = useCallback(async (sug: Suggestion) => {
+    setAddrHits([]); setAddrOpen(false)
+    const shown = sug.text || [sug.main, sug.secondary].filter(Boolean).join(', ')
+    addrFilled.current = shown
+    setManual(m => ({ ...m, address: shown }))
+
+    try {
+      const res = await locationsApi.googleDetails(token, sug.place_id, manualSession.current)
+      const d: PlaceDetails = res.data ?? {}
+      manualSession.current = newSessionToken()   // that billing session is spent
+      const addr = d.address || shown
+      addrFilled.current = addr
+      setManual(m => ({
+        ...m,
+        name:        m.name || d.name || '',
+        address:     addr,
+        city:        d.city ?? m.city,
+        state:       d.state ?? m.state,
+        country:     d.country ?? m.country,
+        postal_code: d.postal_code ?? m.postal_code,
+        latitude:    d.latitude  != null ? String(d.latitude)  : m.latitude,
+        longitude:   d.longitude != null ? String(d.longitude) : m.longitude,
+        phone:       m.phone   || d.phone   || '',
+        website:     m.website || d.website || '',
+      }))
+      toast.success('Address filled in from Google')
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : ''
+      toast.error(msg || 'Could not load that address — type the rest in yourself')
+    }
+  }, [token])
 
   const pick = useCallback(async (s: Suggestion) => {
     setSuggestions([])
@@ -343,11 +424,42 @@ export default function NewLocationPage() {
             </div>
             <div>
               <label className={label}>City *</label>
-              <input required value={manual.city} onChange={e => setManual({ ...manual, city: e.target.value })} className={field} />
+              <CityInput required value={manual.city}
+                onChange={city => setManual(m => ({ ...m, city }))}
+                placeholder="Start typing — Gurugram, Mumbai…" className={field} />
             </div>
             <div className="md:col-span-2">
               <label className={label}>Address</label>
-              <input value={manual.address} onChange={e => setManual({ ...manual, address: e.target.value })} className={field} />
+              <div className="relative" ref={addrBox}>
+                <input
+                  value={manual.address}
+                  onChange={e => setManual(m => ({ ...m, address: e.target.value }))}
+                  onFocus={() => { if (addrHits.length) setAddrOpen(true) }}
+                  placeholder="Start typing — pick a match to fill the rest"
+                  autoComplete="off"
+                  className={field} />
+
+                {addrLoading && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-gray-400">searching…</span>
+                )}
+
+                {addrOpen && addrHits.length > 0 && (
+                  <ul className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+                    {addrHits.map(h => (
+                      <li key={h.place_id}>
+                        <button type="button" onClick={() => pickAddress(h)}
+                          className="w-full text-left px-3 py-2 hover:bg-pink-50 transition-colors">
+                          <span className="block text-sm text-gray-900">{h.main || h.text}</span>
+                          {h.secondary && <span className="block text-xs text-gray-500 mt-0.5">{h.secondary}</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">
+                Picking a match fills city, state, postal code and the map coordinates.
+              </p>
             </div>
             <div>
               <label className={label}>State</label>

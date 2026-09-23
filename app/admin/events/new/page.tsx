@@ -21,6 +21,27 @@ export default function NewEventPage() {
   // Host — an admin creating an event on someone else's behalf.
   const [host, setHost] = useState<{ id: number; name: string | null } | null>(null)
 
+  /* Returns the status the event actually ended up in. A fresh event that is
+     not published yet gets approved here — that is the same call the Approve
+     button on the event page makes, and without it the event sits in a queue
+     nobody is watching while the admin has been told it went live. */
+  async function ensurePublished(id: number, statusFromCreate?: string): Promise<string | null> {
+    let status = statusFromCreate
+    if (!status) {
+      try {
+        const r = await eventsApi.get(token, id)
+        status = (r?.data ?? r)?.status
+      } catch { return null }
+    }
+    if (!status || status === 'published') return status ?? null
+    try {
+      await eventsApi.approve(token, id)
+      return 'published'
+    } catch {
+      return status
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (saving) return
@@ -41,7 +62,8 @@ export default function NewEventPage() {
       if (host) body.host_user_id = host.id
 
       const res = await eventsApi.createEvent(token, body)
-      const id = res.data?.id
+      const created = res.data ?? res.event ?? res
+      const id = created?.id
 
       // Pictures go up after the event exists, so a failed upload leaves a
       // picture-less event rather than losing everything that was typed.
@@ -50,7 +72,16 @@ export default function NewEventPage() {
         catch { toast.error('Event created, but the pictures failed to upload.') }
       }
 
-      toast.success('Event created and published')
+      // The create call carries no status, so what it lands as is the
+      // backend's default — and anything short of `published` never reaches
+      // the public feed. This page's whole premise is that an admin creating
+      // an event IS the approval, so make that true instead of assuming it.
+      const status = id ? await ensurePublished(id, created?.status) : null
+
+      if (status === 'published') toast.success('Event created and published')
+      else if (status) toast.warning(`Event created, but it is "${status}" — publish it from the event page.`)
+      else toast.success('Event created — check its status on the event page.')
+
       router.push(id ? `/admin/events/${id}` : '/admin/events')
     } catch (err: any) {
       toast.error(err.message || 'Failed to create event')

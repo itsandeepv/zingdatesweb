@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import EventSearch from '@/components/EventSearch'
 import { publicEventApi, type PublicEvent } from '@/lib/api'
 import { pageMetadata } from '@/lib/seo-meta'
 
@@ -25,6 +26,15 @@ function formatWhen(iso: string | null) {
     weekday: 'short', day: 'numeric', month: 'short',
     hour: 'numeric', minute: '2-digit',
   })
+}
+
+/* A chip's link: swap the category but keep whatever is being searched for. */
+function chipHref(category: string | null, search?: string) {
+  const p = new URLSearchParams()
+  if (category) p.set('category', category)
+  if (search) p.set('search', search)
+  const qs = p.toString()
+  return qs ? `/events?${qs}` : '/events'
 }
 
 function EventCard({ e }: { e: PublicEvent }) {
@@ -86,12 +96,12 @@ function EventCard({ e }: { e: PublicEvent }) {
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ category?: string; city?: string }>
+  searchParams: Promise<{ category?: string; city?: string; search?: string }>
 }) {
-  const { category, city } = await searchParams
+  const { category, city, search } = await searchParams
 
   const [events, categories] = await Promise.all([
-    publicEventApi.list({ category, city, per_page: 24 }),
+    publicEventApi.list({ category, city, search, per_page: 24 }),
     publicEventApi.categories(),
   ])
 
@@ -123,12 +133,16 @@ export default async function EventsPage({
         </div>
       </section>
 
-      {categories.length > 0 && (
-        <section className="bg-white border-b border-gray-100 sticky top-0 z-30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <section className="bg-white border-b border-gray-100 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-3">
+          <div className="max-w-md"><EventSearch /></div>
+
+          {categories.length > 0 && (
             <div className="flex gap-2 overflow-x-auto pb-1">
+              {/* Chips carry the current search along, so picking a category
+                  narrows the search rather than throwing it away. */}
               <Link
-                href="/events"
+                href={chipHref(null, search)}
                 className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${!category ? 'gradient-brand text-white shadow-brand' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 All
@@ -136,27 +150,29 @@ export default async function EventsPage({
               {categories.map(c => (
                 <Link
                   key={c.key}
-                  href={`/events?category=${c.key}`}
+                  href={chipHref(c.key, search)}
                   className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${category === c.key ? 'gradient-brand text-white shadow-brand' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                 >
                   {c.label}
                 </Link>
               ))}
             </div>
-          </div>
-        </section>
-      )}
+          )}
+        </div>
+      </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
         {events.length === 0 ? (
           <div className="text-center py-20">
             <p className="text-lg font-semibold text-gray-900">No events to show yet</p>
             <p className="text-gray-500 mt-2">
-              {category || city
-                ? 'Try another category, or see everything.'
-                : 'New plans get added all the time — check back soon.'}
+              {search
+                ? <>Nothing matched &ldquo;{search}&rdquo;. Try a different word, or clear the filters.</>
+                : category || city
+                  ? 'Try another category, or see everything.'
+                  : 'New plans get added all the time — check back soon.'}
             </p>
-            {(category || city) && (
+            {(category || city || search) && (
               <Link href="/events" className="inline-block mt-6 px-6 py-3 rounded-full gradient-brand text-white font-semibold shadow-brand">
                 See all events
               </Link>
