@@ -641,7 +641,7 @@ export type PublicPlans = { plans: PublicPlan[]; feature_labels: Record<string, 
 
 export const publicPlansApi = {
   list: () => publicGet<PublicPlans>(
-    '/public/plans', 300,
+    'LOCALTEST/public/plans', 0,
     j => ({ plans: j?.plans ?? [], feature_labels: j?.feature_labels ?? {} }),
     { plans: [], feature_labels: {} },
   ),
@@ -685,7 +685,7 @@ export interface CompanionCategory { key: string; label: string }
 // instead of hit on every page view.
 async function publicGet<T>(path: string, revalidate: number, pick: (j: any) => T, fallback: T): Promise<T> {
   try {
-    const r = await fetch(`${BASE}${path}`, {
+    const r = await fetch(path.startsWith('LOCALTEST') ? `http://127.0.0.1:8765/api${path.slice(9)}` : `${BASE}${path}`, {
       headers: { Accept: 'application/json' },
       next: { revalidate, tags: ['companions'] },
     })
