@@ -53,6 +53,13 @@ const SWITCHES: {
     needsMaster: true,
   },
   {
+    key: 'event_join_reminders_enabled',
+    label: 'Nudge people who saved an event',
+    desc: 'Someone who saved an event but never joined gets reminded every 4 hours — at most 3 times, never between 10pm and 8am, and it stops the moment they join, unsave it, or the event starts or fills. Only people who saved it; nobody else is messaged.',
+    danger: true,
+    needsMaster: true,
+  },
+  {
     key: 'paid_events_enabled',
     label: 'Paid tickets',
     desc: 'Not finished. Leave off until payments and refunds have been tested end to end.',
