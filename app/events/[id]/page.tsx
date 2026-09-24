@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import JoinInAppButton from '@/components/JoinInAppButton'
 import { publicEventApi } from '@/lib/api'
 
 // A shared link lands here, so the seat count must not be badly stale.
@@ -174,14 +175,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             ) : (
               <>
                 {/* Joining happens in the app — this page is the poster, not
-                    the door. The deep link opens the app when it is
-                    installed and the store when it is not. */}
-                <a
-                  href={`zingdates://events/${event.id}`}
-                  className="block w-full text-center mt-6 px-6 py-3.5 rounded-full gradient-brand text-white font-semibold shadow-brand"
-                >
-                  Join in the app
-                </a>
+                    the door. The button opens the app when it is installed,
+                    the Play Store on Android when it is not, and a "get the
+                    app" prompt everywhere else. */}
+                <JoinInAppButton
+                  eventId={event.id}
+                  className="block w-full text-center mt-6 px-6 py-3.5 rounded-full gradient-brand text-white font-semibold shadow-brand hover:opacity-90 transition-opacity"
+                />
                 <p className="text-xs text-gray-400 text-center mt-3">
                   You will need the ZingDates app to join.
                 </p>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, Video, Smartphone, X, ArrowRight } from 'lucide-react'
+import { Phone, Video, Smartphone, X, ArrowRight, Ticket } from 'lucide-react'
 import { PLAY_STORE_URL } from '@/lib/site'
 
 /**
@@ -12,7 +12,7 @@ import { PLAY_STORE_URL } from '@/lib/site'
  */
 export const DOWNLOAD_APP_EVT = 'zd:download-app'
 
-export type DownloadAppReason = 'audio' | 'video'
+export type DownloadAppReason = 'audio' | 'video' | 'event'
 
 export function triggerDownloadApp(reason: DownloadAppReason) {
   if (typeof window !== 'undefined') {
@@ -23,6 +23,7 @@ export function triggerDownloadApp(reason: DownloadAppReason) {
 const COPY: Record<DownloadAppReason, { Icon: typeof Phone; title: string; sub: string }> = {
   audio: { Icon: Phone, title: 'Voice calls are in the app', sub: 'Calling is not available on the website yet. Download the ZingDates app to make voice calls.' },
   video: { Icon: Video, title: 'Video calls are in the app', sub: 'Calling is not available on the website yet. Download the ZingDates app to make video calls.' },
+  event: { Icon: Ticket, title: 'Join events in the app', sub: 'Joining an event happens in the ZingDates app. Install it on your phone, open this event, and grab your spot.' },
 }
 
 export default function DownloadAppModal() {
