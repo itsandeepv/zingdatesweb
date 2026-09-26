@@ -720,6 +720,22 @@ export type PublicEvent = {
   host_verified: boolean
 }
 
+export interface PublicEventReview {
+  id: number
+  rating: number
+  comment: string | null
+  created_at: string | null
+  reviewer_name: string
+  reviewer_photo: string | null
+}
+
+export type PublicPastEvent = PublicEvent & {
+  ends_at: string | null
+  rating: number | null
+  review_count: number
+  reviews: PublicEventReview[]
+}
+
 export type PublicEventDetail = PublicEvent & {
   description: string
   ends_at: string | null
@@ -747,6 +763,19 @@ export const publicEventApi = {
   // listing — a seat count that is an hour stale reads as broken.
   get: (id: string | number) =>
     publicGet<PublicEventDetail | null>(`/public/events/${id}`, 60, j => j?.data, null),
+  // Finished events with their rating and a few quoted reviews — the social
+  // proof under the listing.
+  past: (params: { category?: string; city?: string; per_page?: number } = {}) => {
+    const p = new URLSearchParams()
+    if (params.category) p.set('category', params.category)
+    if (params.city) p.set('city', params.city)
+    if (params.per_page) p.set('per_page', String(params.per_page))
+    return publicGet<PublicPastEvent[]>(`/public/events/past?${p}`, 300, j => j?.data, [])
+  },
+  reviews: (id: string | number) =>
+    publicGet<{ data: PublicEventReview[]; summary: { rating: number | null; reviews: number } } | null>(
+      `/public/events/${id}/reviews?per_page=50`, 300, j => j, null,
+    ),
 }
 
 export const publicCompanionApi = {

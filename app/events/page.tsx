@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import EventSearch from '@/components/EventSearch'
-import { publicEventApi, type PublicEvent } from '@/lib/api'
+import { publicEventApi, type PublicEvent, type PublicPastEvent, type PublicEventReview } from '@/lib/api'
 import { pageMetadata } from '@/lib/seo-meta'
 
 export const revalidate = 120
@@ -93,6 +93,96 @@ function EventCard({ e }: { e: PublicEvent }) {
   )
 }
 
+/* ── Ratings ─────────────────────────────────────────── */
+function Stars({ value, size = 'text-sm' }: { value: number; size?: string }) {
+  const full = Math.round(value)
+  return (
+    <span className={`inline-flex items-center gap-0.5 ${size} leading-none`} aria-label={`${value} out of 5`}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} className={i <= full ? 'text-amber-400' : 'text-gray-200'}>★</span>
+      ))}
+    </span>
+  )
+}
+
+function ReviewQuote({ r }: { r: PublicEventReview }) {
+  return (
+    <figure className="flex gap-2.5">
+      {r.reviewer_photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={r.reviewer_photo} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" />
+      ) : (
+        <span className="w-7 h-7 rounded-full gradient-brand text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+          {r.reviewer_name.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <figcaption className="text-xs font-semibold text-gray-800">{r.reviewer_name}</figcaption>
+          <Stars value={r.rating} size="text-[11px]" />
+        </div>
+        <blockquote className="text-sm text-gray-600 mt-0.5 line-clamp-2">&ldquo;{r.comment}&rdquo;</blockquote>
+      </div>
+    </figure>
+  )
+}
+
+function PastEventCard({ e }: { e: PublicPastEvent }) {
+  return (
+    <Link
+      href={`/events/${e.id}#reviews`}
+      className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+    >
+      <div className="relative h-36 bg-gradient-to-br from-gray-500 to-gray-800">
+        {e.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={e.cover_url} alt="" className="w-full h-full object-cover" />
+        )}
+        <span className="absolute top-3 left-3 bg-gray-900/80 text-white text-xs font-bold px-2.5 py-1 rounded-full">
+          Completed
+        </span>
+        {e.category_label && (
+          <span className="absolute top-3 right-3 bg-white/90 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+            {e.category_label}
+          </span>
+        )}
+      </div>
+
+      <div className="p-5">
+        <h3 className="font-bold text-gray-900 group-hover:text-pink-600 transition-colors line-clamp-1">{e.title}</h3>
+        <p className="text-xs text-gray-500 mt-1">
+          {!!e.starts_at && formatWhen(e.starts_at)}
+          {!!e.city && ` · ${e.city}`}
+          {` · ${e.participants_count} went`}
+        </p>
+
+        <div className="flex items-center gap-2 mt-3">
+          {e.rating != null ? (
+            <>
+              <span className="text-lg font-extrabold text-gray-900 leading-none">{e.rating.toFixed(1)}</span>
+              <Stars value={e.rating} />
+              <span className="text-xs text-gray-500">({e.review_count} {e.review_count === 1 ? 'review' : 'reviews'})</span>
+            </>
+          ) : (
+            <span className="text-xs text-gray-400">No ratings yet</span>
+          )}
+        </div>
+
+        {e.reviews.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-3">
+            {e.reviews.slice(0, 2).map(r => <ReviewQuote key={r.id} r={r} />)}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+          <span className="text-xs text-gray-500">{e.host_name ? `by ${e.host_name}` : ''}{e.host_verified ? ' ✓' : ''}</span>
+          <span className="text-xs font-semibold text-pink-600">{e.review_count > 0 ? 'Read reviews →' : 'View event →'}</span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 export default async function EventsPage({
   searchParams,
 }: {
@@ -100,9 +190,12 @@ export default async function EventsPage({
 }) {
   const { category, city, search } = await searchParams
 
-  const [events, categories] = await Promise.all([
+  const [events, categories, pastEvents] = await Promise.all([
     publicEventApi.list({ category, city, search, per_page: 24 }),
     publicEventApi.categories(),
+    // The past list follows the category/city chips but not the search box:
+    // a search is for something to go to, not something that already happened.
+    publicEventApi.past({ category, city, per_page: 9 }),
   ])
 
   return (
@@ -184,6 +277,24 @@ export default async function EventsPage({
           </div>
         )}
       </section>
+
+      {/* ── Past events — what people said ───────────────── */}
+      {pastEvents.length > 0 && (
+        <section className="bg-gray-50 border-t border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+            <div className="flex items-end justify-between gap-4 mb-8">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-widest text-pink-600">Past events</p>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">How the last ones went</h2>
+                <p className="text-gray-500 mt-1">Ratings and reviews from people who were there.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {pastEvents.map(e => <PastEventCard key={e.id} e={e} />)}
+            </div>
+          </div>
+        </section>
+      )}
 
       <SiteFooter />
     </div>

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
 import JoinInAppButton from '@/components/JoinInAppButton'
-import { publicEventApi } from '@/lib/api'
+import { publicEventApi, type PublicEventReview } from '@/lib/api'
 
 // A shared link lands here, so the seat count must not be badly stale.
 export const revalidate = 60
@@ -56,6 +56,43 @@ export async function generateMetadata(
   }
 }
 
+function Stars({ value }: { value: number }) {
+  const full = Math.round(value)
+  return (
+    <span className="inline-flex items-center gap-0.5 text-sm leading-none" aria-label={`${value} out of 5`}>
+      {[1, 2, 3, 4, 5].map(i => <span key={i} className={i <= full ? 'text-amber-400' : 'text-gray-200'}>★</span>)}
+    </span>
+  )
+}
+
+function ReviewItem({ r }: { r: PublicEventReview }) {
+  const when = r.created_at ? new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
+  return (
+    <li className="flex gap-3 rounded-xl border border-gray-100 p-4">
+      {r.reviewer_photo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={r.reviewer_photo} alt="" className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+      ) : (
+        <span className="w-10 h-10 rounded-full gradient-brand text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+          {r.reviewer_name.charAt(0).toUpperCase()}
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-900">{r.reviewer_name}</span>
+            <Stars value={r.rating} />
+          </div>
+          {when && <span className="text-xs text-gray-400">{when}</span>}
+        </div>
+        {r.comment
+          ? <p className="text-sm text-gray-700 mt-1.5 leading-relaxed whitespace-pre-wrap">{r.comment}</p>
+          : <p className="text-xs text-gray-400 mt-1.5 italic">Rated without a comment</p>}
+      </div>
+    </li>
+  )
+}
+
 export default async function EventDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const event = await publicEventApi.get(id)
@@ -64,6 +101,8 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   const over = event.status === 'completed'
   const off = event.status === 'cancelled'
+  // Only a finished event has anything to say for itself.
+  const reviews = over ? await publicEventApi.reviews(id) : null
   const mapsQuery = event.latitude != null && event.longitude != null
     ? `${event.latitude},${event.longitude}`
     : [event.location_name, event.city].filter(Boolean).join(', ')
@@ -148,6 +187,30 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </p>
             </div>
           </div>
+
+          {over && (
+            <div id="reviews" className="scroll-mt-24">
+              <div className="flex items-end justify-between gap-4 mb-4">
+                <h2 className="text-xl font-bold text-gray-900">What people said</h2>
+                {reviews?.summary.rating != null && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-extrabold text-gray-900 leading-none">{reviews.summary.rating.toFixed(1)}</span>
+                    <Stars value={reviews.summary.rating} />
+                    <span className="text-xs text-gray-500">({reviews.summary.reviews})</span>
+                  </div>
+                )}
+              </div>
+              {!reviews || reviews.data.length === 0 ? (
+                <p className="text-sm text-gray-500 rounded-xl border border-dashed border-gray-200 p-5 text-center">
+                  No reviews yet for this event.
+                </p>
+              ) : (
+                <ul className="space-y-4">
+                  {reviews.data.map(r => <ReviewItem key={r.id} r={r} />)}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <aside className="lg:sticky lg:top-24 h-fit">
