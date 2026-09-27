@@ -44,14 +44,19 @@ export function websiteSchema() {
 /** Describes the mobile app itself — eligible for the app rich result. */
 export function mobileAppSchema() {
   return {
-    '@type': 'SoftwareApplication',
+    // MobileApplication is the subtype Google's app rich results read.
+    '@type': 'MobileApplication',
     '@id': `${SITE_URL}/#app`,
     name: SITE_NAME,
-    operatingSystem: 'Android, iOS',
+    // Only what is actually in a store today. Add iOS when the App Store
+    // listing exists — claiming it earlier is a mismatch Google can see.
+    operatingSystem: 'ANDROID',
     applicationCategory: 'SocialNetworkingApplication',
     url: SITE_URL,
     installUrl: PLAY_STORE_URL,
     downloadUrl: PLAY_STORE_URL,
+    sameAs: [PLAY_STORE_URL],
+    isAccessibleForFree: true,
     image: `${SITE_URL}/og-image.jpg`,
     description:
       'Meet new people nearby, match, chat, and connect over HD voice & video calls — or book a verified companion. Free to download.',

@@ -24,11 +24,7 @@ const REVALIDATE_SECONDS = 300
 export type SeoSlug =
   | 'home' | 'about' | 'blog' | 'podcasts'
   | 'pricing' | 'contact' | 'privacy' | 'terms'
-  // Has no seo_pages row yet — the endpoint returns null and the page keeps its
-  // built-in defaults until a row is added.
-  | 'companions'
-  // Same: no seo_pages row yet, so the page keeps its built-in defaults.
-  | 'events'
+  | 'companions' | 'events'
 
 export interface SeoPage {
   slug: string

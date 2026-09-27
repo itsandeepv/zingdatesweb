@@ -16,7 +16,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/blog`, changeFrequency: 'daily', priority: 0.9 },
     { url: `${SITE_URL}/podcasts`, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/register`, changeFrequency: 'monthly', priority: 0.6 },
-    { url: `${SITE_URL}/login`, changeFrequency: 'monthly', priority: 0.3 },
+    // /login is deliberately absent: it is noindex (nothing to rank), and
+    // listing a page you also tell Google not to index reads as a mistake.
     { url: `${SITE_URL}/terms`, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE_URL}/privacy`, changeFrequency: 'yearly', priority: 0.3 },
     { url: `${SITE_URL}/refund`, changeFrequency: 'yearly', priority: 0.2 },
@@ -44,9 +45,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }))
 
+  // No lastModified: the public card carries no edit timestamp, and the event
+  // date was going in there before — a date in the future is not a "last
+  // modified" and validators flag it.
   const eventRoutes: MetadataRoute.Sitemap = events.map((e) => ({
     url: `${SITE_URL}/events/${e.id}`,
-    lastModified: e.starts_at ?? undefined,
     changeFrequency: 'daily',
     priority: 0.7,
   }))

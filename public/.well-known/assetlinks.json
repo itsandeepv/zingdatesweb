@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.zingdates.app",
+      "sha256_cert_fingerprints": [
+        "8D:F8:05:0E:F2:EA:A0:EF:85:73:A8:EA:38:82:73:29:7C:66:3C:99:46:36:BA:4C:A9:2B:69:8C:A3:0A:3D:6D"
+      ]
+    }
+  }
+]

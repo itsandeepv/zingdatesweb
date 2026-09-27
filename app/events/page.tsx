@@ -11,9 +11,10 @@ export const revalidate = 120
 
 export async function generateMetadata(): Promise<Metadata> {
   return pageMetadata('events', {
-    title: 'Events Near You — Meet People, Join Experiences',
+    // Same copy as the seeded seo_pages row; the admin panel overrides it.
+    title: 'Dating Events & Singles Meetups Near You | ZingDates',
     description:
-      'Find ZingDates events happening near you — night outs, weekend trips, food, sports and more. See who is hosting, how many have joined, and book your spot.',
+      'Join ZingDates events near you: singles meetups, night outs, weekend trips, food walks and more across India. See who is going and grab your spot.',
     path: '/events',
   })
 }

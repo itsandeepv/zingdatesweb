@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { seoApi } from '@/lib/api'
+import { SITE_URL } from '@/lib/site'
 
 export default function SeoPage() {
   const token = useAuthStore(s => s.token) ?? ''
@@ -20,7 +21,13 @@ export default function SeoPage() {
         const data = res.data ?? res ?? []
         setPages(data)
         const init: Record<number, any> = {}
-        data.forEach((p: any) => { init[p.id] = { title: p.title ?? '', description: p.description ?? '', keywords: p.keywords ?? '' } })
+        data.forEach((p: any) => {
+          init[p.id] = {
+            title: p.title ?? '', description: p.description ?? '', keywords: p.keywords ?? '',
+            og_title: p.og_title ?? '', og_description: p.og_description ?? '', og_image: p.og_image ?? '',
+            geo_region: p.geo_region ?? '', geo_placename: p.geo_placename ?? '', geo_position: p.geo_position ?? '',
+          }
+        })
         setEdits(init)
       } catch (err: any) { toast.error(err.message || 'Failed to load SEO pages') }
       finally { setLoading(false) }
@@ -42,12 +49,21 @@ export default function SeoPage() {
     finally { setSaving(null) }
   }
 
-  async function handleGenerateSitemap() {
+  // The live sitemap is built by the website on every request (app/sitemap.ts)
+  // from the blog, podcast and event APIs — there is nothing to "generate".
+  // This checks it is reachable and well-formed and says how many URLs it lists.
+  const [sitemapInfo, setSitemapInfo] = useState<{ urls: number; checkedAt: string } | null>(null)
+  async function handleCheckSitemap() {
     setGenerating(true)
     try {
-      await seoApi.generateSitemap(token)
-      toast.success('Sitemap generated successfully')
-    } catch (err: any) { toast.error(err.message || 'Failed to generate sitemap') }
+      const res = await fetch(`${SITE_URL}/sitemap.xml`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(`Sitemap answered ${res.status}`)
+      const xml = await res.text()
+      const urls = (xml.match(/<loc>/g) ?? []).length
+      if (!xml.includes('<urlset') || urls === 0) throw new Error('Sitemap is empty or not valid XML')
+      setSitemapInfo({ urls, checkedAt: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) })
+      toast.success(`Sitemap is live with ${urls} URLs`)
+    } catch (err: any) { toast.error(err.message || 'Could not read the sitemap') }
     finally { setGenerating(false) }
   }
 
@@ -58,11 +74,20 @@ export default function SeoPage() {
           <h1 className="text-2xl font-bold text-gray-900">SEO Management</h1>
           <p className="text-sm text-gray-500 mt-0.5">Manage meta titles, descriptions, and keywords for each page</p>
         </div>
-        <button onClick={handleGenerateSitemap} disabled={generating}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white gradient-brand shadow-brand hover:opacity-90 disabled:opacity-50">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          {generating ? 'Generating...' : 'Generate Sitemap'}
-        </button>
+        <div className="flex items-center gap-2">
+          {sitemapInfo && (
+            <span className="text-xs text-gray-500">{sitemapInfo.urls} URLs · checked {sitemapInfo.checkedAt}</span>
+          )}
+          <a href={`${SITE_URL}/sitemap.xml`} target="_blank" rel="noopener"
+            className="px-4 py-2 rounded-xl text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm">
+            Open sitemap
+          </a>
+          <button onClick={handleCheckSitemap} disabled={generating}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white gradient-brand shadow-brand hover:opacity-90 disabled:opacity-50">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            {generating ? 'Checking...' : 'Check sitemap'}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -97,6 +122,57 @@ export default function SeoPage() {
                   <input type="text" value={edits[p.id]?.keywords ?? ''} onChange={e => setField(p.id, 'keywords', e.target.value)}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
                 </div>
+
+                {/* Social card + geo tags. Blank falls back to the meta title/description above. */}
+                <details className="group rounded-xl border border-gray-100 bg-gray-50/60 px-4 py-3">
+                  <summary className="cursor-pointer text-xs font-semibold text-gray-700 select-none">
+                    Social sharing &amp; geo tags <span className="font-normal text-gray-400">(optional)</span>
+                  </summary>
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">OG Title</label>
+                        <input type="text" value={edits[p.id]?.og_title ?? ''} onChange={e => setField(p.id, 'og_title', e.target.value)}
+                          placeholder="Defaults to the meta title"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                        <p className="text-xs text-gray-400 mt-0.5">{(edits[p.id]?.og_title ?? '').length}/60 characters</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">OG Image URL</label>
+                        <input type="text" value={edits[p.id]?.og_image ?? ''} onChange={e => setField(p.id, 'og_image', e.target.value)}
+                          placeholder="/og-image.jpg or https://…  (1200×630)"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">OG Description</label>
+                      <textarea value={edits[p.id]?.og_description ?? ''} onChange={e => setField(p.id, 'og_description', e.target.value)}
+                        rows={2} placeholder="Defaults to the meta description"
+                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-200 resize-none" />
+                      <p className="text-xs text-gray-400 mt-0.5">{(edits[p.id]?.og_description ?? '').length}/160 characters</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Geo region</label>
+                        <input type="text" value={edits[p.id]?.geo_region ?? ''} onChange={e => setField(p.id, 'geo_region', e.target.value.toUpperCase())}
+                          placeholder="IN or IN-HR"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Geo place name</label>
+                        <input type="text" value={edits[p.id]?.geo_placename ?? ''} onChange={e => setField(p.id, 'geo_placename', e.target.value)}
+                          placeholder="Gurugram"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Geo position</label>
+                        <input type="text" value={edits[p.id]?.geo_position ?? ''} onChange={e => setField(p.id, 'geo_position', e.target.value)}
+                          placeholder="28.4595;77.0266"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+                      </div>
+                    </div>
+                  </div>
+                </details>
               </div>
               <div className="flex justify-end mt-4">
                 <button onClick={() => handleSave(p.id)} disabled={saving === p.id}

@@ -54,6 +54,12 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
+      <head>
+        {/* Site ↔ app association for Google. Paired with
+            /.well-known/assetlinks.json and the app's autoVerify intent
+            filter, this is what lets Google show the app next to the site. */}
+        <link rel="alternate" href="android-app://com.zingdates.app/https/zingdates.com/" />
+      </head>
       <body>
         {children}
         <ToasterProvider />
