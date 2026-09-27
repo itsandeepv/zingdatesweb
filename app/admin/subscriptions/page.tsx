@@ -17,11 +17,13 @@ function SubStatusBadge({ status }: { status: string }) {
   return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${map[status] ?? 'bg-gray-100 text-gray-500'}`}>{status}</span>
 }
 
-function PlanTypeBadge({ type }: { type: string }) {
-  if (type === 'premium') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold gradient-brand text-white">Premium</span>
-  if (type === 'vip') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">VIP</span>
-  if (type === 'corporate') return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-white">Corporate</span>
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Free</span>
+// Shows the plan's real name from the API — plans are admin-defined, so a
+// fixed list of keys here goes stale the moment one is added or renamed.
+function PlanTypeBadge({ type, name }: { type?: string | null; name?: string | null }) {
+  if (!type || type === 'free') return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Free</span>
+  const label = name || type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  const cls = type.includes('vip') ? 'bg-purple-100 text-purple-700' : type.includes('trial') ? 'bg-amber-100 text-amber-700' : 'gradient-brand text-white'
+  return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>{label}</span>
 }
 
 function Avatar({ name }: { name: string }) {
@@ -161,7 +163,7 @@ export default function SubscriptionsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4"><PlanTypeBadge type={sub.plan_type ?? sub.planType ?? 'free'} /></td>
+                    <td className="px-4 py-4"><PlanTypeBadge type={sub.plan_type ?? sub.planType} name={sub.plan_name} /></td>
                     <td className="px-4 py-4 capitalize text-gray-600 whitespace-nowrap">{sub.billing_cycle ?? sub.billingCycle}</td>
                     <td className="px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">₹{Number(sub.amount ?? 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{sub.start_date ?? sub.startDate}</td>

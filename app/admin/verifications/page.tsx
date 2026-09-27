@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { kycApi } from '@/lib/api'
+import { kycApi, attentionApi } from '@/lib/api'
 
 const STATUS: Record<string, string> = {
   pending:  'bg-amber-100 text-amber-700',
@@ -28,6 +28,18 @@ export default function AdminVerificationsPage() {
   const [rejecting, setRejecting] = useState<number | null>(null)
   const [reason, setReason] = useState('')
   const [preview, setPreview] = useState<string | null>(null)
+  // How many requests arrived since this admin last opened the page; the
+  // sidebar badge counts everything still pending.
+  const [attention, setAttention] = useState<{ pending: number; fresh: number } | null>(null)
+  useEffect(() => {
+    if (!token) return
+    let alive = true
+    attentionApi.get(token)
+      .then(a => { if (alive) setAttention({ pending: a.pending_verifications, fresh: a.new_verifications }) })
+      .catch(() => {})
+      .finally(() => { attentionApi.markSeen(token, 'verifications').catch(() => {}) })
+    return () => { alive = false }
+  }, [token])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -65,6 +77,21 @@ export default function AdminVerificationsPage() {
           Approve creators so they can withdraw earnings. A confident name match verifies automatically —
           these are the ones that need a human.
         </p>
+        {attention && attention.pending > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button onClick={() => setStatus('pending')}
+              className="inline-flex items-center gap-2 text-sm font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-full px-3 py-1 hover:bg-amber-100">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse-ring" />
+              {attention.pending} waiting for a decision
+            </button>
+            {attention.fresh > 0 && (
+              <span className="inline-flex items-center gap-2 text-sm font-semibold text-pink-700 bg-pink-50 border border-pink-100 rounded-full px-3 py-1">
+                <span className="w-2 h-2 rounded-full bg-pink-500" />
+                {attention.fresh} new since you last looked
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">

@@ -102,13 +102,23 @@ function fmtDate(iso: string | null | undefined): string {
 }
 
 /* ── Badges ──────────────────────────────────────────── */
-function PlanBadge({ plan }: { plan: string | undefined }) {
+// Plans are admin-defined (any key, any name), so the badge shows whatever
+// the API says the plan is called. The old version only knew "vip" and
+// "premium" and printed "Free" for everything else — including the ₹99
+// Monthly plan, which made a granted plan look like it never applied.
+function PlanBadge({ plan, name, active, expiresAt }: { plan?: string | null; name?: string | null; active?: boolean; expiresAt?: string | null }) {
   if (!plan) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Free</span>
+  const label = name || plan.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   const lower = plan.toLowerCase()
-  if (lower.includes('vip'))       return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">VIP</span>
-  if (lower.includes('premium'))   return <span className="px-2 py-0.5 rounded-full text-xs font-semibold gradient-brand text-white">Premium</span>
-  if (lower.includes('corporate')) return <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-white">Corporate</span>
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Free</span>
+  const cls = !active
+    ? 'bg-gray-100 text-gray-500 line-through decoration-gray-400'
+    : lower.includes('vip') ? 'bg-purple-100 text-purple-700'
+    : lower.includes('trial') ? 'bg-amber-100 text-amber-700'
+    : 'gradient-brand text-white'
+  const title = active
+    ? (expiresAt ? `Active until ${fmtDate(expiresAt)}` : 'Active')
+    : (expiresAt ? `Expired ${fmtDate(expiresAt)}` : 'Expired')
+  return <span title={title} className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>{label}</span>
 }
 
 function VerificationBadge({ status }: { status: VerificationStatus | undefined }) {
@@ -1294,7 +1304,7 @@ export default function UsersPage() {
                       </td>
 
                       <td className="px-4 py-3.5"><RoleBadge role={user.role} /></td>
-                      <td className="px-4 py-3.5"><PlanBadge plan={user.subscription_plan} /></td>
+                      <td className="px-4 py-3.5"><PlanBadge plan={user.subscription_plan} name={user.plan_name} active={user.plan_active} expiresAt={user.plan_expires_at} /></td>
                       <td className="px-4 py-3.5"><VerificationBadge status={user.verification_status} /></td>
                       <td className="px-4 py-3.5"><StatusBadge status={user.status} /></td>
 

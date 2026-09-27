@@ -112,6 +112,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
     if (!attention) return 0
     if (href === '/admin/users') return attention.new_users
     if (href === '/admin/companions') return attention.pending_companions + attention.new_companions
+    if (href === '/admin/verifications') return attention.pending_verifications
     return 0
   }
   const attentionTitle = (href: string): string => {
@@ -121,6 +122,11 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       const parts = []
       if (attention.pending_companions) parts.push(`${attention.pending_companions} waiting for approval`)
       if (attention.new_companions) parts.push(`${attention.new_companions} new since you last looked`)
+      return parts.join(' · ')
+    }
+    if (href === '/admin/verifications') {
+      const parts = [`${attention.pending_verifications} ID checks waiting`]
+      if (attention.new_verifications) parts.push(`${attention.new_verifications} new since you last looked`)
       return parts.join(' · ')
     }
     return ''

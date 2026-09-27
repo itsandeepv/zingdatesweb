@@ -108,11 +108,13 @@ export interface AttentionCounts {
   new_users: number
   new_companions: number
   pending_companions: number
-  seen: { users: string | null; companions: string | null }
+  pending_verifications: number
+  new_verifications: number
+  seen: { users: string | null; companions: string | null; verifications: string | null }
 }
 export const attentionApi = {
   get: (token: string) => req<AttentionCounts>('/admin/attention', {}, token),
-  markSeen: (token: string, section: 'users' | 'companions') =>
+  markSeen: (token: string, section: 'users' | 'companions' | 'verifications') =>
     req<any>('/admin/attention/seen', { method: 'POST', body: JSON.stringify({ section }) }, token),
 }
 
