@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { usersApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 import UserDetail from '@/components/admin/users/UserDetail'
+import UserMediaPanel from '@/components/admin/users/UserMediaPanel'
 import type { ApiUser } from '@/components/admin/users/shared'
 
 /** /admin/users/[id] — one user in full, with every admin action. */
@@ -53,11 +54,16 @@ export default function UserDetailPage() {
           <div className="w-8 h-8 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" />
         </div>
       ) : (
-        <UserDetail
-          user={user} token={token}
-          onChanged={load}
-          onDeleted={() => { toast.success('User deleted.'); router.push('/admin/users') }}
-        />
+        <>
+          <UserDetail
+            user={user} token={token}
+            onChanged={load}
+            onDeleted={() => { toast.success('User deleted.'); router.push('/admin/users') }}
+          />
+
+          {/* Everything they have uploaded, for review in one place. */}
+          <UserMediaPanel userId={user.id} token={token} />
+        </>
       )}
     </div>
   )

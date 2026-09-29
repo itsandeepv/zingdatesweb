@@ -206,6 +206,8 @@ export type AdminMedia = {
   media_type: 'image' | 'video' | 'audio' | 'raw'
   provider: 's3' | 'cloudinary' | 'local'
   status: 'pending' | 'approved' | 'rejected' | 'under_review'
+  legal_hold: boolean
+  legal_hold_reason: string | null
   original_name: string | null
   mime: string | null
   size_bytes: number | null
@@ -221,6 +223,10 @@ export const mediaApi = {
     req<any>(`/admin/media/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }, token),
   remove: (token: string, id: number) =>
     req<any>(`/admin/media/${id}`, { method: 'DELETE' }, token),
+  // Evidence handling: a held file is hidden from everyone and cannot be
+  // deleted by anything until it is released.
+  setLegalHold: (token: string, id: number, hold: boolean, reason?: string) =>
+    req<any>(`/admin/media/${id}/legal-hold`, { method: 'PATCH', body: JSON.stringify({ hold, reason }) }, token),
   settings: (token: string) =>
     req<{ settings: any; providers: string[] }>('/admin/media-settings', {}, token),
   saveSettings: (token: string, data: Record<string, any>) =>
