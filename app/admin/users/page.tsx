@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
-import { usersApi, attentionApi } from '@/lib/api'
+import { usersApi, attentionApi, mediaApi } from '@/lib/api'
+import type { AdminMedia } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
 import type { UserStatus, VerificationStatus } from '@/lib/types'
@@ -773,6 +774,10 @@ function ViewUserModal({ user, onClose, onEdit, onPlan, token, onRefresh }: {
             )}
           </div>
 
+          {/* Everything this person has uploaded — profile, gallery and what
+              they sent in chats — so it can be reviewed in one place. */}
+          <UserMediaSection userId={user.id} token={token} />
+
           {/* Action buttons */}
           <div className="py-5 flex flex-wrap gap-2">
             <button onClick={() => { onClose(); onEdit(user) }}
@@ -824,6 +829,96 @@ function ViewUserModal({ user, onClose, onEdit, onPlan, token, onRefresh }: {
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ── A user's uploaded media, for review ─────────────── */
+function UserMediaSection({ userId, token }: { userId: number; token: string }) {
+  const [items, setItems] = useState<AdminMedia[] | null>(null)
+  const [error, setError] = useState('')
+  const [busyId, setBusyId] = useState<number | null>(null)
+  const [preview, setPreview] = useState<AdminMedia | null>(null)
+
+  const load = useCallback(async () => {
+    try {
+      const res = await mediaApi.forUser(token, userId)
+      setItems(res.media ?? [])
+    } catch (err: any) {
+      setError(err?.message ?? 'Could not load media')
+    }
+  }, [token, userId])
+
+  useEffect(() => { load() }, [load])
+
+  async function remove(m: AdminMedia) {
+    if (!window.confirm('Delete this file for good? It is removed from storage as well as the database.')) return
+    setBusyId(m.id)
+    try {
+      await mediaApi.remove(token, m.id)
+      setItems(prev => (prev ?? []).filter(x => x.id !== m.id))
+      toast.success('Media deleted.')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Delete failed.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  if (error) return <p className="py-4 text-xs text-red-500">{error}</p>
+  if (!items) return <p className="py-4 text-xs text-gray-400">Loading media…</p>
+
+  return (
+    <div className="py-5 border-t border-gray-100">
+      {preview && preview.url && preview.media_type === 'image' && (
+        <PhotoLightbox src={preview.url} alt={preview.original_name ?? 'Media'} onClose={() => setPreview(null)} />
+      )}
+
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Uploaded media ({items.length})
+        </span>
+        <button onClick={load} className="text-xs text-blue-600 hover:underline">Refresh</button>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="text-xs text-gray-400">This user has not uploaded anything.</p>
+      ) : (
+        <div className="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+          {items.map(m => (
+            <div key={m.id} className="relative group rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+              {/* Videos are exactly what a photo-only panel misses, so they
+                  get a real player rather than a broken <img>. */}
+              {m.media_type === 'video' && m.url ? (
+                <video src={m.url} controls preload="metadata" className="w-full h-24 object-cover bg-black" />
+              ) : m.media_type === 'image' && m.url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.url} alt={m.original_name ?? m.kind} onClick={() => setPreview(m)}
+                  className="w-full h-24 object-cover cursor-zoom-in" />
+              ) : (
+                <div className="w-full h-24 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">
+                  {m.media_type} file
+                </div>
+              )}
+
+              <div className="px-1.5 py-1">
+                <p className="text-[10px] font-semibold text-gray-600 capitalize truncate">{m.kind.replace('_', ' ')}</p>
+                <p className="text-[10px] text-gray-400 truncate">{fmtDate(m.uploaded_at)}</p>
+                {m.status !== 'approved' && (
+                  <p className="text-[10px] font-semibold text-orange-500 capitalize">{m.status.replace('_', ' ')}</p>
+                )}
+              </div>
+
+              <button onClick={() => remove(m)} disabled={busyId === m.id} title="Delete this file"
+                className="absolute top-1 right-1 p-1 rounded-lg bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40">
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

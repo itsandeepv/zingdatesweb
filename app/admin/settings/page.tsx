@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { settingsApi } from '@/lib/api'
+import { settingsApi, mediaApi } from '@/lib/api'
 
 export default function SettingsPage() {
   const token = useAuthStore(s => s.token) ?? ''
@@ -214,6 +214,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <MediaStorageCard />
+
         <div className="flex justify-end">
           <button type="submit" disabled={saving}
             className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white gradient-brand shadow-brand hover:opacity-90 disabled:opacity-50">
@@ -221,6 +223,98 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+    </div>
+  )
+}
+
+/* ── Where new uploads go ────────────────────────────────
+   Its own form, saved separately from the platform settings above: switching
+   storage is a fallback someone reaches for when S3 is misbehaving, and it
+   must not be tangled up with saving the age range. */
+function MediaStorageCard() {
+  const token = useAuthStore(s => s.token) ?? ''
+  const [settings, setSettings] = useState<any>(null)
+  const [keys, setKeys] = useState({ cloudinary_cloud_name: '', cloudinary_api_key: '', cloudinary_api_secret: '' })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    if (!token) return
+    mediaApi.settings(token)
+      .then(res => {
+        setSettings(res.settings)
+        setKeys(k => ({ ...k, cloudinary_cloud_name: res.settings?.cloudinary_cloud_name ?? '' }))
+      })
+      .catch(() => {})
+  }, [token])
+
+  async function save(patch: Record<string, any>) {
+    setSaving(true)
+    try {
+      const res = await mediaApi.saveSettings(token, patch)
+      setSettings(res.settings)
+      toast.success('Media settings saved')
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not save media settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!settings) return null
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <h2 className="text-sm font-bold text-gray-800">Media storage</h2>
+      <p className="text-[11px] text-gray-400 mt-1">
+        Where NEW uploads go. Files already uploaded keep being served from — and deleted from — wherever
+        they were stored, so switching is safe.
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {['s3', 'cloudinary'].map(p => (
+          <button key={p} type="button" disabled={saving || settings.active_provider === p}
+            onClick={() => save({ active_provider: p })}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
+              settings.active_provider === p
+                ? 'border-pink-500 text-pink-600 bg-pink-50'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            }`}>
+            {p === 's3' ? 'Amazon S3 (default)' : 'Cloudinary (fallback)'}
+          </button>
+        ))}
+      </div>
+
+      <label className="mt-4 flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" checked={!!settings.moderation_enabled} disabled={saving}
+          onChange={e => save({ moderation_enabled: e.target.checked })} />
+        Screen image uploads automatically before they are shown
+      </label>
+      <p className="text-[11px] text-gray-400 mt-1">
+        Flags general explicit content. It does not reliably detect images of minors — those still need
+        human review and reporting.
+      </p>
+
+      <div className="mt-5 border-t border-gray-100 pt-4">
+        <p className="text-xs font-semibold text-gray-600">Cloudinary credentials</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          Stored encrypted. {settings.cloudinary_configured ? 'Keys are set — leave blank to keep them.' : 'Needed before you can switch to Cloudinary.'}
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {([
+            ['cloudinary_cloud_name', 'Cloud name', 'text'],
+            ['cloudinary_api_key', 'API key', 'text'],
+            ['cloudinary_api_secret', 'API secret', 'password'],
+          ] as const).map(([field, label, type]) => (
+            <input key={field} type={type} placeholder={label} value={(keys as any)[field]}
+              onChange={e => setKeys({ ...keys, [field]: e.target.value })}
+              className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+          ))}
+        </div>
+        <button type="button" disabled={saving} onClick={() => save(keys)}
+          className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold text-pink-600 bg-pink-50 hover:bg-pink-100 disabled:opacity-50">
+          Save credentials
+        </button>
+      </div>
     </div>
   )
 }

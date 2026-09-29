@@ -192,6 +192,41 @@ async function reqForm<T>(path: string, body: FormData, token?: string | null): 
   return (text ? JSON.parse(text) : null) as T
 }
 
+/* ─── Admin Media ─────────────────────────────────────────────── */
+/**
+ * Everything one user has uploaded, and the controls to act on it.
+ *
+ * `url` on a row is already resolved by the API: a Cloudinary file gives its
+ * own URL, an S3 file gives a short-lived signed one. Render it, don't cache it.
+ */
+export type AdminMedia = {
+  id: number
+  uuid: string
+  kind: 'profile' | 'gallery' | 'chat' | 'booking_chat' | 'event' | 'support' | 'other'
+  media_type: 'image' | 'video' | 'audio' | 'raw'
+  provider: 's3' | 'cloudinary' | 'local'
+  status: 'pending' | 'approved' | 'rejected' | 'under_review'
+  original_name: string | null
+  mime: string | null
+  size_bytes: number | null
+  url: string | null
+  uploaded_at: string
+}
+
+export const mediaApi = {
+  forUser: (token: string, userId: number, params: Record<string, string> = {}) =>
+    req<{ media: AdminMedia[]; counts: any; user: any }>(
+      `/admin/users/${userId}/media?${new URLSearchParams(params)}`, {}, token),
+  setStatus: (token: string, id: number, status: AdminMedia['status']) =>
+    req<any>(`/admin/media/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/media/${id}`, { method: 'DELETE' }, token),
+  settings: (token: string) =>
+    req<{ settings: any; providers: string[] }>('/admin/media-settings', {}, token),
+  saveSettings: (token: string, data: Record<string, any>) =>
+    req<any>('/admin/media-settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+}
+
 /* ─── Admin Events ────────────────────────────────────────────── */
 export const eventsApi = {
   list: (token: string, params: Record<string, string> = {}) =>
