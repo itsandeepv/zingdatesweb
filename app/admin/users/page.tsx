@@ -1,38 +1,17 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { usersApi, attentionApi, mediaApi } from '@/lib/api'
-import type { AdminMedia } from '@/lib/api'
+import { usersApi, attentionApi } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
-import type { UserStatus, VerificationStatus } from '@/lib/types'
+import {
+  type ApiUser, ROLES, GENDERS, BULK_LABELS,
+  fmtNum, fmtDate, PlanBadge, VerificationBadge, StatusBadge, RoleBadge, Avatar, inputCls, PhotoPicker,
+} from '@/components/admin/users/shared'
 
 /* ── Types ───────────────────────────────────────────── */
-interface ApiUser {
-  id: number
-  name: string
-  email: string | null
-  phone: string | null
-  profile_photo?: string
-  subscription_plan?: string
-  plan_name?: string | null
-  plan_expires_at?: string | null
-  plan_active?: boolean
-  verification_status: VerificationStatus
-  is_verified: boolean
-  status: UserStatus
-  role: string
-  gender?: string
-  city?: string
-  country?: string
-  bio?: string
-  created_at: string
-  signup_source?: string
-  signup_source_label?: string
-  last_login_at: string | null
-}
-
 interface Meta {
   total: number
   current_page: number
@@ -44,34 +23,11 @@ interface AddUserForm {
   name: string; email: string; phone: string; password: string; role: string; gender: string
   photoUrl: string
 }
-interface EditUserForm {
-  name: string; email: string; phone: string; role: string; gender: string; city: string; status: string
-  photoUrl: string
-}
 
 const DEFAULT_ADD_FORM: AddUserForm = {
   name: '', email: '', phone: '', password: '', role: 'user', gender: '', photoUrl: '',
 }
 
-// The API stores a single `is_admin` flag, so these are the only two roles it
-// can persist. The longer list this used to offer was rejected with a 422 —
-// nothing in the schema backs those other roles.
-const ROLES = [
-  { value: 'user',  label: 'User' },
-  { value: 'admin', label: 'Admin' },
-]
-
-// Must match the API's `in:male,female,other` rule.
-const GENDERS = [
-  { value: '',       label: 'Select gender' },
-  { value: 'male',   label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'other',  label: 'Other' },
-]
-
-const BULK_LABELS: Record<string, string> = {
-  suspend: 'suspended', unsuspend: 'unsuspended', verify: 'verified', delete: 'deleted',
-}
 
 /* ── KPI card definitions ─────────────────────────────── */
 const kpiDefs = [
@@ -92,96 +48,6 @@ const kpiDefs = [
     icon: (<svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>),
   },
 ]
-
-function fmtNum(n: number | undefined): string {
-  if (n === undefined || n === null) return '—'
-  return n.toLocaleString('en-US')
-}
-function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-/* ── Badges ──────────────────────────────────────────── */
-// Plans are admin-defined (any key, any name), so the badge shows whatever
-// the API says the plan is called. The old version only knew "vip" and
-// "premium" and printed "Free" for everything else — including the ₹99
-// Monthly plan, which made a granted plan look like it never applied.
-function PlanBadge({ plan, name, active, expiresAt }: { plan?: string | null; name?: string | null; active?: boolean; expiresAt?: string | null }) {
-  if (!plan) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Free</span>
-  const label = name || plan.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  const lower = plan.toLowerCase()
-  const cls = !active
-    ? 'bg-gray-100 text-gray-500 line-through decoration-gray-400'
-    : lower.includes('vip') ? 'bg-purple-100 text-purple-700'
-    : lower.includes('trial') ? 'bg-amber-100 text-amber-700'
-    : 'gradient-brand text-white'
-  const title = active
-    ? (expiresAt ? `Active until ${fmtDate(expiresAt)}` : 'Active')
-    : (expiresAt ? `Expired ${fmtDate(expiresAt)}` : 'Expired')
-  return <span title={title} className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>{label}</span>
-}
-
-function VerificationBadge({ status }: { status: VerificationStatus | undefined }) {
-  if (status === 'verified') return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-      Verified
-    </span>
-  )
-  if (status === 'pending') return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">Pending</span>
-  return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Unverified</span>
-}
-
-function StatusBadge({ status }: { status: UserStatus }) {
-  const map: Record<UserStatus, string> = {
-    active:    'bg-green-100 text-green-700',
-    suspended: 'bg-red-100 text-red-600',
-    deleted:   'bg-gray-200 text-gray-500',
-    pending:   'bg-yellow-100 text-yellow-700',
-  }
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {status}
-    </span>
-  )
-}
-
-function RoleBadge({ role }: { role: string }) {
-  const map: Record<string, string> = {
-    super_admin: 'bg-red-100 text-red-700',
-    admin:       'bg-orange-100 text-orange-700',
-    moderator:   'bg-blue-100 text-blue-700',
-    support:     'bg-cyan-100 text-cyan-700',
-    analyst:     'bg-indigo-100 text-indigo-700',
-    marketing:   'bg-violet-100 text-violet-700',
-    finance:     'bg-emerald-100 text-emerald-700',
-    user:        'bg-gray-100 text-gray-600',
-  }
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${map[role] ?? 'bg-gray-100 text-gray-600'}`}>
-      {role?.replace('_', ' ')}
-    </span>
-  )
-}
-
-function Avatar({ name, photo, large }: { name: string; photo?: string; large?: boolean }) {
-  const sz = large ? 'w-16 h-16 text-lg' : 'w-9 h-9 text-xs'
-  if (photo) return <img src={photo} alt={name} className={`${sz} rounded-full object-cover flex-shrink-0`} />
-  const initials = (name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-  return (
-    <div className={`${sz} rounded-full flex-shrink-0 gradient-brand flex items-center justify-center text-white font-bold`}>
-      {initials}
-    </div>
-  )
-}
-
-/* ── Shared form field helpers ────────────────────────── */
-function inputCls(err?: string) {
-  return `w-full px-3.5 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
-    err ? 'border-red-400 focus:ring-red-300' : 'border-gray-200 focus:ring-pink-300'
-  }`
-}
 
 /* ── Actions dropdown ────────────────────────────────── */
 function ActionsMenu({
@@ -351,65 +217,6 @@ function SkeletonRow() {
   )
 }
 
-/* ── Profile photo picker (shared by Add + Edit) ─────── */
-type PhotoMode = 'url' | 'upload'
-function PhotoPicker({ mode, onMode, url, onUrl, preview, onFile, current, error }: {
-  mode: PhotoMode; onMode: (m: PhotoMode) => void
-  url: string; onUrl: (v: string) => void
-  preview: string | null; onFile: (f: File | null) => void
-  current?: string; error?: string
-}) {
-  const urlOk = /^https?:\/\//i.test(url.trim())
-  // Preview priority: freshly picked file → typed URL → the photo already on file.
-  const shown = mode === 'upload' && preview ? preview : mode === 'url' && urlOk ? url.trim() : current || null
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">
-        Profile Photo <span className="text-gray-400 font-normal">(optional)</span>
-      </label>
-
-      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl mb-3 w-fit">
-        {(['url', 'upload'] as const).map(m => (
-          <button key={m} type="button" onClick={() => onMode(m)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}>
-            {m === 'url' ? 'Paste URL' : 'Upload file'}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex items-start gap-3">
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-          {shown ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img src={shown} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-              <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-          )}
-        </div>
-
-        <div className="flex-1 min-w-0">
-          {mode === 'url' ? (
-            <input type="url" value={url} onChange={e => onUrl(e.target.value)}
-              placeholder="https://example.com/photo.jpg" className={inputCls(error)} />
-          ) : (
-            <>
-              <input type="file" accept="image/jpeg,image/png,image/webp"
-                onChange={e => onFile(e.target.files?.[0] ?? null)}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-pink-50 file:text-pink-600 hover:file:bg-pink-100 cursor-pointer" />
-              <p className="text-xs text-gray-400 mt-1.5">JPG, PNG or WebP · up to 5 MB</p>
-            </>
-          )}
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ── Add User Modal ──────────────────────────────────── */
 function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSuccess: () => void; token: string }) {
   const [form, setForm]     = useState<AddUserForm>(DEFAULT_ADD_FORM)
@@ -528,425 +335,6 @@ function AddUserModal({ onClose, onSuccess, token }: { onClose: () => void; onSu
   )
 }
 
-/* ── Edit User Modal ─────────────────────────────────── */
-function EditUserModal({ user, onClose, onSuccess, token }: { user: ApiUser; onClose: () => void; onSuccess: () => void; token: string }) {
-  const [form, setForm]     = useState<EditUserForm>({
-    name:   user.name   || '',
-    email:  user.email  || '',
-    phone:  user.phone  || '',
-    role:   user.role   || 'user',
-    gender: user.gender || '',
-    city:   user.city   || '',
-    status: user.status || 'active',
-    photoUrl: user.profile_photo || '',
-  })
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors]   = useState<Record<string, string>>({})
-  // Same two sources as Add: a pasted URL or an uploaded file. The photo call is
-  // separate from the profile update, and only fires when something changed.
-  const [photoMode, setPhotoMode] = useState<PhotoMode>('url')
-  const [photoFile, setPhotoFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
-
-  function pickFile(f: File | null) {
-    setPhotoFile(f)
-    setPhotoPreview(p => { if (p) URL.revokeObjectURL(p); return f ? URL.createObjectURL(f) : null })
-    setErrors(e => ({ ...e, photo: '' }))
-  }
-
-  function set(field: keyof EditUserForm, value: string) {
-    setForm(prev => ({ ...prev, [field]: value }))
-    setErrors(prev => { const n = { ...prev }; delete n[field]; return n })
-  }
-
-  async function handleSubmit(e: { preventDefault(): void }) {
-    e.preventDefault()
-    const errs: Record<string, string> = {}
-    if (!form.name.trim()) errs.name = 'Name is required.'
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = 'Enter a valid email.'
-    const newUrl = form.photoUrl.trim()
-    const urlChanged = photoMode === 'url' && newUrl !== '' && newUrl !== (user.profile_photo || '')
-    if (urlChanged && !/^https?:\/\/\S+$/i.test(newUrl)) {
-      errs.photo = 'Enter a full image URL starting with http:// or https://'
-    }
-    if (photoMode === 'upload' && photoFile && photoFile.size > 5 * 1024 * 1024) {
-      errs.photo = 'Image must be 5 MB or smaller.'
-    }
-    if (Object.keys(errs).length > 0) { setErrors(errs); return }
-
-    setLoading(true)
-    try {
-      const payload: Record<string, any> = {
-        name:   form.name.trim(),
-        role:   form.role,
-        status: form.status,
-      }
-      if (form.email.trim())  payload.email  = form.email.trim()
-      if (form.phone.trim())  payload.phone  = form.phone.trim()
-      if (form.gender)        payload.gender = form.gender
-      if (form.city.trim())   payload.city   = form.city.trim()
-      await usersApi.update(token, user.id, payload)
-
-      const photoSource = photoMode === 'upload' && photoFile ? { file: photoFile } : urlChanged ? { url: newUrl } : null
-      if (photoSource) {
-        try {
-          await usersApi.setPhoto(token, user.id, photoSource)
-        } catch (err) {
-          // The profile fields are already saved — say exactly what failed.
-          const why = err instanceof Error && err.message ? `: ${err.message}` : '.'
-          toast.error(`Profile saved, but the photo update failed${why}`)
-          onSuccess()
-          return
-        }
-      }
-
-      toast.success(`User "${form.name}" updated successfully.`)
-      onSuccess()
-    } catch (err: any) {
-      toast.error(err?.status === 422 ? 'Validation failed. Check the form fields.' : (err?.message ?? 'Failed to update user.'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <ModalShell title="Edit User" subtitle={`Editing profile for ${user.name || 'user'}`} onClose={onClose}>
-      <form id="edit-user-form" onSubmit={handleSubmit} className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span className="text-red-400">*</span></label>
-            <input type="text" value={form.name} onChange={e => set('name', e.target.value)} placeholder="John Doe" className={inputCls(errors.name)} autoFocus />
-            {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Role</label>
-            <select value={form.role} onChange={e => set('role', e.target.value)} className={inputCls()}>
-              {['user','moderator','support','analyst','marketing','finance','admin','super_admin'].map(r => (
-                <option key={r} value={r}>{r.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-          <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="john@example.com" className={inputCls(errors.email)} />
-          {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-        </div>
-
-        <PhotoPicker mode={photoMode} onMode={m => { setPhotoMode(m); setErrors(e => ({ ...e, photo: '' })) }}
-          url={form.photoUrl} onUrl={v => set('photoUrl', v)}
-          preview={photoPreview} onFile={pickFile} current={user.profile_photo} error={errors.photo} />
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone</label>
-            <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 98765 43210" className={inputCls()} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-            <input type="text" value={form.city} onChange={e => set('city', e.target.value)} placeholder="Mumbai" className={inputCls()} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Gender</label>
-            <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls()}>
-              <option value="">Select gender</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="non_binary">Non-binary</option>
-              <option value="prefer_not_to_say">Prefer not to say</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Status</label>
-            <select value={form.status} onChange={e => set('status', e.target.value)} className={inputCls()}>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-        </div>
-      </form>
-      <ModalFooter onClose={onClose} formId="edit-user-form" loading={loading} label="Save Changes" />
-    </ModalShell>
-  )
-}
-
-/* ── View User Modal ─────────────────────────────────── */
-function ViewUserModal({ user, onClose, onEdit, onPlan, token, onRefresh }: {
-  user: ApiUser; onClose: () => void; onEdit: (u: ApiUser) => void; onPlan: (u: ApiUser) => void; token: string; onRefresh: () => void
-}) {
-  const [busy, setBusy] = useState(false)
-  const [preview, setPreview] = useState(false)
-
-  async function doAction(action: 'verify' | 'suspend' | 'unsuspend' | 'delete') {
-    if (action === 'delete' && !window.confirm(`Delete "${user.name}"? This cannot be undone.`)) return
-    setBusy(true)
-    try {
-      if (action === 'verify')    await usersApi.verify(token, user.id)
-      if (action === 'suspend')   await usersApi.suspend(token, user.id, 'Suspended by admin')
-      if (action === 'unsuspend') await usersApi.unsuspend(token, user.id)
-      if (action === 'delete')    await usersApi.delete(token, user.id)
-      toast.success(`${user.name} has been ${BULK_LABELS[action]}.`)
-      onRefresh()
-      onClose()
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Action failed.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      {preview && user.profile_photo && (
-        <PhotoLightbox src={user.profile_photo} alt={user.name || 'Profile photo'} onClose={() => setPreview(false)} />
-      )}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
-
-        {/* Header: photo, name and badges together, nothing overlapping. */}
-        <div className="gradient-brand px-6 py-6 relative">
-          <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/10" />
-          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-1.5 rounded-xl bg-white/20 hover:bg-white/30 transition-colors text-white z-10">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-
-          <div className="relative flex items-center gap-4">
-            {user.profile_photo ? (
-              <button type="button" onClick={() => setPreview(true)} title="View photo"
-                className="group relative flex-shrink-0 rounded-full ring-4 ring-white/40 hover:ring-white transition-all focus:outline-none focus:ring-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={user.profile_photo} alt={user.name} className="w-20 h-20 rounded-full object-cover" />
-                <span className="absolute inset-0 rounded-full bg-black/0 group-hover:bg-black/30 flex items-center justify-center transition-colors">
-                  <svg className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 8v6m-3-3h6m5 0a8 8 0 11-16 0 8 8 0 0116 0z" />
-                  </svg>
-                </span>
-              </button>
-            ) : (
-              <div className="w-20 h-20 rounded-full flex-shrink-0 bg-white/20 ring-4 ring-white/40 flex items-center justify-center text-white text-2xl font-bold">
-                {(user.name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0">
-              <p className="text-white/70 text-[11px] font-semibold uppercase tracking-wider">User #{user.id}</p>
-              <h2 className="text-white text-xl font-bold leading-tight truncate">{user.name || '—'}</h2>
-              <div className="flex gap-1.5 flex-wrap mt-2">
-                <RoleBadge role={user.role} />
-                <StatusBadge status={user.status} />
-                <VerificationBadge status={user.verification_status} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pt-5">
-          {/* Details grid */}
-          <div className="space-y-3 pb-5 border-b border-gray-100">
-            {[
-              { label: 'Email',       value: user.email },
-              { label: 'Phone',       value: user.phone },
-              { label: 'Gender',      value: user.gender ? user.gender.replace(/_/g, ' ') : null },
-              { label: 'Location',    value: [user.city, user.country].filter(Boolean).join(', ') || null },
-              { label: 'Plan',        value: user.plan_active && user.plan_expires_at
-                  ? `${user.plan_name ?? user.subscription_plan} · until ${fmtDate(user.plan_expires_at)}`
-                  : (user.subscription_plan ? `${user.plan_name ?? user.subscription_plan} (expired)` : 'Free') },
-              { label: 'Joined',      value: fmtDate(user.created_at) },
-              { label: 'Signed up on', value: user.signup_source_label ?? 'Unknown' },
-              { label: 'Last Active', value: fmtDate(user.last_login_at) },
-            ].map(({ label, value }) => (
-              <div key={label} className="flex items-start justify-between gap-4">
-                <span className="text-xs text-gray-400 font-medium flex-shrink-0 pt-0.5">{label}</span>
-                <span className="text-sm text-gray-700 font-medium text-right break-words min-w-0 ">{value || '—'}</span>
-              </div>
-            ))}
-            {user.bio && (
-              <div className="pt-1">
-                <span className="text-xs text-gray-400 font-medium">Bio</span>
-                <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-line">{user.bio}</p>
-              </div>
-            )}
-          </div>
-
-          {/* Everything this person has uploaded — profile, gallery and what
-              they sent in chats — so it can be reviewed in one place. */}
-          <UserMediaSection userId={user.id} token={token} />
-
-          {/* Action buttons */}
-          <div className="py-5 flex flex-wrap gap-2">
-            <button onClick={() => { onClose(); onEdit(user) }}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-blue-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit
-            </button>
-
-            <button onClick={() => { onClose(); onPlan(user) }} disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-purple-200 text-purple-600 rounded-xl hover:bg-purple-50 transition-colors disabled:opacity-50">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
-              </svg>
-              {user.plan_active ? 'Change Plan' : 'Give Plan'}
-            </button>
-
-            {!user.is_verified && (
-              <button onClick={() => doAction('verify')} disabled={busy}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-green-200 text-green-600 rounded-xl hover:bg-green-50 transition-colors disabled:opacity-50">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Verify
-              </button>
-            )}
-
-            {user.status === 'suspended' ? (
-              <button onClick={() => doAction('unsuspend')} disabled={busy}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-blue-200 text-blue-600 rounded-xl hover:bg-blue-50 transition-colors disabled:opacity-50">
-                Unsuspend
-              </button>
-            ) : (
-              <button onClick={() => doAction('suspend')} disabled={busy}
-                className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-orange-200 text-orange-600 rounded-xl hover:bg-orange-50 transition-colors disabled:opacity-50">
-                Suspend
-              </button>
-            )}
-
-            <button onClick={() => doAction('delete')} disabled={busy}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50 ml-auto">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/* ── A user's uploaded media, for review ─────────────── */
-function UserMediaSection({ userId, token }: { userId: number; token: string }) {
-  const [items, setItems] = useState<AdminMedia[] | null>(null)
-  const [error, setError] = useState('')
-  const [busyId, setBusyId] = useState<number | null>(null)
-  const [preview, setPreview] = useState<AdminMedia | null>(null)
-
-  const load = useCallback(async () => {
-    try {
-      const res = await mediaApi.forUser(token, userId)
-      setItems(res.media ?? [])
-    } catch (err: any) {
-      setError(err?.message ?? 'Could not load media')
-    }
-  }, [token, userId])
-
-  useEffect(() => { load() }, [load])
-
-  async function remove(m: AdminMedia) {
-    if (!window.confirm('Delete this file for good? It is removed from storage as well as the database.')) return
-    setBusyId(m.id)
-    try {
-      await mediaApi.remove(token, m.id)
-      setItems(prev => (prev ?? []).filter(x => x.id !== m.id))
-      toast.success('Media deleted.')
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Delete failed.')
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  if (error) return <p className="py-4 text-xs text-red-500">{error}</p>
-  if (!items) return <p className="py-4 text-xs text-gray-400">Loading media…</p>
-
-  return (
-    <div className="py-5 border-t border-gray-100">
-      {preview && preview.url && preview.media_type === 'image' && (
-        <PhotoLightbox src={preview.url} alt={preview.original_name ?? 'Media'} onClose={() => setPreview(null)} />
-      )}
-
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-          Uploaded media ({items.length})
-        </span>
-        <button onClick={load} className="text-xs text-blue-600 hover:underline">Refresh</button>
-      </div>
-
-      {items.length === 0 ? (
-        <p className="text-xs text-gray-400">This user has not uploaded anything.</p>
-      ) : (
-        <div className="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
-          {items.map(m => (
-            <div key={m.id} className="relative group rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-              {/* Videos are exactly what a photo-only panel misses, so they
-                  get a real player rather than a broken <img>. */}
-              {m.media_type === 'video' && m.url ? (
-                <video src={m.url} controls preload="metadata" className="w-full h-24 object-cover bg-black" />
-              ) : m.media_type === 'image' && m.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.url} alt={m.original_name ?? m.kind} onClick={() => setPreview(m)}
-                  className="w-full h-24 object-cover cursor-zoom-in" />
-              ) : (
-                <div className="w-full h-24 flex items-center justify-center text-[10px] text-gray-400 px-2 text-center">
-                  {m.media_type} file
-                </div>
-              )}
-
-              <div className="px-1.5 py-1">
-                <p className="text-[10px] font-semibold text-gray-600 capitalize truncate">{m.kind.replace('_', ' ')}</p>
-                <p className="text-[10px] text-gray-400 truncate">{fmtDate(m.uploaded_at)}</p>
-                {m.status !== 'approved' && (
-                  <p className="text-[10px] font-semibold text-orange-500 capitalize">{m.status.replace('_', ' ')}</p>
-                )}
-              </div>
-
-              <button onClick={() => remove(m)} disabled={busyId === m.id} title="Delete this file"
-                className="absolute top-1 right-1 p-1 rounded-lg bg-black/55 text-white opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-40">
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Full-size photo preview ─────────────────────────── */
-function PhotoLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label={alt}>
-      <button onClick={onClose} aria-label="Close preview" className="absolute top-4 right-4 p-2 rounded-xl bg-white/15 hover:bg-white/30 text-white transition-colors">
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-      </button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} onClick={e => e.stopPropagation()}
-        className="max-w-full max-h-[88vh] rounded-2xl object-contain shadow-2xl" />
-      <a href={src} target="_blank" rel="noopener" onClick={e => e.stopPropagation()}
-        className="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs font-medium text-white/80 hover:text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-full transition-colors">
-        Open original
-      </a>
-    </div>
-  )
-}
-
 /* ── Shared modal shell ──────────────────────────────── */
 function ModalShell({ title, subtitle, onClose, children }: {
   title: string; subtitle: string; onClose: () => void; children: React.ReactNode
@@ -1059,8 +447,11 @@ export default function UsersPage() {
   const [bulkBusy, setBulkBusy]   = useState(false)
 
   const [showAddModal, setShowAddModal]   = useState(false)
-  const [editUser, setEditUser]           = useState<ApiUser | null>(null)
-  const [viewUser, setViewUser]           = useState<ApiUser | null>(null)
+  // View and Edit are pages now (/admin/users/[id] and /[id]/edit); only
+  // Add and Give Plan stay as popups, since they are quick and return here.
+  const router = useRouter()
+  const openUser = (u: ApiUser) => router.push(`/admin/users/${u.id}`)
+  const editUser = (u: ApiUser) => router.push(`/admin/users/${u.id}/edit`)
   const [planUser, setPlanUser]           = useState<ApiUser | null>(null)
   // When this admin last opened the page, from before we mark it seen now —
   // rows created after it get a "New" tag and the banner below counts them.
@@ -1169,22 +560,6 @@ export default function UsersPage() {
       {/* Modals */}
       {showAddModal && (
         <AddUserModal token={token} onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); fetchUsers() }} />
-      )}
-      {editUser && (
-        <EditUserModal
-          user={editUser} token={token}
-          onClose={() => setEditUser(null)}
-          onSuccess={() => { setEditUser(null); fetchUsers() }}
-        />
-      )}
-      {viewUser && (
-        <ViewUserModal
-          user={viewUser} token={token}
-          onClose={() => setViewUser(null)}
-          onEdit={u => { setViewUser(null); setEditUser(u) }}
-          onPlan={u => { setViewUser(null); setPlanUser(u) }}
-          onRefresh={fetchUsers}
-        />
       )}
       {planUser && (
         <GrantPlanModal
@@ -1375,12 +750,12 @@ export default function UsersPage() {
 
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <button onClick={() => setViewUser(user)} className="flex-shrink-0 focus:outline-none">
+                          <button onClick={() => openUser(user)} className="flex-shrink-0 focus:outline-none">
                             <Avatar name={user.name || '?'} photo={user.profile_photo} />
                           </button>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <button onClick={() => setViewUser(user)} className="font-semibold text-gray-900 truncate max-w-[130px] hover:text-pink-600 transition-colors text-left">
+                              <button onClick={() => openUser(user)} className="font-semibold text-gray-900 truncate max-w-[130px] hover:text-pink-600 transition-colors text-left">
                                 {user.name || '—'}
                               </button>
                               {isNewUser(user) && (
@@ -1412,8 +787,8 @@ export default function UsersPage() {
                       <td className="pr-4 py-3.5">
                         <ActionsMenu
                           user={user} token={token} onRefresh={fetchUsers}
-                          onEdit={u => setEditUser(u)}
-                          onView={u => setViewUser(u)}
+                          onEdit={u => editUser(u)}
+                          onView={u => openUser(u)}
                           onPlan={u => setPlanUser(u)}
                         />
                       </td>

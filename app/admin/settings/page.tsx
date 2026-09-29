@@ -242,7 +242,6 @@ function MediaStorageCard() {
     mediaApi.settings(token)
       .then(res => {
         setSettings(res.settings)
-        setKeys(k => ({ ...k, cloudinary_cloud_name: res.settings?.cloudinary_cloud_name ?? '' }))
       })
       .catch(() => {})
   }, [token])
@@ -252,6 +251,7 @@ function MediaStorageCard() {
     try {
       const res = await mediaApi.saveSettings(token, patch)
       setSettings(res.settings)
+      if (patch.clear_cloudinary || patch.cloudinary_cloud_name !== undefined) setKeys({ cloudinary_cloud_name: '', cloudinary_api_key: '', cloudinary_api_secret: '' })
       toast.success('Media settings saved')
     } catch (err: any) {
       toast.error(err?.message ?? 'Could not save media settings')
@@ -294,27 +294,72 @@ function MediaStorageCard() {
         human review and reporting.
       </p>
 
-      <div className="mt-5 border-t border-gray-100 pt-4">
-        <p className="text-xs font-semibold text-gray-600">Cloudinary credentials</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">
-          Stored encrypted. {settings.cloudinary_configured ? 'Keys are set — leave blank to keep them.' : 'Needed before you can switch to Cloudinary.'}
+      {/* What the SELECTED provider is using. S3 lives on the server; only
+          Cloudinary has anything to type in here. Showing Cloudinary's blank
+          boxes under an S3 selection is how S3 keys ended up saved as a
+          Cloudinary cloud name. */}
+      {settings.active_provider === 's3' && settings.s3 && (
+        <div className="mt-5 border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-600">Amazon S3 — in use for new uploads</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            Configured on the server, not here. To change the bucket or keys, edit the API server&rsquo;s environment.
+          </p>
+          <dl className="mt-3 grid gap-2 sm:grid-cols-3 text-sm">
+            {[
+              ['Bucket', settings.s3.bucket ?? '—'],
+              ['Region', settings.s3.region ?? '—'],
+              ['Credentials', settings.s3.credential_source ?? '—'],
+            ].map(([k, v]) => (
+              <div key={k} className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2">
+                <dt className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">{k}</dt>
+                <dd className="text-gray-800 font-mono text-xs mt-0.5 break-all">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+
+      <details className="mt-5 border-t border-gray-100 pt-4" open={settings.active_provider === 'cloudinary'}>
+        <summary className="cursor-pointer select-none text-xs font-semibold text-gray-600">
+          Cloudinary credentials
+          <span className="ml-2 font-normal text-gray-400">
+            {settings.active_provider === 'cloudinary' ? '(in use)' : '(fallback — only needed if you switch)'}
+          </span>
+        </summary>
+        <p className="text-[11px] text-gray-400 mt-1">
+          From cloudinary.com &rarr; Dashboard. Stored encrypted.{' '}
+          {settings.cloudinary_configured
+            ? <>Keys are set for cloud <span className="font-mono">{settings.cloudinary_cloud_name || '—'}</span> &mdash; leave a field blank to keep it.</>
+            : 'Needed before you can switch to Cloudinary.'}
         </p>
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {([
-            ['cloudinary_cloud_name', 'Cloud name', 'text'],
-            ['cloudinary_api_key', 'API key', 'text'],
-            ['cloudinary_api_secret', 'API secret', 'password'],
-          ] as const).map(([field, label, type]) => (
-            <input key={field} type={type} placeholder={label} value={(keys as any)[field]}
-              onChange={e => setKeys({ ...keys, [field]: e.target.value })}
-              className="px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+            ['cloudinary_cloud_name', 'Cloud name', 'text', 'e.g. dxyz123ab'],
+            ['cloudinary_api_key', 'API key', 'text', '15-digit number'],
+            ['cloudinary_api_secret', 'API secret', 'password', '••••••••'],
+          ] as const).map(([field, label, type, ph]) => (
+            <label key={field} className="block">
+              <span className="block text-[11px] font-semibold text-gray-500 mb-1">Cloudinary {label}</span>
+              <input type={type} placeholder={ph} value={(keys as any)[field]} autoComplete="off"
+                onChange={e => setKeys({ ...keys, [field]: e.target.value })}
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+            </label>
           ))}
         </div>
-        <button type="button" disabled={saving} onClick={() => save(keys)}
-          className="mt-3 px-4 py-2 rounded-xl text-sm font-semibold text-pink-600 bg-pink-50 hover:bg-pink-100 disabled:opacity-50">
-          Save credentials
-        </button>
-      </div>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" disabled={saving} onClick={() => save(keys)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-pink-600 bg-pink-50 hover:bg-pink-100 disabled:opacity-50">
+            Save Cloudinary credentials
+          </button>
+          {settings.cloudinary_configured && settings.active_provider !== 'cloudinary' && (
+            <button type="button" disabled={saving}
+              onClick={() => { if (window.confirm('Remove the stored Cloudinary keys? You can add them again any time.')) save({ clear_cloudinary: true }) }}
+              className="px-4 py-2 rounded-xl text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50">
+              Clear stored keys
+            </button>
+          )}
+        </div>
+      </details>
     </div>
   )
 }
