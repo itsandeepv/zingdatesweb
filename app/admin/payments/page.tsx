@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
 import { paymentsApi, companionAdminApi } from '@/lib/api'
@@ -82,21 +82,94 @@ interface CoinEntry {
   user?: { id: number; name: string; email: string }
 }
 
+// Every money/count field arrives as whatever Laravel's decimal cast produced
+// — "49.00" just as often as 49 — so nothing here is typed as a bare number.
+// Read them through num() rather than arithmetic, or "0" + "49" becomes "049".
 interface Stats {
-  total_revenue: number
-  completed_count: number
-  pending_count: number
-  failed_count: number
-  refunded_count: number
-  refunded_amount: number
-  monthly_revenue: { month: number; revenue: number }[]
+  total_revenue: number | string
+  completed_count: number | string
+  pending_count: number | string
+  failed_count: number | string
+  refunded_count: number | string
+  refunded_amount: number | string
+  // Only the months that had revenue are sent, in no guaranteed order.
+  monthly_revenue: { month: number | string; revenue: number | string }[]
+  // Optional per-type breakdown. Shape varies by API version, so it is read
+  // through byTypeFromStats() instead of being indexed directly.
+  revenue_by_type?: unknown
+  by_type?: unknown
+  type_breakdown?: unknown
+}
+
+/** Completed + still-pending money for one transaction type. */
+interface TypeTotal {
+  count: number
+  revenue: number
+  pendingCount: number
+  pendingAmount: number
 }
 
 /* ─── Helpers ────────────────────────────────────────────── */
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+/** How far loadTypeTotals will walk the transaction list before it gives up. */
+const TYPE_PAGE_SIZE = 200
+const TYPE_MAX_PAGES = 25
+
+/**
+ * Every number this page adds up comes off the API as a string, a null, or
+ * occasionally a missing key. Number(null) is 0 but Number(undefined) is NaN,
+ * and one NaN turns a whole running total into NaN, so all arithmetic goes
+ * through here.
+ */
+const num = (v: unknown): number => {
+  const n = typeof v === 'string' ? parseFloat(v) : Number(v)
+  return Number.isFinite(n) ? n : 0
+}
+
 const fmtINR = (v: number | string) =>
-  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(Number(v))
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(num(v))
+
+const fmtCount = (v: unknown) => num(v).toLocaleString('en-IN')
+
+/**
+ * Pull a per-type revenue breakdown out of /admin/payments/stats when it has
+ * one. Different API versions have shipped this as an object keyed by type, as
+ * an array of rows, and not at all, so every shape is probed and anything
+ * unrecognised yields null — the caller then falls back to counting rows.
+ */
+function byTypeFromStats(stats: Stats | null): Record<string, { count?: number; revenue: number }> | null {
+  const raw = stats?.revenue_by_type ?? stats?.by_type ?? stats?.type_breakdown
+  if (!raw || typeof raw !== 'object') return null
+
+  type Loose = Record<string, unknown>
+  const out: Record<string, { count?: number; revenue: number }> = {}
+  const rows: { type: unknown; value: unknown }[] = Array.isArray(raw)
+    ? raw.map(r => ({ type: (r as Loose)?.type ?? (r as Loose)?.key ?? (r as Loose)?.name, value: r }))
+    : Object.entries(raw as Loose).map(([type, value]) => ({ type, value }))
+
+  for (const { type, value } of rows) {
+    if (typeof type !== 'string' || !type) continue
+    // Either { subscription: 4900 } or { type, revenue, count }.
+    if (value !== null && typeof value === 'object') {
+      const v = value as Loose
+      out[type] = {
+        count: v.count != null ? num(v.count) : undefined,
+        revenue: num(v.revenue ?? v.total ?? v.amount),
+      }
+    } else {
+      out[type] = { revenue: num(value) }
+    }
+  }
+  return Object.keys(out).length ? out : null
+}
+
+/** 1-12 → 0-11. Accepts 7, "7" and "2026-07"; anything else is not a month. */
+const monthIndex = (m: unknown): number | null => {
+  const raw = typeof m === 'string' && m.includes('-') ? m.split('-').pop() : m
+  const n = num(raw)
+  return n >= 1 && n <= 12 ? n - 1 : null
+}
 
 const fmtDate = (s: string) =>
   new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -301,8 +374,8 @@ function RefundModal({ tx, onClose, onConfirm }:
 
 /* ─── Revenue Bar Chart ──────────────────────────────────── */
 function RevenueChart({ data }: { data: { label: string; value: number }[] }) {
-  const max   = Math.max(...data.map(d => d.value), 1)
-  const total = data.reduce((s, d) => s + d.value, 0)
+  const max   = Math.max(...data.map(d => num(d.value)), 1)
+  const total = data.reduce((s, d) => s + num(d.value), 0)
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
       <div className="flex items-center justify-between mb-6">
@@ -406,6 +479,11 @@ export default function PaymentsPage() {
   const [stats, setStats]               = useState<Stats | null>(null)
   const [statsLoading, setStatsLoading] = useState(true)
 
+  /* ── All-time totals per transaction type (see loadTypeTotals) ── */
+  const [typeTotals, setTypeTotals]     = useState<Record<string, TypeTotal> | null>(null)
+  const [typeLoading, setTypeLoading]   = useState(true)
+  const [typeCapped, setTypeCapped]     = useState(false)
+
   /* ── Modals ── */
   const [detailTx, setDetailTx]         = useState<Transaction | null>(null)
   const [refundTx, setRefundTx]         = useState<Transaction | null>(null)
@@ -479,6 +557,53 @@ export default function PaymentsPage() {
     }
   }, [token])
 
+  /* ── Load per-type totals ──
+     These feed the three cards under the chart. They deliberately do NOT read
+     the `payments` array: that holds one filtered page of the table, so the
+     cards used to show whatever happened to be on screen — zero revenue the
+     moment you searched, or paged past the completed rows — while the chart
+     above them showed the real money. Walk the unfiltered list once instead
+     and bucket it, so the cards mean "all time" like their labels claim.
+
+     Bounded: per_page keeps this to a couple of requests for a few hundred
+     transactions. Past the cap the numbers would be a partial sum, so the
+     cards say so rather than quietly under-reporting. */
+  const loadTypeTotals = useCallback(async () => {
+    setTypeLoading(true)
+    try {
+      const acc: Record<string, TypeTotal> = {}
+      let page = 1
+      let lastPage = 1
+      for (; page <= lastPage && page <= TYPE_MAX_PAGES; page++) {
+        const res  = await paymentsApi.list(token, { page: String(page), per_page: String(TYPE_PAGE_SIZE) })
+        const rows: Transaction[] = Array.isArray(res) ? res : (res?.data ?? [])
+        // Trust meta.last_page when it is there. When it is not, a full page is
+        // the only hint that another one exists — stopping at the first page
+        // would silently report a fraction of the revenue as the total.
+        const metaLast = num(res?.meta?.last_page)
+        lastPage = metaLast >= 1
+          ? metaLast
+          : (rows.length >= TYPE_PAGE_SIZE ? page + 1 : page)
+        for (const t of rows) {
+          const key = t.type || 'unknown'
+          const b = (acc[key] ??= { count: 0, revenue: 0, pendingCount: 0, pendingAmount: 0 })
+          const amt = num(t.amount)
+          if (t.status === 'completed')    { b.count++;        b.revenue       += amt }
+          else if (t.status === 'pending') { b.pendingCount++; b.pendingAmount += amt }
+        }
+        if (rows.length === 0) break
+      }
+      setTypeTotals(acc)
+      setTypeCapped(lastPage > TYPE_MAX_PAGES)
+    } catch {
+      // Leave the cards on the server breakdown, or on zero, rather than on a
+      // half-walked total that would read as real.
+      setTypeTotals(null)
+    } finally {
+      setTypeLoading(false)
+    }
+  }, [token])
+
   /* ── Load companion bookings ── */
   const loadBookings = useCallback(async () => {
     setBookingLoading(true)
@@ -508,6 +633,7 @@ export default function PaymentsPage() {
   }, [token, payoutFilter])
 
   useEffect(() => { loadStats() }, [loadStats])
+  useEffect(() => { loadTypeTotals() }, [loadTypeTotals])
   useEffect(() => { loadPayments() }, [loadPayments])
   useEffect(() => { loadCoins() }, [loadCoins])
   // The companion tables are only fetched once someone opens them.
@@ -520,11 +646,19 @@ export default function PaymentsPage() {
   const visibleBookings = bookings.filter(b => matches(bookingSearch, b.id, b.client, b.companion, b.session_type))
   const visiblePayouts  = payouts.filter(w => matches(payoutSearch, w.id, w.user, w.email, w.payout?.upi, w.payout?.account_number))
 
-  /* ── Chart data ── */
-  const chartData = stats?.monthly_revenue?.map(m => ({
-    label: MONTHS[m.month - 1],
-    value: m.revenue,
-  })) ?? MONTHS.map(l => ({ label: l, value: 0 }))
+  /* ── Chart data ──
+     The API only sends the months that had revenue, so mapping over that array
+     produced a chart with as many bars as there were earning months — three
+     bars all at full height rather than twelve with the quiet ones flat. Build
+     the full year and drop each month into its slot. */
+  const chartData = useMemo(() => {
+    const byMonth = Array<number>(12).fill(0)
+    for (const m of stats?.monthly_revenue ?? []) {
+      const i = monthIndex(m.month)
+      if (i !== null) byMonth[i] += num(m.revenue)
+    }
+    return MONTHS.map((label, i) => ({ label, value: byMonth[i] }))
+  }, [stats])
 
   /* ── Export ── */
   async function handleExport() {
@@ -555,6 +689,7 @@ export default function PaymentsPage() {
       setRefundTx(null)
       loadPayments()
       loadStats()
+      loadTypeTotals()
     } catch (err: any) {
       toast.error(err?.message ?? 'Refund failed. Please try again.')
     } finally {
@@ -613,7 +748,8 @@ export default function PaymentsPage() {
     ...Object.fromEntries(payments.map(p => p.type).filter(t => t && !KNOWN_TYPES[t]).map(t => [t, t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())])),
   })
 
-  /* ── Type distribution from current page ── */
+  /* ── Type distribution (all time, see loadTypeTotals) ── */
+  const serverByType = useMemo(() => byTypeFromStats(stats), [stats])
   const txTypes: { key: TxType; label: string; color: string }[] = [
     { key: 'subscription',  label: 'Subscription',  color: 'bg-purple-50 border-purple-200 text-purple-700' },
     { key: 'coin_purchase', label: 'Coins',          color: 'bg-blue-50 border-blue-200 text-blue-700'     },
@@ -650,18 +786,18 @@ export default function PaymentsPage() {
             sub="completed transactions"
             icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
           <KpiCard loading={statsLoading} label="Completed"
-            value={(stats?.completed_count ?? 0).toLocaleString()}
+            value={fmtCount(stats?.completed_count)}
             sub="successful payments"
             subColor="text-emerald-600"
             icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
           <KpiCard loading={statsLoading} label="Pending"
-            value={(stats?.pending_count ?? 0).toLocaleString()}
+            value={fmtCount(stats?.pending_count)}
             sub="awaiting payment"
             subColor="text-yellow-600"
             icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
           <KpiCard loading={statsLoading} label="Refunded"
             value={fmtINR(stats?.refunded_amount ?? 0)}
-            sub={`${(stats?.refunded_count ?? 0)} transactions`}
+            sub={`${fmtCount(stats?.refunded_count)} transactions`}
             subColor="text-blue-600"
             icon={<svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>} />
         </div>
@@ -670,19 +806,54 @@ export default function PaymentsPage() {
         <RevenueChart data={chartData} />
 
         {/* ── Type Distribution ── */}
-        <div className="grid grid-cols-3 gap-4">
-          {txTypes.map(({ key, label, color }) => {
-            const rows   = payments.filter(p => p.type === key && p.status === 'completed')
-            const count  = rows.length
-            const amount = rows.reduce((s, p) => s + Number(p.amount), 0)
-            return (
-              <div key={key} className={`rounded-xl border p-4 ${color}`}>
-                <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
-                <p className="text-xl font-extrabold text-gray-900 mt-1">{count}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{fmtINR(amount)} revenue</p>
-              </div>
-            )
-          })}
+        <div>
+          <div className="flex items-baseline justify-between gap-3 mb-3">
+            <h2 className="text-base font-semibold text-gray-900">Revenue by type</h2>
+            <p className="text-xs text-gray-400">
+              {typeCapped
+                ? `First ${(TYPE_PAGE_SIZE * TYPE_MAX_PAGES).toLocaleString('en-IN')} transactions — not affected by the filters below`
+                : 'All transactions — not affected by the filters below'}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {txTypes.map(({ key, label, color }) => {
+              const walked  = typeTotals?.[key]
+              const served  = serverByType?.[key]
+              // Server breakdown wins when there is one; otherwise the walked
+              // totals. Pending only ever comes from the walk.
+              const revenue = served?.revenue ?? walked?.revenue ?? 0
+              const count   = served?.count ?? walked?.count ?? 0
+              const pending = walked?.pendingCount ?? 0
+              const loading = typeLoading && !served
+
+              return (
+                <div key={key} className={`rounded-xl border p-4 ${color}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{label}</p>
+                  {loading ? (
+                    <>
+                      <div className="h-7 w-16 mt-1 rounded bg-gray-200/70 animate-pulse" />
+                      <div className="h-4 w-24 mt-1.5 rounded bg-gray-200/60 animate-pulse" />
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xl font-extrabold text-gray-900 mt-1">{fmtINR(revenue)}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {fmtCount(count)} completed
+                      </p>
+                      {/* Without this line a screen full of pending payments
+                          looks like a broken counter rather than money that
+                          has not settled yet. */}
+                      {pending > 0 && (
+                        <p className="text-xs text-yellow-700 mt-1">
+                          {fmtCount(pending)} pending · {fmtINR(walked?.pendingAmount ?? 0)} not settled
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {/* ── Tabs ── */}

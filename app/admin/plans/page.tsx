@@ -9,6 +9,9 @@ type Plan = {
   id: number
   key: string
   name: string
+  // Used wherever every plan has to fit on one line (the app's upgrade card).
+  // Null falls back to `name`.
+  short_label: string | null
   price: number | string
   duration_days: number
   features: string[]
@@ -23,7 +26,7 @@ type Plan = {
 }
 
 const emptyDraft = {
-  key: '', name: '', price: '', duration_days: '30', features: [] as string[],
+  key: '', name: '', short_label: '', price: '', duration_days: '30', features: [] as string[],
   tag: '', icon: 'star', gradient_from: '#667eea', gradient_to: '#764ba2',
   accent_color: '#667eea', is_one_time: false, sort_order: '0', is_active: true,
 }
@@ -97,7 +100,8 @@ export default function PlansPage() {
     setSavingId(row.id)
     try {
       await subscriptionsApi.updatePlan(token, row.id, {
-        key: row.key, name: row.name, price: Number(row.price), duration_days: Number(row.duration_days),
+        key: row.key, name: row.name, short_label: row.short_label || null,
+        price: Number(row.price), duration_days: Number(row.duration_days),
         features: row.features, tag: row.tag, icon: row.icon,
         gradient_from: row.gradient_from, gradient_to: row.gradient_to, accent_color: row.accent_color,
         is_one_time: row.is_one_time, sort_order: Number(row.sort_order), is_active: row.is_active,
@@ -133,6 +137,8 @@ export default function PlansPage() {
     try {
       const res: any = await subscriptionsApi.createPlan(token, {
         ...newPlan,
+        // Blank means "no short name" — the app falls back to the full one.
+        short_label: newPlan.short_label.trim() || null,
         price: Number(newPlan.price),
         duration_days: Number(newPlan.duration_days),
         sort_order: Number(newPlan.sort_order),
@@ -179,6 +185,13 @@ export default function PlansPage() {
                 <label className="block sm:col-span-3">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</span>
                   <input value={row.name} onChange={e => patchRow(row.id, { name: e.target.value })} className={fieldClass} />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Short name</span>
+                  <input value={row.short_label ?? ''} maxLength={20}
+                    onChange={e => patchRow(row.id, { short_label: e.target.value })}
+                    placeholder={row.name} className={fieldClass} />
+                  <span className="text-[11px] text-gray-400">Shown where all plans share one line. Blank = full name.</span>
                 </label>
                 <label className="block sm:col-span-2">
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Price (₹)</span>
@@ -261,6 +274,12 @@ export default function PlansPage() {
             <label className="block sm:col-span-3">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</span>
               <input value={newPlan.name} onChange={e => setNewPlan(d => ({ ...d, name: e.target.value }))} placeholder="Weekly Pass" className={fieldClass} />
+            </label>
+            <label className="block sm:col-span-2">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Short name</span>
+              <input value={newPlan.short_label} maxLength={20}
+                onChange={e => setNewPlan(d => ({ ...d, short_label: e.target.value }))}
+                placeholder="Weekly" className={fieldClass} />
             </label>
             <label className="block sm:col-span-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Price (₹)</span>

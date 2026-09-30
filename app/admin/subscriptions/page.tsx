@@ -26,6 +26,27 @@ function PlanTypeBadge({ type, name }: { type?: string | null; name?: string | n
   return <span className={`px-2 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${cls}`}>{label}</span>
 }
 
+/** Date on one line, local time under it — not a raw ISO string. */
+function DateCell({ iso }: { iso?: string | null }) {
+  if (!iso) return <span className="text-gray-300">—</span>
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return <span className="text-gray-300">—</span>
+  return (
+    <span className="inline-flex flex-col leading-tight">
+      <span className="text-gray-800 font-medium">{d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+      <span className="text-[11px] text-gray-400">{d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
+    </span>
+  )
+}
+
+function TimeLeft({ days }: { days?: number | null }) {
+  if (days == null) return <span className="text-gray-300">—</span>
+  if (days < 0) return <span className="text-xs font-semibold text-red-500">Expired {Math.abs(days)}d ago</span>
+  if (days === 0) return <span className="text-xs font-semibold text-orange-600">Ends today</span>
+  if (days <= 7) return <span className="text-xs font-semibold text-amber-600">{days}d left</span>
+  return <span className="text-xs font-medium text-gray-600">{days}d left</span>
+}
+
 function Avatar({ name }: { name: string }) {
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
   return <div className="w-9 h-9 rounded-full gradient-brand flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{initials}</div>
@@ -39,30 +60,44 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('all')
   const [planFilter, setPlanFilter] = useState('all')
+  const [search, setSearch] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [endsFrom, setEndsFrom] = useState('')
+  const [endsTo, setEndsTo] = useState('')
+  const [sort, setSort] = useState('ends_desc')
   const [page, setPage] = useState(1)
+
+  useEffect(() => {
+    const t = setTimeout(() => { setDebounced(search.trim()); setPage(1) }, 350)
+    return () => clearTimeout(t)
+  }, [search])
   const [actionLoading, setActionLoading] = useState<number | null>(null)
   const [planTarget, setPlanTarget] = useState<GrantPlanTarget | null>(null)
 
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, string> = { page: String(page) }
+      const params: Record<string, string> = { page: String(page), sort }
       if (statusFilter !== 'all') params.status = statusFilter
       if (planFilter !== 'all') params.plan = planFilter
+      if (debounced) params.search = debounced
+      if (endsFrom) params.ends_from = endsFrom
+      if (endsTo) params.ends_to = endsTo
       const [subsRes, plansRes] = await Promise.all([
         subscriptionsApi.list(token, params),
-        subscriptionsApi.listPlans(token).catch(() => ({ data: [] })),
+        subscriptionsApi.listPlans(token).catch(() => ({ plans: [] })),
       ])
       setSubs(subsRes.data ?? subsRes ?? [])
       if (subsRes.meta) setMeta(subsRes.meta)
-      setPlans(plansRes.data ?? plansRes ?? [])
+      // /admin/plans answers { plans: [...] }; the old `.data` read left this empty.
+      setPlans(plansRes.plans ?? plansRes.data ?? [])
     } catch (err: any) {
       toast.error(err.message || 'Failed to load subscriptions')
     } finally {
       setLoading(false)
       attentionApi.markSeen(token, 'subscriptions').catch(() => {})
     }
-  }, [token, page, statusFilter, planFilter])
+  }, [token, page, statusFilter, planFilter, debounced, endsFrom, endsTo, sort])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -118,24 +153,52 @@ export default function SubscriptionsPage() {
             <h2 className="text-base font-bold text-gray-900">Active Subscriptions</h2>
             <p className="text-xs text-gray-400 mt-0.5">{subs.length} records shown</p>
           </div>
-          <div className="flex items-center gap-2">
-            <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700">
-              <option value="all">All Plans</option>
-              <option value="free">Free</option>
-              <option value="premium">Premium</option>
-              <option value="vip">VIP</option>
-              <option value="corporate">Corporate</option>
-            </select>
-            <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700">
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="trial">Trial</option>
-              <option value="expired">Expired</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
+        </div>
+
+        {/* Filters: who, which plan, where it stands, when it ends. The plan
+            list is the real catalog, so a new plan is filterable the day it
+            is created. */}
+        <div className="px-6 py-4 border-b border-gray-100 flex flex-wrap items-center gap-2">
+          <div className="relative basis-full lg:basis-auto lg:flex-1 min-w-[220px]">
+            <svg className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name, email or phone…"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-200" />
           </div>
+          <select value={planFilter} onChange={e => { setPlanFilter(e.target.value); setPage(1) }}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700 bg-white">
+            <option value="all">All plans</option>
+            {plans.map((p: any) => <option key={p.key} value={p.key}>{p.name}{p.is_active === false ? ' (inactive)' : ''}</option>)}
+          </select>
+          <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700 bg-white">
+            <option value="all">All status</option>
+            <option value="active">Active</option>
+            <option value="expiring">Expiring in 7 days</option>
+            <option value="expired">Expired</option>
+          </select>
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
+            Ends
+            <input type="date" value={endsFrom} max={endsTo || undefined} onChange={e => { setEndsFrom(e.target.value); setPage(1) }}
+              className="px-2 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700" />
+            to
+            <input type="date" value={endsTo} min={endsFrom || undefined} onChange={e => { setEndsTo(e.target.value); setPage(1) }}
+              className="px-2 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700" />
+          </label>
+          <select value={sort} onChange={e => { setSort(e.target.value); setPage(1) }}
+            className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none text-gray-700 bg-white">
+            <option value="ends_desc">Ending last first</option>
+            <option value="ends_asc">Ending soonest first</option>
+            <option value="name">Name A–Z</option>
+          </select>
+          {(search || planFilter !== 'all' || statusFilter !== 'all' || endsFrom || endsTo || sort !== 'ends_desc') && (
+            <button onClick={() => { setSearch(''); setPlanFilter('all'); setStatusFilter('all'); setEndsFrom(''); setEndsTo(''); setSort('ends_desc'); setPage(1) }}
+              className="text-xs text-pink-600 font-semibold hover:text-pink-800 whitespace-nowrap">
+              Clear filters
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -145,7 +208,7 @@ export default function SubscriptionsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50/60">
-                  {['User','Plan','Billing','Amount','Start Date','End Date','Auto Renew','Status',''].map(col => (
+                  {['User','Plan','Duration','Amount','Started','Ends','Time left','Status',''].map(col => (
                     <th key={col} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{col}</th>
                   ))}
                 </tr>
@@ -165,17 +228,11 @@ export default function SubscriptionsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-4"><PlanTypeBadge type={sub.plan_type ?? sub.planType} name={sub.plan_name} /></td>
-                    <td className="px-4 py-4 capitalize text-gray-600 whitespace-nowrap">{sub.billing_cycle ?? sub.billingCycle}</td>
+                    <td className="px-4 py-4 text-gray-600 whitespace-nowrap">{sub.duration_days ? `${sub.duration_days} ${sub.duration_days === 1 ? 'day' : 'days'}` : (sub.billing_cycle ?? '—')}</td>
                     <td className="px-4 py-4 font-semibold text-gray-900 whitespace-nowrap">₹{Number(sub.amount ?? 0).toLocaleString('en-IN')}</td>
-                    <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{sub.start_date ?? sub.startDate}</td>
-                    <td className="px-4 py-4 text-gray-500 text-xs whitespace-nowrap">{sub.end_date ?? sub.endDate}</td>
-                    <td className="px-4 py-4">
-                      {(sub.auto_renew ?? sub.autoRenew) ? (
-                        <span className="text-xs font-medium text-green-700">✓ On</span>
-                      ) : (
-                        <span className="text-xs font-medium text-gray-400">✗ Off</span>
-                      )}
-                    </td>
+                    <td className="px-4 py-4 text-gray-600 text-xs whitespace-nowrap"><DateCell iso={sub.start_date ?? sub.startDate} /></td>
+                    <td className="px-4 py-4 text-gray-600 text-xs whitespace-nowrap"><DateCell iso={sub.end_date ?? sub.endDate} /></td>
+                    <td className="px-4 py-4 whitespace-nowrap"><TimeLeft days={sub.days_left} /></td>
                     <td className="px-4 py-4"><SubStatusBadge status={sub.status} /></td>
                     <td className="pr-4 py-4">
                       <div className="flex items-center gap-1.5">
