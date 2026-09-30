@@ -35,6 +35,31 @@ export function fmtDate(s?: string | null) {
   return d.toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+/**
+ * Date AND time — "15 Mar 2026, 2:30 pm".
+ *
+ * For the lists where "when" means the moment, not the day: two accounts that
+ * signed up on the same date are indistinguishable without it, and the order
+ * they are listed in looks arbitrary.
+ */
+export function fmtDateTime(s?: string | null) {
+  if (!s) return ''
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('en', {
+    day: 'numeric', month: 'short', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  })
+}
+
+/** Just the clock part, for a cell that already shows the date above it. */
+export function fmtTime(s?: string | null) {
+  if (!s) return ''
+  const d = new Date(s)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
 /** Rough reading time from a body of text/HTML. */
 export function readingTime(text?: string | null) {
   const words = (text || '').replace(/<[^>]+>/g, ' ').trim().split(/\s+/).filter(Boolean).length

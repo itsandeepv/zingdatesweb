@@ -113,6 +113,12 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
     if (href === '/admin/users') return attention.new_users
     if (href === '/admin/companions') return attention.pending_companions + attention.new_companions
     if (href === '/admin/verifications') return attention.pending_verifications
+    // Support and Reports badge what is still UNDECIDED, not what is unread —
+    // an open ticket or an un-actioned report has to keep asking after the page
+    // has been opened. Subscriptions is the opposite: it is news, so it clears.
+    if (href === '/admin/support') return attention.open_tickets + attention.new_replies
+    if (href === '/admin/reports') return attention.pending_reports
+    if (href === '/admin/subscriptions') return attention.new_subscriptions
     return 0
   }
   const attentionTitle = (href: string): string => {
@@ -128,6 +134,21 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       const parts = [`${attention.pending_verifications} ID checks waiting`]
       if (attention.new_verifications) parts.push(`${attention.new_verifications} new since you last looked`)
       return parts.join(' · ')
+    }
+    if (href === '/admin/support') {
+      const parts: string[] = []
+      if (attention.open_tickets) parts.push(`${attention.open_tickets} unresolved`)
+      if (attention.new_replies) parts.push(`${attention.new_replies} new replies`)
+      if (attention.new_tickets) parts.push(`${attention.new_tickets} new since you last looked`)
+      return parts.join(' · ')
+    }
+    if (href === '/admin/reports') {
+      const parts = [`${attention.pending_reports} waiting on a decision`]
+      if (attention.new_reports) parts.push(`${attention.new_reports} new since you last looked`)
+      return parts.join(' · ')
+    }
+    if (href === '/admin/subscriptions') {
+      return `${attention.new_subscriptions} new since you last looked`
     }
     return ''
   }

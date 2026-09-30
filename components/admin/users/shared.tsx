@@ -25,17 +25,42 @@ export interface ApiUser {
   status: UserStatus
   role: string
   gender?: string
+  // Two addresses, kept apart on purpose. `city`/`country`/`entered_*` are what
+  // the member TYPED; `current_*` is where their phone last reported them, and
+  // means nothing without `location_updated_at`. Mirrors the users table's
+  // current_* columns on the API side.
   city?: string
   country?: string
+  entered_address?: string | null
+  entered_address_line?: string | null
+  entered_locality?: string | null
+  entered_state?: string | null
+  entered_pincode?: string | null
+  current_address?: string | null
+  current_city?: string | null
+  current_state?: string | null
+  current_pincode?: string | null
+  location_updated_at?: string | null
+  has_gps_fix?: boolean
   bio?: string
   created_at: string
   signup_source?: string
   signup_source_label?: string
   last_login_at: string | null
+  last_seen?: string | null
+  // Judged on the heartbeat, not on a flag that can be left set — see
+  // User::isOnlineNow() on the API side.
+  is_online?: boolean
+  last_active?: string | null
+  plan_started_at?: string | null
 }
 
 export interface EditUserForm {
-  name: string; email: string; phone: string; role: string; gender: string; city: string; status: string
+  name: string; email: string; phone: string; role: string; gender: string; status: string
+  // The address the member GAVE. The current_* columns are the device's reading
+  // and are not editable here — a correction would only last until the next
+  // location ping.
+  addressLine: string; locality: string; city: string; state: string; pincode: string; country: string
   photoUrl: string
 }
 

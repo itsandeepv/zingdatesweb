@@ -9,6 +9,7 @@ import {
   type ApiUser, BULK_LABELS, fmtDate,
   RoleBadge, StatusBadge, VerificationBadge, PhotoLightbox, UserMediaSection,
 } from './shared'
+import { fmtDateTime } from '@/lib/site'
 
 /**
  * One user, in full, as a page. `onChanged` re-fetches after an action that
@@ -89,13 +90,27 @@ export default function UserDetail({ user, token, onChanged, onDeleted }: {
               { label: 'Email',       value: user.email },
               { label: 'Phone',       value: user.phone },
               { label: 'Gender',      value: user.gender ? user.gender.replace(/_/g, ' ') : null },
-              { label: 'Location',    value: [user.city, user.country].filter(Boolean).join(', ') || null },
+              // Two addresses, labelled as what they are. Reading one as the
+              // other is how an admin ends up sending a companion to the wrong
+              // city, so neither is called just "Location".
+              { label: 'Address given', value: user.entered_address
+                  || [user.city, user.country].filter(Boolean).join(', ') || null },
+              { label: 'Last known location', value: user.current_address
+                  ? `${user.current_address}${user.location_updated_at ? ` · ${fmtDateTime(user.location_updated_at)}` : ''}`
+                  : (user.has_gps_fix ? 'Coordinates only, no address' : 'Never shared') },
               { label: 'Plan',        value: user.plan_active && user.plan_expires_at
                   ? `${user.plan_name ?? user.subscription_plan} · until ${fmtDate(user.plan_expires_at)}`
                   : (user.subscription_plan ? `${user.plan_name ?? user.subscription_plan} (expired)` : 'Free') },
-              { label: 'Joined',      value: fmtDate(user.created_at) },
+              ...(user.plan_started_at
+                ? [{ label: 'Plan started', value: fmtDateTime(user.plan_started_at) }]
+                : []),
+              // With the time: two accounts created the same day are otherwise
+              // indistinguishable.
+              { label: 'Joined',      value: fmtDateTime(user.created_at) },
               { label: 'Signed up on', value: user.signup_source_label ?? 'Unknown' },
-              { label: 'Last Active', value: fmtDate(user.last_login_at) },
+              { label: 'Last active', value: user.is_online
+                  ? 'Online now'
+                  : (user.last_active ?? fmtDateTime(user.last_seen ?? user.last_login_at)) },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start justify-between gap-4">
                 <span className="text-xs text-gray-400 font-medium flex-shrink-0 pt-0.5">{label}</span>

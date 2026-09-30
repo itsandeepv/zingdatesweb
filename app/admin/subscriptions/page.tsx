@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { subscriptionsApi } from '@/lib/api'
+import { subscriptionsApi, attentionApi } from '@/lib/api'
 import GrantPlanModal, { type GrantPlanTarget } from '@/components/admin/GrantPlanModal'
 
 function SubStatusBadge({ status }: { status: string }) {
@@ -60,6 +60,7 @@ export default function SubscriptionsPage() {
       toast.error(err.message || 'Failed to load subscriptions')
     } finally {
       setLoading(false)
+      attentionApi.markSeen(token, 'subscriptions').catch(() => {})
     }
   }, [token, page, statusFilter, planFilter])
 

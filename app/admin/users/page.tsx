@@ -10,6 +10,7 @@ import {
   type ApiUser, ROLES, GENDERS, BULK_LABELS,
   fmtNum, fmtDate, PlanBadge, VerificationBadge, StatusBadge, RoleBadge, Avatar, inputCls, PhotoPicker,
 } from '@/components/admin/users/shared'
+import { fmtDateTime, fmtTime } from '@/lib/site'
 
 /* ── Types ───────────────────────────────────────────── */
 interface Meta {
@@ -383,12 +384,20 @@ function ModalFooter({ onClose, formId, loading, label }: { onClose: () => void;
 
 /* ── CSV export helper ───────────────────────────────── */
 function exportUsersCSV(users: ApiUser[]) {
-  const headers = ['ID', 'Name', 'Email', 'Phone', 'Role', 'Plan', 'Status', 'Verification', 'City', 'Country', 'Signed up on', 'Joined', 'Last Active']
+  const headers = [
+    'ID', 'Name', 'Email', 'Phone', 'Role', 'Plan', 'Status', 'Verification',
+    'Entered address', 'City', 'Country',
+    // Both addresses go out, labelled, with the "as of" the current one needs.
+    'Current address (from phone)', 'Location updated',
+    'Signed up on', 'Joined', 'Last active',
+  ]
   const rows = users.map(u => [
     u.id, u.name || '', u.email || '', u.phone || '', u.role,
     u.subscription_plan || 'Free', u.status, u.verification_status,
-    u.city || '', u.country || '', u.signup_source_label || 'Unknown',
-    fmtDate(u.created_at), fmtDate(u.last_login_at),
+    u.entered_address || '', u.city || '', u.country || '',
+    u.current_address || '', fmtDateTime(u.location_updated_at),
+    u.signup_source_label || 'Unknown',
+    fmtDateTime(u.created_at), u.last_active || fmtDateTime(u.last_seen ?? u.last_login_at),
   ])
   const csv = [headers, ...rows]
     .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -437,6 +446,16 @@ export default function UsersPage() {
   const [search, setSearch]                       = useState('')
   const [debouncedSearch, setDebouncedSearch]     = useState('')
   const [statusFilter, setStatusFilter]           = useState('all')
+  // Who, where and when — the questions that used to mean paging through
+  // everyone. `from`/`to` are plain yyyy-mm-dd, which is what <input type=date>
+  // gives and what the API parses.
+  const [genderFilter, setGenderFilter]           = useState('all')
+  const [onlineFilter, setOnlineFilter]           = useState('all')
+  const [cityFilter, setCityFilter]               = useState('')
+  const [debouncedCity, setDebouncedCity]         = useState('')
+  const [fromDate, setFromDate]                   = useState('')
+  const [toDate, setToDate]                       = useState('')
+  const [sort, setSort]                           = useState('newest')
   const [sourceFilter, setSourceFilter]           = useState('all')
   const [roleFilter, setRoleFilter]               = useState('all')
   const [verificationFilter, setVerificationFilter] = useState('all')
@@ -476,7 +495,17 @@ export default function UsersPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [search])
 
-  useEffect(() => { setPage(1) }, [statusFilter, roleFilter, verificationFilter, sourceFilter])
+  const cityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current)
+    cityDebounceRef.current = setTimeout(() => { setDebouncedCity(cityFilter); setPage(1) }, 500)
+    return () => { if (cityDebounceRef.current) clearTimeout(cityDebounceRef.current) }
+  }, [cityFilter])
+
+  useEffect(() => { setPage(1) }, [
+    statusFilter, roleFilter, verificationFilter, sourceFilter,
+    genderFilter, onlineFilter, fromDate, toDate, sort,
+  ])
 
   const fetchUsers = useCallback(async () => {
     if (!token) return
@@ -490,6 +519,12 @@ export default function UsersPage() {
       if (roleFilter !== 'all')         params.role                = roleFilter
       if (verificationFilter !== 'all') params.verification_status = verificationFilter
       if (sourceFilter !== 'all')       params.signup_source        = sourceFilter
+      if (genderFilter !== 'all')       params.gender              = genderFilter
+      if (onlineFilter !== 'all')       params.online              = onlineFilter === 'online' ? '1' : '0'
+      if (debouncedCity)                params.city                = debouncedCity
+      if (fromDate)                     params.from                = fromDate
+      if (toDate)                       params.to                  = toDate
+      if (sort !== 'newest')            params.sort                = sort
 
       const res   = await usersApi.list(token, params)
       const data: ApiUser[] = res.data ?? []
@@ -514,7 +549,8 @@ export default function UsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, page, debouncedSearch, statusFilter, roleFilter, verificationFilter, sourceFilter])
+  }, [token, page, debouncedSearch, statusFilter, roleFilter, verificationFilter, sourceFilter,
+      genderFilter, onlineFilter, debouncedCity, fromDate, toDate, sort])
 
   useEffect(() => { fetchUsers() }, [fetchUsers])
 
@@ -689,11 +725,65 @@ export default function UsersPage() {
               <option value="unknown">Unknown (before tracking)</option>
             </select>
 
-            {(statusFilter !== 'all' || roleFilter !== 'all' || verificationFilter !== 'all' || sourceFilter !== 'all' || search) && (
+            <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)}
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
+              <option value="all">Any gender</option>
+              <option value="female">Female</option>
+              <option value="male">Male</option>
+              <option value="other">Other</option>
+              {/* Its own answer, not the absence of one — a skewed feed is
+                  usually a pile of half-finished sign-ups. */}
+              <option value="unset">Not set</option>
+            </select>
+
+            <select value={sort} onChange={e => setSort(e.target.value)}
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="last_active">Recently active</option>
+              <option value="name">Name A–Z</option>
+              <option value="name_desc">Name Z–A</option>
+              <option value="coins">Most coins</option>
+            </select>
+          </div>
+
+          {/* Second row: the narrower questions — when they joined, where they
+              are, and whether they are on the app right now. */}
+          <div className="flex flex-col lg:flex-row gap-3 mt-3 pt-3 border-t border-gray-100">
+            <label className="flex items-center gap-2 text-xs font-medium text-gray-500 whitespace-nowrap">
+              Joined
+              <input type="date" value={fromDate} max={toDate || undefined}
+                onChange={e => setFromDate(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-700" />
+              <span className="text-gray-400">to</span>
+              <input type="date" value={toDate} min={fromDate || undefined}
+                onChange={e => setToDate(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-gray-700" />
+            </label>
+
+            <input type="text" placeholder="City (typed or current)" value={cityFilter}
+              onChange={e => setCityFilter(e.target.value)}
+              className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+
+            <select value={onlineFilter} onChange={e => setOnlineFilter(e.target.value)}
+              className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
+              <option value="all">Online or not</option>
+              <option value="online">Online now</option>
+              <option value="offline">Offline</option>
+            </select>
+
+            {(statusFilter !== 'all' || roleFilter !== 'all' || verificationFilter !== 'all' || sourceFilter !== 'all'
+              || genderFilter !== 'all' || onlineFilter !== 'all' || cityFilter || fromDate || toDate
+              || sort !== 'newest' || search) && (
               <button
-                onClick={() => { setSearch(''); setStatusFilter('all'); setRoleFilter('all'); setVerificationFilter('all'); setSourceFilter('all') }}
-                className="px-3.5 py-2.5 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
-                Reset
+                onClick={() => {
+                  setSearch(''); setStatusFilter('all'); setRoleFilter('all')
+                  setVerificationFilter('all'); setSourceFilter('all')
+                  setGenderFilter('all'); setOnlineFilter('all'); setCityFilter('')
+                  setFromDate(''); setToDate(''); setSort('newest')
+                }}
+                className="px-3.5 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+                Reset filters
               </button>
             )}
           </div>
@@ -769,8 +859,21 @@ export default function UsersPage() {
 
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap text-xs">{user.phone || '—'}</td>
 
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap text-xs">
-                        {user.city ? <>{user.city}, <span className="text-gray-400">{user.country}</span></> : <span className="text-gray-300">—</span>}
+                      {/* Both addresses, labelled. The typed one is what they
+                          said; the second line is where their phone last was,
+                          shown only when it differs — otherwise it is noise. */}
+                      <td className="px-4 py-3.5 text-gray-600 text-xs max-w-[190px]">
+                        {user.city
+                          ? <div className="truncate" title={user.entered_address || undefined}>
+                              {user.city}{user.country ? <>, <span className="text-gray-400">{user.country}</span></> : null}
+                            </div>
+                          : <span className="text-gray-300">—</span>}
+                        {user.current_city && user.current_city !== user.city && (
+                          <div className="truncate text-[11px] text-gray-400"
+                            title={`Phone reported ${user.current_address}${user.location_updated_at ? ` · ${fmtDateTime(user.location_updated_at)}` : ''}`}>
+                            <span className="text-gray-300">now:</span> {user.current_city}
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 py-3.5"><RoleBadge role={user.role} /></td>
@@ -779,10 +882,27 @@ export default function UsersPage() {
                       <td className="px-4 py-3.5"><StatusBadge status={user.status} /></td>
 
                       <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap text-xs tabular-nums">
-                        {fmtDate(user.created_at)}
-                        <SignupSourceBadge source={user.signup_source} label={user.signup_source_label} />
+                        <div className="flex items-center">
+                          {fmtDate(user.created_at)}
+                          <SignupSourceBadge source={user.signup_source} label={user.signup_source_label} />
+                        </div>
+                        {/* The clock, on its own line: two accounts created the
+                            same day are otherwise indistinguishable and the
+                            order they are listed in looks arbitrary. */}
+                        <div className="text-[11px] text-gray-400">{fmtTime(user.created_at)}</div>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap text-xs tabular-nums">{fmtDate(user.last_login_at)}</td>
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs tabular-nums">
+                        {user.is_online ? (
+                          <span className="inline-flex items-center gap-1.5 font-medium text-green-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                            Online
+                          </span>
+                        ) : (
+                          <span className="text-gray-500" title={fmtDateTime(user.last_seen ?? user.last_login_at)}>
+                            {user.last_active ?? (fmtDate(user.last_login_at) || '—')}
+                          </span>
+                        )}
+                      </td>
 
                       <td className="pr-4 py-3.5">
                         <ActionsMenu

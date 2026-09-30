@@ -18,8 +18,13 @@ export default function UserEditForm({ user, token, onSaved, onCancel }: {
     phone:  user.phone  || '',
     role:   user.role   || 'user',
     gender: user.gender || '',
-    city:   user.city   || '',
     status: user.status || 'active',
+    addressLine: user.entered_address_line || '',
+    locality:    user.entered_locality || '',
+    city:    user.city    || '',
+    state:   user.entered_state   || '',
+    pincode: user.entered_pincode || '',
+    country: user.country || '',
     photoUrl: user.profile_photo || '',
   })
   const [loading, setLoading] = useState(false)
@@ -66,7 +71,14 @@ export default function UserEditForm({ user, token, onSaved, onCancel }: {
       if (form.email.trim())  payload.email  = form.email.trim()
       if (form.phone.trim())  payload.phone  = form.phone.trim()
       if (form.gender)        payload.gender = form.gender
-      if (form.city.trim())   payload.city   = form.city.trim()
+      // Address parts go up even when cleared, so an admin can REMOVE a wrong
+      // one — a filled-only payload would make a deletion silently do nothing.
+      payload.address_line = form.addressLine.trim()
+      payload.locality     = form.locality.trim()
+      payload.city         = form.city.trim()
+      payload.state        = form.state.trim()
+      payload.pincode      = form.pincode.trim()
+      payload.country      = form.country.trim()
       await usersApi.update(token, user.id, payload)
 
       const photoSource = photoMode === 'upload' && photoFile ? { file: photoFile } : urlChanged ? { url: newUrl } : null
@@ -128,18 +140,41 @@ export default function UserEditForm({ user, token, onSaved, onCancel }: {
             <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 98765 43210" className={inputCls()} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">City</label>
-            <input type="text" value={form.city} onChange={e => set('city', e.target.value)} placeholder="Mumbai" className={inputCls()} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Gender</label>
             <select value={form.gender} onChange={e => set('gender', e.target.value)} className={inputCls()}>
               {GENDERS.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </div>
+        </div>
+
+        {/* The address the member gave. Separate from the location their phone
+            reports, which is shown read-only on the profile and is not an
+            admin's to edit. */}
+        <div className="pt-1">
+          <p className="text-sm font-semibold text-gray-900">Address given</p>
+          <p className="text-xs text-gray-500 mt-0.5 mb-3">
+            What they entered themselves. Their phone&apos;s last known location is separate and cannot be edited here.
+          </p>
+
+          <input type="text" value={form.addressLine} onChange={e => set('addressLine', e.target.value)}
+            placeholder="House / flat / street" className={inputCls()} />
+
+          <div className="grid grid-cols-2 gap-4 mt-3">
+            <input type="text" value={form.locality} onChange={e => set('locality', e.target.value)}
+              placeholder="Area / locality" className={inputCls()} />
+            <input type="text" value={form.city} onChange={e => set('city', e.target.value)}
+              placeholder="City" className={inputCls()} />
+            <input type="text" value={form.state} onChange={e => set('state', e.target.value)}
+              placeholder="State" className={inputCls()} />
+            <input type="text" value={form.pincode} onChange={e => set('pincode', e.target.value)}
+              placeholder="PIN code" className={inputCls()} />
+          </div>
+
+          <input type="text" value={form.country} onChange={e => set('country', e.target.value)}
+            placeholder="Country" className={inputCls() + ' mt-3'} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Account Status</label>
             <select value={form.status} onChange={e => set('status', e.target.value)} className={inputCls()}>

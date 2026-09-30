@@ -104,17 +104,34 @@ export const authApi = {
 /* ─── Admin Dashboard ─────────────────────────────────────────── */
 /* ─── Admin attention (sidebar badges) ────────────────────────── */
 // What is new since THIS admin last looked. `seen` is per admin.
+// Two kinds of number, and they behave differently:
+//   new_*                — arrived since this admin last opened that page;
+//                          clears once they open it.
+//   pending_* / open_*   — still waiting on a decision; does NOT clear on
+//                          opening, because looking is not deciding.
+export type AttentionSection =
+  'users' | 'companions' | 'verifications' | 'support' | 'reports' | 'subscriptions'
+
 export interface AttentionCounts {
   new_users: number
   new_companions: number
   pending_companions: number
   pending_verifications: number
   new_verifications: number
-  seen: { users: string | null; companions: string | null; verifications: string | null }
+  // Support: tickets opened, replies members sent on tickets already open, and
+  // everything not yet resolved.
+  new_tickets: number
+  new_replies: number
+  open_tickets: number
+  new_reports: number
+  pending_reports: number
+  new_subscriptions: number
+  // Every section is always present; null means this admin has never looked.
+  seen: Record<AttentionSection, string | null>
 }
 export const attentionApi = {
   get: (token: string) => req<AttentionCounts>('/admin/attention', {}, token),
-  markSeen: (token: string, section: 'users' | 'companions' | 'verifications') =>
+  markSeen: (token: string, section: AttentionSection) =>
     req<any>('/admin/attention/seen', { method: 'POST', body: JSON.stringify({ section }) }, token),
 }
 

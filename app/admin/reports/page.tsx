@@ -13,7 +13,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { reportsApi } from '@/lib/api'
+import { reportsApi, attentionApi } from '@/lib/api'
 
 const STATUSES = ['pending', 'reviewing', 'actioned', 'dismissed'] as const
 
@@ -58,6 +58,9 @@ export default function ReportsPage() {
       toast.error(err.message || 'Failed to load reports')
     } finally {
       setLoading(false)
+      // Clears the "new since you last looked" half of the sidebar badge. The
+      // count of reports still waiting on a decision stays put.
+      attentionApi.markSeen(token, 'reports').catch(() => {})
     }
   }, [token, page, statusFilter, search])
 

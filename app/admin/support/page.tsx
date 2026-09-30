@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { supportApi } from '@/lib/api'
+import { supportApi, attentionApi } from '@/lib/api'
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -45,7 +45,12 @@ export default function SupportPage() {
       setTickets(res.data ?? res ?? [])
       if (res.meta) setMeta(res.meta)
     } catch (err: any) { toast.error(err.message || 'Failed to load tickets') }
-    finally { setLoading(false) }
+    finally {
+      setLoading(false)
+      // Clears the "new since you last looked" part of the sidebar badge. The
+      // unresolved count stays — opening the page is not answering anyone.
+      attentionApi.markSeen(token, 'support').catch(() => {})
+    }
   }, [token, page, statusFilter])
 
   useEffect(() => { loadTickets() }, [loadTickets])
