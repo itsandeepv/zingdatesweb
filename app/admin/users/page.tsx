@@ -667,8 +667,11 @@ export default function UsersPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-          <div className="flex flex-col lg:flex-row gap-3">
-            <div className="relative flex-1 min-w-0">
+          {/* The search box keeps a real width no matter how many dropdowns
+              sit beside it: it takes the whole first line, and the dropdowns
+              wrap underneath instead of squeezing it down to its icons. */}
+          <div className="flex flex-wrap gap-3">
+            <div className="relative basis-full min-w-0">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
               </svg>
@@ -749,7 +752,7 @@ export default function UsersPage() {
 
           {/* Second row: the narrower questions — when they joined, where they
               are, and whether they are on the app right now. */}
-          <div className="flex flex-col lg:flex-row gap-3 mt-3 pt-3 border-t border-gray-100">
+          <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-gray-100">
             <label className="flex items-center gap-2 text-xs font-medium text-gray-500 whitespace-nowrap">
               Joined
               <input type="date" value={fromDate} max={toDate || undefined}
@@ -763,7 +766,7 @@ export default function UsersPage() {
 
             <input type="text" placeholder="City (typed or current)" value={cityFilter}
               onChange={e => setCityFilter(e.target.value)}
-              className="flex-1 min-w-0 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
+              className="flex-1 min-w-[220px] px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300" />
 
             <select value={onlineFilter} onChange={e => setOnlineFilter(e.target.value)}
               className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
