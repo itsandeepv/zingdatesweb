@@ -591,6 +591,8 @@ export const apiKeysApi = {
 /* ─── Admin Content ───────────────────────────────────────────── */
 export const contentApi = {
   pages: (token: string) => req<any>('/admin/content/pages', {}, token),
+  createPage: (token: string, data: { key: string; title: string; content?: string; status?: string }) =>
+    req<any>('/admin/content/pages', { method: 'POST', body: JSON.stringify(data) }, token),
   updatePage: (token: string, id: number, data: Record<string, any>) =>
     req<any>(`/admin/content/pages/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
   blog: (token: string) => req<any>('/admin/content/blog', {}, token),

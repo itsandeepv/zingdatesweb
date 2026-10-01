@@ -347,6 +347,8 @@ function PagesTab({ token }: { token: string }) {
   const [saving, setSaving]     = useState(false)
   const [editing, setEditing]   = useState<any>(null)
   const [form, setForm]         = useState({ content: '', status: 'published' })
+  const [creating, setCreating] = useState(false)
+  const [newPage, setNewPage]   = useState({ key: '', title: '', content: '' })
 
   useEffect(() => { load() }, [])
 
@@ -380,6 +382,19 @@ function PagesTab({ token }: { token: string }) {
 
   const PAGE_ICONS: Record<string, string> = {
     about: '👋', privacy: '🔒', terms: '📄', faq: '❓', contact: '✉️', home: '🏠',
+  }
+
+  async function handleCreate(e: { preventDefault(): void }) {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      const res = await contentApi.createPage(token, newPage)
+      setPages(p => [...p, res?.data ?? res])
+      toast.success(`"${newPage.title}" created`)
+      setCreating(false)
+      setNewPage({ key: '', title: '', content: '' })
+    } catch (e: any) { toast.error(e.message || 'Failed to create page') }
+    finally { setSaving(false) }
   }
 
   return (
@@ -429,11 +444,68 @@ function PagesTab({ token }: { token: string }) {
         </div>
       )}
 
+      {/* New page form */}
+      {creating && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900">New Static Page</h2>
+            <button onClick={() => setCreating(false)} className="text-gray-400 hover:text-gray-600">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <p className="text-xs text-gray-400">
+              Creates the CMS row only — a page needs its own route in code to actually be reachable at a URL.
+              Ask engineering to add the route if this is a brand-new page, not just a new override.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Key / slug</label>
+                <input type="text" required pattern="[a-z0-9-]+" placeholder="e.g. child-safety"
+                  value={newPage.key} onChange={e => setNewPage(f => ({ ...f, key: e.target.value.toLowerCase() }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Title</label>
+                <input type="text" required placeholder="e.g. Child Safety Standards"
+                  value={newPage.title} onChange={e => setNewPage(f => ({ ...f, title: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                Page Content <span className="normal-case text-gray-400 font-normal">(optional — leave blank to use the page's built-in default)</span>
+              </label>
+              <textarea value={newPage.content} onChange={e => setNewPage(f => ({ ...f, content: e.target.value }))}
+                rows={10} placeholder="Page content (HTML supported)..."
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-pink-200 resize-y" />
+            </div>
+            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+              <button type="button" onClick={() => setCreating(false)}
+                className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">Cancel</button>
+              <button type="submit" disabled={saving}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold text-white gradient-brand shadow-brand hover:opacity-90 disabled:opacity-50">
+                {saving && <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>}
+                Create Page
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Pages list */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Static Pages</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Edit content for your platform's public pages</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="font-semibold text-gray-900">Static Pages</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Edit content for your platform's public pages</p>
+          </div>
+          <button onClick={() => setCreating(true)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white gradient-brand shadow-brand hover:opacity-90">
+            + Add Page
+          </button>
         </div>
         {loading ? (
           <div className="flex items-center justify-center h-40">

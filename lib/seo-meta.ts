@@ -23,7 +23,7 @@ const REVALIDATE_SECONDS = 300
 /** Slugs seeded in `seo_pages` — one per public page the panel can control. */
 export type SeoSlug =
   | 'home' | 'about' | 'blog' | 'podcasts'
-  | 'pricing' | 'contact' | 'privacy' | 'terms'
+  | 'pricing' | 'contact' | 'privacy' | 'terms' | 'child-safety'
   | 'companions' | 'events'
 
 export interface SeoPage {
