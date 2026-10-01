@@ -5,14 +5,23 @@ import { pageMetadata } from '@/lib/seo-meta'
 
 export const dynamic = 'force-dynamic'
 
-async function getCmsContent(key: string): Promise<string | null> {
+// The admin-edited copy (Content CMS → Static Pages) and when it was last
+// saved, so the "Updated" line on the page is true rather than a fixed date.
+async function getCmsPage(key: string): Promise<{ content: string; updatedAt: string | null } | null> {
   try {
     const res = await pagesApi.get(key)
     const page = res?.data ?? res
-    return page?.content || null
+    if (!page?.content) return null
+    return { content: page.content, updatedAt: page.updated_at ?? null }
   } catch {
     return null
   }
+}
+
+function fmtUpdated(iso: string | null | undefined, fallback: string): string {
+  if (!iso) return fallback
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? fallback : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,13 +37,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TermsPage() {
-  const cmsContent = await getCmsContent('terms')
+  const cms = await getCmsPage('terms')
   return (
     <LegalPage
       title="Terms of Service"
       subtitle="Please read these terms carefully before using zingDates."
-      updated="July 5, 2026"
-      htmlContent={cmsContent ?? undefined}
+      updated={fmtUpdated(cms?.updatedAt, "July 5, 2026")}
+      htmlContent={cms?.content ?? undefined}
     >
       <p>
         These Terms of Service (&ldquo;Terms&rdquo;) govern your access to and use of the zingDates
@@ -68,17 +77,27 @@ export default async function TermsPage() {
         <li>Solicit money, run scams, spam, advertise, or promote commercial services without permission;</li>
         <li>Share another person&rsquo;s private information without consent;</li>
         <li>Use bots, scrapers, or attempt to access the Service by unauthorized means;</li>
-        <li>Engage in prostitution, human trafficking, or any illegal activity through the Service.</li>
+        <li>Engage in prostitution, human trafficking, or any illegal activity through the Service;</li>
+        <li>Create, upload, share, solicit, or distribute any content that sexualizes, exploits, or endangers a minor, including Child Sexual Abuse Material (CSAM) &mdash; ZingDates has <strong>zero tolerance for Child Sexual Abuse and Exploitation (CSAE)</strong>.</li>
       </ul>
-      <p>Violations may result in content removal, feature restrictions, suspension, or permanent termination.</p>
+      <p>
+        Every photo and video you share is automatically screened before it is visible to anyone else.
+        Content containing nudity, sexual acts, or other explicit material is automatically detected and
+        blocked &mdash; it is never shown to other members.
+      </p>
+      <p>
+        Violations involving CSAE result in immediate, permanent account termination and, where legally
+        required, a report to the National Center for Missing &amp; Exploited Children (NCMEC) and/or other law
+        enforcement authorities. Other violations may result in content removal, feature restrictions,
+        suspension, or permanent termination.
+      </p>
 
       <h2>4. Coins, Wallet &amp; Virtual Items</h2>
       <ul>
-        <li>zingDates uses <strong>Coins</strong>, a virtual in-app currency, to unlock features such as audio calls, video calls, and gifts.</li>
-        <li>Coins can be purchased in packs (for example, 100 Coins for ₹149, 250 for ₹349, or 500 for ₹599) through our payment partners.</li>
-        <li>Coins have no monetary value outside the Service, are <strong>non-transferable</strong>, and cannot be exchanged for cash except where required by law.</li>
-        <li>Typical usage rates are <strong>10 Coins/minute for audio calls</strong> and <strong>25 Coins/minute for video calls</strong>; gifts start from 5 Coins. Rates may change with notice.</li>
-        <li>Purchases are subject to our <a href="/refund">Refund &amp; Cancellation Policy</a>.</li>
+        <li>New accounts receive a one-time <strong>welcome bonus of free Coins</strong> so you can try messaging before choosing a plan.</li>
+        <li>Coins are spent only on messaging &mdash; a flat Coin cost per message &mdash; and only for accounts without an active plan that covers chat. Accounts with such a plan are never charged Coins to message.</li>
+        <li>Coins cannot be purchased separately, have no monetary value, and are <strong>non-transferable</strong> and non-refundable.</li>
+        <li>Audio calls, video calls, and other premium features are unlocked through a paid <strong>Plan</strong> (see Section 5), not through Coins.</li>
       </ul>
 
       <h2>5. Premium Subscriptions</h2>
@@ -96,6 +115,12 @@ export default async function TermsPage() {
         other users. We do not guarantee the identity, conduct, or intentions of any member and are not
         responsible for offline interactions.
       </p>
+      <p>
+        Your phone number, email address, and exact location are never shown to other members. Chat
+        conversations are protected against screenshots on Android devices, and against screen recording on
+        iOS and Android. See our <a href="/privacy">Privacy Policy</a> for details on how we protect your
+        information.
+      </p>
 
       <h2>7. Companion Bookings</h2>
       <ul>
@@ -107,8 +132,23 @@ export default async function TermsPage() {
 
       <h2>8. Events &amp; Meetups</h2>
       <p>
-        zingDates may list local events and meetups. Registration or ticket purchases may apply. You attend
-        events at your own risk and are responsible for your own safety when meeting people in person.
+        ZingDates lets members create and join local events, trips, and meetups (&ldquo;Events&rdquo;). Events are
+        created by other members acting as hosts, not by ZingDates, and ZingDates does not run background
+        checks on hosts or attendees beyond the verification shown on their profile.
+      </p>
+      <p>
+        Depending on the event, joining may be free, paid online through the app, or paid in cash directly to
+        the host at the venue. ZingDates does not collect, hold, or reconcile cash payments made directly to a
+        host &mdash; any dispute over a cash payment is between you and the host. If an event is cancelled,
+        refunds for payments made online follow our <a href="/refund">Refund &amp; Cancellation Policy</a>;
+        cash already paid to a host is refundable only as agreed between you and that host.
+      </p>
+      <p>
+        Joining an event gives you access to a group chat shared with the host and every other attendee of
+        that event &mdash; it is not a private conversation. The exact venue address may only become visible
+        once you join. You are solely responsible for your own safety and conduct when attending an Event or
+        meeting other attendees, online or in person, and agree to follow any safety guidance shown in the app
+        before joining.
       </p>
 
       <h2>9. Your Content</h2>

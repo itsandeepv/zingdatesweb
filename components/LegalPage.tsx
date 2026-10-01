@@ -26,7 +26,7 @@ export default function LegalPage({
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">{title}</h1>
           {subtitle && <p className="mt-3 text-gray-500">{subtitle}</p>}
-          <p className="mt-4 text-xs text-gray-400">Last updated: {updated}</p>
+          {/* <p className="mt-4 text-xs text-gray-400">Last updated: {updated}</p> */}
         </div>
       </header>
 

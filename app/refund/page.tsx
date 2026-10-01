@@ -5,14 +5,23 @@ import { SITE_URL } from '@/lib/site'
 
 export const dynamic = 'force-dynamic'
 
-async function getCmsContent(key: string): Promise<string | null> {
+// The admin-edited copy (Content CMS → Static Pages) and when it was last
+// saved, so the "Updated" line on the page is true rather than a fixed date.
+async function getCmsPage(key: string): Promise<{ content: string; updatedAt: string | null } | null> {
   try {
     const res = await pagesApi.get(key)
     const page = res?.data ?? res
-    return page?.content || null
+    if (!page?.content) return null
+    return { content: page.content, updatedAt: page.updated_at ?? null }
   } catch {
     return null
   }
+}
+
+function fmtUpdated(iso: string | null | undefined, fallback: string): string {
+  if (!iso) return fallback
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? fallback : d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
 }
 
 export const metadata: Metadata = {
@@ -23,13 +32,13 @@ export const metadata: Metadata = {
 }
 
 export default async function RefundPage() {
-  const cmsContent = await getCmsContent('refund')
+  const cms = await getCmsPage('refund')
   return (
     <LegalPage
       title="Refund & Cancellation Policy"
       subtitle="Our terms for Coins, subscriptions, bookings, and event tickets."
-      updated="July 5, 2026"
-      htmlContent={cmsContent ?? undefined}
+      updated={fmtUpdated(cms?.updatedAt, "July 5, 2026")}
+      htmlContent={cms?.content ?? undefined}
     >
       <p>
         This Refund &amp; Cancellation Policy explains when payments made on zingDates may be refunded. By
