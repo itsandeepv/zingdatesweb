@@ -65,7 +65,9 @@ export default function StaffPage() {
   const [inviteRole, setInviteRole] = useState<AdminRole>('support_agent')
   const [inviteName, setInviteName] = useState('')
   const [inviteEmail, setInviteEmail] = useState('')
+  const [invitePassword, setInvitePassword] = useState('')
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
+  const [allPerms, setAllPerms] = useState(false)
   const [inviting, setInviting] = useState(false)
 
   async function loadStaff() {
@@ -101,22 +103,34 @@ export default function StaffPage() {
   }
 
   async function handleInvite() {
-    if (!inviteName.trim() || !inviteEmail.trim()) {
-      toast.error('Name and email are required')
+    if (!inviteName.trim() || !inviteEmail.trim() || !invitePassword.trim()) {
+      toast.error('Name, email, and password are required')
+      return
+    }
+    if (invitePassword.trim().length < 8) {
+      toast.error('Password must be at least 8 characters')
       return
     }
     setInviting(true)
     try {
-      await staffApi.invite(token, { name: inviteName.trim(), email: inviteEmail.trim(), role: inviteRole })
-      toast.success(`Invite sent to ${inviteEmail}`)
+      await staffApi.invite(token, {
+        name: inviteName.trim(),
+        email: inviteEmail.trim(),
+        password: invitePassword,
+        role: inviteRole,
+        permissions: allPerms ? ['*'] : selectedPerms,
+      })
+      toast.success(`${inviteName.trim()} added as ${ROLE_META[inviteRole].label}`)
       setShowInvite(false)
       setInviteName('')
       setInviteEmail('')
+      setInvitePassword('')
       setInviteRole('support_agent')
       setSelectedPerms([])
+      setAllPerms(false)
       await loadStaff()
-    } catch {
-      toast.error('Failed to send invite')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to add staff member')
     } finally {
       setInviting(false)
     }
@@ -125,25 +139,25 @@ export default function StaffPage() {
   async function handleSuspend(id: string, name: string) {
     setActionLoading(`suspend-${id}`)
     try {
-      await staffApi.suspend(token, id)
-      toast.success(`${name} has been suspended`)
+      const res = await staffApi.suspend(token, id)
+      toast.success(res?.message ?? `${name}'s status was updated`)
       await loadStaff()
-    } catch {
-      toast.error('Failed to suspend staff member')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update staff member')
     } finally {
       setActionLoading(null)
     }
   }
 
   async function handleRemove(id: string, name: string) {
-    if (!confirm(`Remove ${name} from staff? This action cannot be undone.`)) return
+    if (!confirm(`Remove ${name} from staff? Their admin access will be revoked, but their account is not deleted.`)) return
     setActionLoading(`remove-${id}`)
     try {
       await staffApi.remove(token, id)
-      toast.success(`${name} has been removed`)
+      toast.success(`${name}'s admin access has been removed`)
       await loadStaff()
-    } catch {
-      toast.error('Failed to remove staff member')
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to remove staff member')
     } finally {
       setActionLoading(null)
     }
@@ -163,7 +177,7 @@ export default function StaffPage() {
           style={{ boxShadow: '0 2px 8px rgba(233,30,140,0.35)' }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-          Invite Staff Member
+          Add Staff Member
         </button>
       </div>
 
@@ -264,7 +278,7 @@ export default function StaffPage() {
                           disabled={actionLoading === `suspend-${s.id}`}
                           className="text-xs font-semibold text-orange-500 hover:text-orange-700 px-2 py-1 rounded-lg hover:bg-orange-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          {actionLoading === `suspend-${s.id}` ? 'Suspending…' : 'Suspend'}
+                          {actionLoading === `suspend-${s.id}` ? 'Working…' : s.status === 'suspended' ? 'Reactivate' : 'Suspend'}
                         </button>
                         <button
                           onClick={() => handleRemove(s.id, s.name)}
@@ -287,11 +301,14 @@ export default function StaffPage() {
       {showInvite && (
         <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)', border: '1px solid #fce7f3' }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-900">Invite Staff Member</h2>
+            <h2 className="text-base font-bold text-gray-900">Add Staff Member</h2>
             <button onClick={() => setShowInvite(false)} className="text-gray-400 hover:text-gray-600">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
+          <p className="text-xs text-gray-400 mb-4">
+            Sets up their login directly — no invite email. Share the email and password with them yourself.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Full Name</label>
@@ -314,6 +331,16 @@ export default function StaffPage() {
               />
             </div>
             <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1.5">Password</label>
+              <input
+                type="text"
+                placeholder="At least 8 characters"
+                value={invitePassword}
+                onChange={e => setInvitePassword(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Role</label>
               <select
                 value={inviteRole}
@@ -327,14 +354,26 @@ export default function StaffPage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="block text-xs font-semibold text-gray-600 mb-2">Custom Permissions</label>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-gray-600">Permissions</label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allPerms}
+                  onChange={e => setAllPerms(e.target.checked)}
+                  className="rounded border-gray-300 text-pink-500 focus:ring-pink-400"
+                />
+                <span className="text-xs font-semibold text-pink-600">Grant all permissions</span>
+              </label>
+            </div>
+            <div className={`grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 ${allPerms ? 'opacity-40 pointer-events-none' : ''}`}>
               {ALL_PERMISSIONS.map(p => (
                 <label key={p} className="flex items-center gap-1.5 cursor-pointer group">
                   <input
                     type="checkbox"
                     checked={selectedPerms.includes(p)}
                     onChange={() => togglePerm(p)}
+                    disabled={allPerms}
                     className="rounded border-gray-300 text-pink-500 focus:ring-pink-400"
                   />
                   <span className="text-xs text-gray-600 capitalize group-hover:text-gray-900">{p.replace('_', ' ')}</span>
@@ -349,7 +388,7 @@ export default function StaffPage() {
               className="gradient-brand text-white text-sm font-semibold px-6 py-2.5 rounded-xl disabled:opacity-60 disabled:cursor-not-allowed"
               style={{ boxShadow: '0 2px 8px rgba(233,30,140,0.35)' }}
             >
-              {inviting ? 'Sending…' : 'Send Invite'}
+              {inviting ? 'Creating…' : 'Create Staff Member'}
             </button>
           </div>
         </div>
