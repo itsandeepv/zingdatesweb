@@ -675,6 +675,15 @@ export const messagingApi = {
     req<any>('/admin/messaging/push', { method: 'POST', body: JSON.stringify(data) }, token),
 }
 
+/* ─── Admin Mail ──────────────────────────────────────────────── */
+// Per-type on/off switch + template override for every transactional email
+// the app sends (see App\Support\MailSettings / App\Models\MailTemplate).
+export const mailApi = {
+  types: (token: string) => req<any>('/admin/mail-types', {}, token),
+  update: (token: string, key: string, body: { enabled?: boolean; subject?: string | null; body?: string | null }) =>
+    req<any>(`/admin/mail-types/${key}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+}
+
 /* ─── Plans (auth) ────────────────────────────────────────────── */
 // `/plans` → { is_premium, plan_type, expiry, trial_used, plans:{trial,monthly,vip} }
 export const plansApi = {
