@@ -44,6 +44,8 @@ export default function ReportsPage() {
   const [note, setNote] = useState('')
   const [suspend, setSuspend] = useState(false)
   const [saving, setSaving] = useState<number | null>(null)
+  const [warnMessage, setWarnMessage] = useState('')
+  const [warning, setWarning] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -82,6 +84,20 @@ export default function ReportsPage() {
       toast.error(err.message || 'Could not update this report')
     } finally {
       setSaving(null)
+    }
+  }
+
+  async function sendWarning(id: number) {
+    if (!warnMessage.trim()) { toast.error('Write the warning message first'); return }
+    setWarning(id)
+    try {
+      const res = await reportsApi.warn(token, id, warnMessage.trim())
+      toast.success(res.message ?? 'Warning sent')
+      setWarnMessage('')
+    } catch (err: any) {
+      toast.error(err.message || 'Could not send the warning')
+    } finally {
+      setWarning(null)
     }
   }
 
@@ -169,7 +185,7 @@ export default function ReportsPage() {
                 <button
                   onClick={() => {
                     setOpenId(openId === r.id ? null : r.id)
-                    setNote(r.admin_note ?? ''); setSuspend(false)
+                    setNote(r.admin_note ?? ''); setSuspend(false); setWarnMessage('')
                   }}
                   className="px-3 py-1.5 rounded-lg border text-sm"
                 >
@@ -205,6 +221,29 @@ export default function ReportsPage() {
                         Mark {s}
                       </button>
                     ))}
+                  </div>
+
+                  <div className="border-t pt-3 mt-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                      Warn {r.reported?.name ?? 'this user'} — your own words, sent to them directly
+                      {r.reported?.email ? ' by email' : ' as a ZingDates chat message (no email on file)'}
+                    </label>
+                    <textarea
+                      value={warnMessage}
+                      onChange={e => setWarnMessage(e.target.value)}
+                      placeholder="e.g. We received a report about harassing messages you sent. This is a warning — it won't be tolerated again."
+                      maxLength={1000}
+                      className="w-full rounded-lg border px-3 py-2 text-sm min-h-[70px]"
+                    />
+                    <div className="flex justify-end mt-2">
+                      <button
+                        disabled={warning === r.id || !warnMessage.trim()}
+                        onClick={() => sendWarning(r.id)}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-500 text-white disabled:opacity-50"
+                      >
+                        {warning === r.id ? 'Sending…' : 'Send Warning'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

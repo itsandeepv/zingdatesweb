@@ -478,6 +478,8 @@ export const reportsApi = {
     id: number,
     data: { status: string; admin_note?: string; suspend?: boolean },
   ) => req<any>(`/admin/reports/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  warn: (token: string, id: number, message: string) =>
+    req<any>(`/admin/reports/${id}/warn`, { method: 'POST', body: JSON.stringify({ message }) }, token),
 }
 
 /* ─── Admin SEO ───────────────────────────────────────────────── */
