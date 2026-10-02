@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { subscriptionsApi } from '@/lib/api'
+import { subscriptionsApi, freeTierApi } from '@/lib/api'
 
 type Plan = {
   id: number
@@ -50,6 +50,88 @@ function FeatureGrid({ featureLabels, selected, onToggle }: {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+function FreeTierSettingsCard({ token }: { token: string }) {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ welcome_coins: 0, message_cost: 0, profile_view_daily_limit: 0 })
+
+  useEffect(() => {
+    freeTierApi.get(token)
+      .then(res => setForm(res.data ?? form))
+      .catch(e => toast.error(e.message || 'Could not load free-tier settings'))
+      .finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token])
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await freeTierApi.update(token, form)
+      setForm(res.data ?? form)
+      toast.success(res.message ?? 'Saved')
+    } catch (e: any) {
+      toast.error(e.message || 'Could not save')
+    } finally { setSaving(false) }
+  }
+
+  const freeMessages = form.message_cost > 0 ? Math.floor(form.welcome_coins / form.message_cost) : 0
+
+  if (loading) {
+    return <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-8 flex justify-center">
+      <div className="w-6 h-6 rounded-full border-4 border-pink-200 border-t-pink-500 animate-spin" />
+    </div>
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+      <div className="px-6 py-4 border-b border-gray-100">
+        <h2 className="text-base font-semibold text-gray-900">Free Tier</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          What a signed-up user gets before buying any plan. Changes apply immediately — no deploy needed.
+        </p>
+      </div>
+      <div className="p-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <label className="block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Welcome Coins</span>
+          <input
+            type="number" min={0} value={form.welcome_coins}
+            onChange={e => setForm(f => ({ ...f, welcome_coins: Number(e.target.value) }))}
+            className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"
+          />
+          <span className="text-xs text-gray-400">Given once, on signup</span>
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Coins per Message</span>
+          <input
+            type="number" min={1} value={form.message_cost}
+            onChange={e => setForm(f => ({ ...f, message_cost: Number(e.target.value) }))}
+            className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"
+          />
+          <span className="text-xs text-gray-400">= <strong className="text-gray-600">{freeMessages}</strong> free message{freeMessages === 1 ? '' : 's'} before the paywall</span>
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Free Profile Views / Day</span>
+          <input
+            type="number" min={0} value={form.profile_view_daily_limit}
+            onChange={e => setForm(f => ({ ...f, profile_view_daily_limit: Number(e.target.value) }))}
+            className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200"
+          />
+          <span className="text-xs text-gray-400">0 = unlimited. Any plan removes this cap entirely.</span>
+        </label>
+      </div>
+      <div className="px-6 pb-6 flex justify-end">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="px-5 py-2 rounded-xl gradient-brand text-white text-sm font-semibold shadow-brand disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -167,6 +249,8 @@ export default function PlansPage() {
           effect immediately, for every current subscriber and every future signup.
         </p>
       </div>
+
+      <FreeTierSettingsCard token={token} />
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100">

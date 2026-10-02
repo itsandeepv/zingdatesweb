@@ -412,6 +412,13 @@ export const subscriptionsApi = {
     req<any>(`/admin/plans/${id}`, { method: 'DELETE' }, token),
 }
 
+/* ─── Free-tier knobs (welcome coins, message cost, daily view cap) ──── */
+export const freeTierApi = {
+  get: (token: string) => req<any>('/admin/free-tier-settings', {}, token),
+  update: (token: string, data: { welcome_coins?: number; message_cost?: number; profile_view_daily_limit?: number }) =>
+    req<any>('/admin/free-tier-settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+}
+
 /* ─── Admin Staff ─────────────────────────────────────────────── */
 export const staffApi = {
   list: (token: string, params: Record<string, string> = {}) =>
