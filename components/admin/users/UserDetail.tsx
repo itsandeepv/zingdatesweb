@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { usersApi } from '@/lib/api'
+import { usersApi, type PresenceMode } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import {
   type ApiUser, BULK_LABELS, fmtDate,
@@ -21,6 +21,21 @@ export default function UserDetail({ user, token, onChanged, onDeleted }: {
   const [busy, setBusy] = useState(false)
   const [preview, setPreview] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
+
+  async function setPresence(mode: PresenceMode) {
+    setBusy(true)
+    try {
+      await usersApi.setPresence(token, user.id, mode)
+      toast.success(mode === 'auto'
+        ? 'Back to their real status'
+        : `Now shown as ${mode}`)
+      onChanged()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not change status.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function doAction(action: 'verify' | 'suspend' | 'unsuspend' | 'delete') {
     if (action === 'delete' && !window.confirm(`Delete "${user.name}"? This cannot be undone.`)) return
@@ -111,6 +126,10 @@ export default function UserDetail({ user, token, onChanged, onDeleted }: {
               { label: 'Last active', value: user.is_online
                   ? 'Online now'
                   : (user.last_active ?? fmtDateTime(user.last_seen ?? user.last_login_at)) },
+              // Says so when the line above was set rather than observed.
+              ...(user.presence_override
+                ? [{ label: 'Status', value: `Pinned "${user.presence_override}" by an admin${user.presence_override_at ? ` · ${fmtDateTime(user.presence_override_at)}` : ''}` }]
+                : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-start justify-between gap-4">
                 <span className="text-xs text-gray-400 font-medium flex-shrink-0 pt-0.5">{label}</span>
@@ -160,6 +179,23 @@ export default function UserDetail({ user, token, onChanged, onDeleted }: {
                 Verify
               </button>
             )}
+
+            {/* Presence. Three states, and the current one is shown pressed so
+                it is obvious whether this account is pinned or just live. */}
+            <div className="flex items-center gap-1 px-1.5 py-1 rounded-xl bg-gray-50 border border-gray-200">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 px-1">Shows as</span>
+              {(['online', 'offline', 'auto'] as const).map(mode => {
+                const active = (user.presence_override ?? 'auto') === mode
+                return (
+                  <button key={mode} onClick={() => setPresence(mode)} disabled={busy}
+                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors disabled:opacity-50 ${
+                      active ? 'bg-white shadow-sm text-gray-900 border border-gray-200' : 'text-gray-500 hover:text-gray-700'
+                    }`}>
+                    {mode === 'auto' ? 'Auto' : mode === 'online' ? 'Online' : 'Offline'}
+                  </button>
+                )
+              })}
+            </div>
 
             {user.status === 'suspended' ? (
               <button onClick={() => doAction('unsuspend')} disabled={busy}

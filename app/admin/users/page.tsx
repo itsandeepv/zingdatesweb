@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { usersApi, attentionApi } from '@/lib/api'
+import { usersApi, attentionApi, type PresenceMode } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
 import {
@@ -413,6 +413,77 @@ function exportUsersCSV(users: ApiUser[]) {
   URL.revokeObjectURL(url)
 }
 
+/* ── Presence control ────────────────────────────────── */
+/**
+ * Pins what a group of accounts SHOWS as, regardless of whether their apps are
+ * running. 'Auto' is the default and gives each account back to its own
+ * heartbeat.
+ *
+ * Two confirmations' worth of friction on purpose: this changes what every
+ * member of the app sees about a whole group of people at once, and there is
+ * no per-row undo — only setting it back to Auto.
+ */
+function PresenceControl({ token, onDone }: { token: string; onDone: () => void }) {
+  const [gender, setGender] = useState<'female' | 'male' | 'other' | 'all'>('female')
+  const [busy, setBusy] = useState<PresenceMode | null>(null)
+
+  const labelFor = (m: PresenceMode) =>
+    m === 'auto' ? 'their real status' : `"${m === 'online' ? 'Online' : 'Offline'}"`
+  const groupLabel = gender === 'all' ? 'all members' : `all ${gender} members`
+
+  async function apply(mode: PresenceMode) {
+    if (!confirm(`Show ${groupLabel} as ${labelFor(mode)} in the app?`)) return
+    setBusy(mode)
+    try {
+      const res = await usersApi.bulkPresence(token, gender, mode)
+      toast.success(res.message ?? 'Updated')
+      onDone()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not change presence.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const btn = 'px-3.5 py-2 text-sm font-semibold rounded-xl border-2 transition-colors disabled:opacity-50'
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="min-w-0 lg:flex-1">
+          <h3 className="text-sm font-semibold text-gray-900">Online status</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Overrides what the app shows. Auto follows each account&apos;s own activity.
+          </p>
+        </div>
+
+        <select value={gender} onChange={e => setGender(e.target.value as typeof gender)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white text-gray-700 cursor-pointer">
+          <option value="female">All female members</option>
+          <option value="male">All male members</option>
+          <option value="other">All other members</option>
+          <option value="all">Everyone</option>
+        </select>
+
+        <div className="flex gap-2">
+          <button onClick={() => apply('online')} disabled={busy !== null}
+            className={`${btn} border-green-200 text-green-700 hover:bg-green-50`}>
+            {busy === 'online' ? 'Setting…' : 'Show online'}
+          </button>
+          <button onClick={() => apply('offline')} disabled={busy !== null}
+            className={`${btn} border-gray-200 text-gray-600 hover:bg-gray-50`}>
+            {busy === 'offline' ? 'Setting…' : 'Show offline'}
+          </button>
+          <button onClick={() => apply('auto')} disabled={busy !== null}
+            className={`${btn} border-pink-200 text-pink-600 hover:bg-pink-50`}>
+            {busy === 'auto' ? 'Clearing…' : 'Auto'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── Main page ───────────────────────────────────────── */
 /**
  * Where the account was created. Mirrors App\Support\SignupSource — 'unknown'
@@ -562,7 +633,10 @@ export default function UsersPage() {
     else { setSelected(new Set(users.map(u => u.id))); setSelectAll(true) }
   }
 
-  async function handleBulkAction(action: 'suspend' | 'unsuspend' | 'verify' | 'delete') {
+  type BulkAction = 'suspend' | 'unsuspend' | 'verify' | 'delete'
+    | 'presence_online' | 'presence_offline' | 'presence_auto'
+
+  async function handleBulkAction(action: BulkAction) {
     if (selected.size === 0) return
     if (action === 'delete' && !window.confirm(`Delete ${selected.size} selected user(s)? This cannot be undone.`)) return
     setBulkBusy(true)
@@ -664,6 +738,8 @@ export default function UsersPage() {
             </div>
           ))}
         </div>
+
+        <PresenceControl token={token} onDone={fetchUsers} />
 
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
@@ -802,6 +878,10 @@ export default function UsersPage() {
               <button onClick={() => handleBulkAction('suspend')}   disabled={bulkBusy} className="text-xs font-medium text-orange-600 hover:underline disabled:opacity-50">Suspend All</button>
               <button onClick={() => handleBulkAction('unsuspend')} disabled={bulkBusy} className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50">Unsuspend All</button>
               <button onClick={() => handleBulkAction('delete')}    disabled={bulkBusy} className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50">Delete All</button>
+              <span className="text-gray-300">|</span>
+              <button onClick={() => handleBulkAction('presence_online')}  disabled={bulkBusy} className="text-xs font-medium text-green-700 hover:underline disabled:opacity-50">Show Online</button>
+              <button onClick={() => handleBulkAction('presence_offline')} disabled={bulkBusy} className="text-xs font-medium text-gray-600 hover:underline disabled:opacity-50">Show Offline</button>
+              <button onClick={() => handleBulkAction('presence_auto')}    disabled={bulkBusy} className="text-xs font-medium text-pink-600 hover:underline disabled:opacity-50">Auto</button>
               <button onClick={() => { setSelected(new Set()); setSelectAll(false) }} className="text-xs font-medium text-gray-400 hover:underline ml-auto">Clear</button>
             </div>
           )}
@@ -904,6 +984,15 @@ export default function UsersPage() {
                           <span className="text-gray-500" title={fmtDateTime(user.last_seen ?? user.last_login_at)}>
                             {user.last_active ?? (fmtDate(user.last_login_at) || '—')}
                           </span>
+                        )}
+                        {/* Says so when the status above was set rather than
+                            observed — otherwise there is no way to tell a
+                            pinned account from one that is genuinely around. */}
+                        {user.presence_override && (
+                          <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-600"
+                            title={`Pinned by an admin${user.presence_override_at ? ` · ${fmtDateTime(user.presence_override_at)}` : ''}`}>
+                            Set by admin
+                          </div>
                         )}
                       </td>
 

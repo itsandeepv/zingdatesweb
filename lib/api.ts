@@ -142,6 +142,9 @@ export const dashboardApi = {
 }
 
 /* ─── Admin Users ─────────────────────────────────────────────── */
+// 'auto' is the default: presence follows the account's own heartbeat.
+export type PresenceMode = 'online' | 'offline' | 'auto'
+
 export const usersApi = {
   list: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/users?${new URLSearchParams(params)}`, {}, token),
@@ -166,6 +169,19 @@ export const usersApi = {
     req<any>(`/admin/users/${id}`, { method: 'DELETE' }, token),
   bulkAction: (token: string, action: string, ids: number[]) =>
     req<any>('/admin/users/bulk-action', { method: 'POST', body: JSON.stringify({ action, user_ids: ids }) }, token),
+  /**
+   * Pin what an account's presence SHOWS as, regardless of its heartbeat.
+   * 'auto' hands it back to the heartbeat, which is the default.
+   */
+  setPresence: (token: string, id: number, mode: PresenceMode) =>
+    req<any>(`/admin/users/${id}/presence`, { method: 'PATCH', body: JSON.stringify({ mode }) }, token),
+  /** The same, for a whole gender at once. */
+  bulkPresence: (token: string, gender: 'female' | 'male' | 'other' | 'all', mode: PresenceMode) =>
+    req<{ affected: number; message: string }>(
+      '/admin/users/presence/bulk',
+      { method: 'POST', body: JSON.stringify({ gender, mode }) },
+      token,
+    ),
   /**
    * Set a user's profile photo — either an uploaded file or a hosted URL.
    * Separate from create/update because a file needs multipart, not JSON.

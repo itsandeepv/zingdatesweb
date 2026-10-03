@@ -52,6 +52,10 @@ export interface ApiUser {
   // User::isOnlineNow() on the API side.
   is_online?: boolean
   last_active?: string | null
+  // null = presence follows the heartbeat. 'online'/'offline' = pinned by an
+  // admin, and the heartbeat is ignored.
+  presence_override?: 'online' | 'offline' | null
+  presence_override_at?: string | null
   plan_started_at?: string | null
 }
 
@@ -82,6 +86,10 @@ export const GENDERS = [
 
 export const BULK_LABELS: Record<string, string> = {
   suspend: 'suspended', unsuspend: 'unsuspended', verify: 'verified', delete: 'deleted',
+  // Presence pins. Worded as what the app now SHOWS, not as what the person is.
+  presence_online: 'now shown as online',
+  presence_offline: 'now shown as offline',
+  presence_auto: 'back to their real status',
 }
 
 export function fmtNum(n: number | undefined): string {
