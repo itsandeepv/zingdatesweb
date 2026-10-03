@@ -352,6 +352,52 @@ export type PromoCard = {
   status: 'live' | 'off' | 'scheduled' | 'expired'
 }
 
+/**
+ * Events, as a signed-in user — the same endpoints the app uses.
+ *
+ * Separate from `eventsApi`, which is the admin's moderation view of the same
+ * table. These act AS the user: joining takes their seat, creating makes them
+ * the host.
+ */
+export const userEventsApi = {
+  // tab: upcoming | trending | live | weekend | nearby …
+  list: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/events?${new URLSearchParams(params)}`, {}, token),
+  mine: (token: string, params: Record<string, string> = {}) =>
+    req<any>(`/me/events?${new URLSearchParams(params)}`, {}, token),
+  get: (token: string, id: number | string) =>
+    req<any>(`/events/${id}`, {}, token),
+
+  join: (token: string, id: number | string) =>
+    req<any>(`/events/${id}/join`, { method: 'POST' }, token),
+  canJoin: (token: string, id: number | string) =>
+    req<any>(`/events/${id}/can-join`, {}, token),
+  leave: (token: string, id: number | string) =>
+    req<any>(`/events/${id}/leave`, { method: 'POST' }, token),
+
+  // Hosting. create() makes a draft; submit() is what puts it in front of
+  // people — the two are separate so photos can be attached in between.
+  canHost: (token: string) => req<any>('/events/can-host', {}, token),
+  options: (token: string) => req<any>('/events/options', {}, token),
+  categories: (token: string) => req<any>('/events/categories', {}, token),
+  create: (token: string, body: Record<string, unknown>) =>
+    req<any>('/events', { method: 'POST', body: JSON.stringify(body) }, token),
+  update: (token: string, id: number | string, body: Record<string, unknown>) =>
+    req<any>(`/events/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  submit: (token: string, id: number | string) =>
+    req<any>(`/events/${id}/submit`, { method: 'POST' }, token),
+  uploadPhotos: (token: string, id: number | string, files: File[]) => {
+    const fd = new FormData()
+    files.forEach(f => fd.append('photos[]', f))
+    return reqForm<any>(`/events/${id}/photos`, fd, token)
+  },
+
+  invitable: (token: string, id: number | string, q = '') =>
+    req<any>(`/events/${id}/invitable${q ? `?q=${encodeURIComponent(q)}` : ''}`, {}, token),
+  invite: (token: string, id: number | string, userIds: number[]) =>
+    req<any>(`/events/${id}/invite`, { method: 'POST', body: JSON.stringify({ user_ids: userIds }) }, token),
+}
+
 /** The marketing site's own cards. No auth — the visitor has no account. */
 export const publicPromosApi = {
   list: () => req<{ promos: Array<{

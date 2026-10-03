@@ -37,6 +37,11 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   )
+  if (name === 'events') return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 11h18" />
+    </svg>
+  )
   if (name === 'companion') return (
     <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z" />
@@ -68,6 +73,7 @@ function NavIcon({ name, active }: { name: string; active: boolean }) {
 const NAV = [
   { href: '/discover',      label: 'Discover',      icon: 'discover'  },
   { href: '/matches',       label: 'Matches',        icon: 'heart'     },
+  { href: '/my-events',     label: 'Events',         icon: 'events'    },
   { href: '/companion',     label: 'Companion',      icon: 'companion' },
   { href: '/chat',          label: 'Chat',           icon: 'chat'      },
   { href: '/notifications', label: 'Alerts',         icon: 'bell'      },
@@ -78,6 +84,7 @@ const NAV = [
 const BOTTOM_NAV = [
   { href: '/discover',      label: 'Discover',  icon: 'discover' },
   { href: '/matches',       label: 'Matches',   icon: 'heart'    },
+  { href: '/my-events',     label: 'Events',    icon: 'events'   },
   { href: '/chat',          label: 'Chat',      icon: 'chat'     },
   { href: '/notifications', label: 'Alerts',    icon: 'bell'     },
   { href: '/profile',       label: 'Profile',   icon: 'person'   },
