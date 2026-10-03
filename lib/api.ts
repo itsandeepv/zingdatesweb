@@ -141,6 +141,66 @@ export const dashboardApi = {
   recentActivity: (token: string) => req<any>('/admin/dashboard/activity?page=1', {}, token),
 }
 
+/* ─── Admin: the "What are you looking for today?" screen ─────── */
+export interface HomeSection {
+  id: number
+  key: string
+  title: string
+  subtitle: string | null
+  image: string | null
+  image_path: string | null
+  route: string
+  route_params: Record<string, unknown> | null
+  icon: string
+  gradient_from: string
+  gradient_to: string
+  accent_color: string
+  // Where the number on the card comes from. 'custom' uses counter_text.
+  counter_source: string
+  counter_label: string | null
+  counter_text: string | null
+  show_avatars: boolean
+  sort_order: number
+  is_active: boolean
+}
+
+export const homeSectionsApi = {
+  list: (token: string) =>
+    req<{
+      sections: HomeSection[]
+      routes: string[]
+      counter_sources: string[]
+      counts: Record<string, number>
+      heading: string | null
+      subheading: string | null
+    }>('/admin/home-sections', {}, token),
+  create: (token: string, data: Partial<HomeSection>) =>
+    req<{ section: HomeSection }>('/admin/home-sections', { method: 'POST', body: JSON.stringify(data) }, token),
+  update: (token: string, id: number, data: Partial<HomeSection>) =>
+    req<{ section: HomeSection }>(`/admin/home-sections/${id}`, { method: 'PUT', body: JSON.stringify(data) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/home-sections/${id}`, { method: 'DELETE' }, token),
+  savePage: (token: string, data: { heading: string; subheading: string }) =>
+    req<any>('/admin/home-sections/page', { method: 'PUT', body: JSON.stringify(data) }, token),
+  clearImage: (token: string, id: number) =>
+    req<{ section: HomeSection }>(`/admin/home-sections/${id}/image`, { method: 'DELETE' }, token),
+  /** The background photo. Multipart, so it does not go through req(). */
+  setImage: async (token: string, id: number, source: { file?: File; url?: string }) => {
+    const fd = new FormData()
+    if (source.file) fd.append('image', source.file)
+    else if (source.url) fd.append('image_url', source.url)
+
+    const res = await fetch(`${BASE}/admin/home-sections/${id}/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      body: fd,
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.message || 'Upload failed')
+    return json as { section: HomeSection }
+  },
+}
+
 /* ─── Admin Users ─────────────────────────────────────────────── */
 // 'auto' is the default: presence follows the account's own heartbeat.
 export type PresenceMode = 'online' | 'offline' | 'auto'
@@ -267,6 +327,53 @@ export const mediaApi = {
 }
 
 /* ─── Admin Events ────────────────────────────────────────────── */
+/**
+ * Admin > Promo cards — the offer / ad cards shown inside the app.
+ *
+ * The picture is uploaded separately from the rest of the form so it can be
+ * swapped without resubmitting everything, and so the old file is cleaned up
+ * as the new one lands.
+ */
+export type PromoCard = {
+  id: number
+  placement: string
+  title: string
+  body: string | null
+  image_url: string | null
+  cta_label: string | null
+  cta_type: string
+  cta_value: string | null
+  audience: string
+  starts_at: string | null
+  ends_at: string | null
+  is_active: boolean
+  sort_order: number
+  status: 'live' | 'off' | 'scheduled' | 'expired'
+}
+
+export const promosApi = {
+  list: (token: string) =>
+    req<{
+      promos: PromoCard[]
+      placements: Record<string, string>
+      actions: Record<string, string>
+      audiences: Record<string, string>
+    }>('/admin/promos', {}, token),
+  create: (token: string, body: Record<string, unknown>) =>
+    req<{ promo: PromoCard }>('/admin/promos', { method: 'POST', body: JSON.stringify(body) }, token),
+  update: (token: string, id: number, body: Record<string, unknown>) =>
+    req<{ promo: PromoCard }>(`/admin/promos/${id}`, { method: 'PUT', body: JSON.stringify(body) }, token),
+  remove: (token: string, id: number) =>
+    req<any>(`/admin/promos/${id}`, { method: 'DELETE' }, token),
+  uploadImage: (token: string, id: number, file: File) => {
+    const fd = new FormData()
+    fd.append('image', file)
+    return reqForm<{ promo: PromoCard }>(`/admin/promos/${id}/image`, fd, token)
+  },
+  removeImage: (token: string, id: number) =>
+    req<{ promo: PromoCard }>(`/admin/promos/${id}/image`, { method: 'DELETE' }, token),
+}
+
 export const eventsApi = {
   list: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/events?${new URLSearchParams(params)}`, {}, token),

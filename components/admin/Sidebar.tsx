@@ -59,6 +59,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
   ]},
   { label: 'Content', items: [
+    { href: '/admin/home-sections', label: 'Welcome Screen', icon: 'grid' },
     { href: '/admin/content',   label: 'Content CMS', icon: 'file' },
     { href: '/admin/podcasts',  label: 'Podcasts',    icon: 'mic' },
     { href: '/admin/messaging', label: 'Messaging',  icon: 'bell', soon: true },
@@ -66,6 +67,7 @@ const NAV: NavGroup[] = [
   ]},
   { label: 'Growth', items: [
     { href: '/admin/seo',       label: 'SEO',       icon: 'search' },
+    { href: '/admin/promos',    label: 'Promo Cards', icon: 'megaphone' },
     { href: '/admin/marketing', label: 'Marketing', icon: 'megaphone', soon: true },
     { href: '/admin/analytics', label: 'Analytics', icon: 'bar', soon: true },
   ]},
