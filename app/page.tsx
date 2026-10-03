@@ -9,7 +9,7 @@ import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import CompanionsSection from '@/components/CompanionsSection'
 import { screen } from '@/lib/screens'
 import { PLAY_STORE_URL } from '@/lib/site'
-import { publicPlansApi, type PublicPlans } from '@/lib/api'
+import { publicPlansApi, type PublicPlans, publicPromosApi } from '@/lib/api'
 import JsonLd from '@/components/JsonLd'
 import { graph, organizationSchema, websiteSchema, mobileAppSchema } from '@/lib/seo'
 import { pageMetadata } from '@/lib/seo-meta'
@@ -55,6 +55,23 @@ const FALLBACK_PLANS: PlanCard[] = [
 // Admin rows → what the card actually shows. Inactive plans are dropped and the
 // admin's own sort order decides the sequence, so reordering in the panel
 // reorders the landing page.
+/**
+ * The admin's own cards for this page.
+ *
+ * Fetched here rather than in a client component so a visitor sees the offer
+ * in the first paint — an offer that appears a second after the page does is
+ * an offer most people have already scrolled past. Failure renders nothing,
+ * because a marketing page with a broken strip on it is worse than one
+ * without the strip.
+ */
+async function websitePromos() {
+  try {
+    return (await publicPromosApi.list()).promos ?? []
+  } catch {
+    return []
+  }
+}
+
 function toPlanCards(res: PublicPlans): PlanCard[] {
   const rows = (res.plans ?? []).filter(p => p.is_active !== false)
   if (!rows.length) return FALLBACK_PLANS
@@ -86,7 +103,10 @@ const HIGHLIGHTS = [
 ]
 
 export default async function LandingPage() {
-  const plans = toPlanCards(await publicPlansApi.list())
+  const [plans, promos] = await Promise.all([
+    publicPlansApi.list().then(toPlanCards),
+    websitePromos(),
+  ])
 
   return (
     <div className="min-h-screen bg-white">
@@ -161,6 +181,48 @@ export default async function LandingPage() {
           <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
         </Link>
       </section>
+
+      {/* ── Admin offers ───────────────────────────────── */}
+      {promos.length > 0 && (
+        <section className="bg-[#FDF2F8] border-y border-pink-100">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {promos.map(p => {
+              const href = p.cta_type === 'url' && p.cta_value ? p.cta_value : null
+              const body = (
+                <>
+                  {p.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.image} alt="" className="h-40 w-full object-cover" />
+                  )}
+                  <div className="p-5">
+                    <h3 className="font-bold text-gray-900">{p.title}</h3>
+                    {p.body && <p className="mt-1 text-sm text-gray-600">{p.body}</p>}
+                    {href && p.cta_label && (
+                      <span className="mt-4 inline-flex items-center gap-2 rounded-full bg-pink-500 px-4 py-2 text-sm font-semibold text-white">
+                        {p.cta_label}
+                        <span aria-hidden="true">&rarr;</span>
+                      </span>
+                    )}
+                  </div>
+                </>
+              )
+
+              const shell = 'overflow-hidden rounded-2xl bg-white border border-pink-100 shadow-sm'
+
+              // A card with a link is a link; one without is not pretending
+              // to be clickable.
+              return href ? (
+                <a key={p.id} href={href} target="_blank" rel="noopener"
+                   className={`${shell} block transition-transform hover:scale-[1.02]`}>
+                  {body}
+                </a>
+              ) : (
+                <div key={p.id} className={shell}>{body}</div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section id="features" className="py-20 bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

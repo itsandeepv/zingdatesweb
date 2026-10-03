@@ -344,11 +344,25 @@ export type PromoCard = {
   cta_type: string
   cta_value: string | null
   audience: string
+  repeat_mode: string
   starts_at: string | null
   ends_at: string | null
   is_active: boolean
   sort_order: number
   status: 'live' | 'off' | 'scheduled' | 'expired'
+}
+
+/** The marketing site's own cards. No auth — the visitor has no account. */
+export const publicPromosApi = {
+  list: () => req<{ promos: Array<{
+    id: number
+    title: string
+    body: string | null
+    image: string | null
+    cta_label: string | null
+    cta_type: string
+    cta_value: string | null
+  }> }>('/public/promos'),
 }
 
 export const promosApi = {
@@ -358,6 +372,7 @@ export const promosApi = {
       placements: Record<string, string>
       actions: Record<string, string>
       audiences: Record<string, string>
+      repeats: Record<string, string>
     }>('/admin/promos', {}, token),
   create: (token: string, body: Record<string, unknown>) =>
     req<{ promo: PromoCard }>('/admin/promos', { method: 'POST', body: JSON.stringify(body) }, token),

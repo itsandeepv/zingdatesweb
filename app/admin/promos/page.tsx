@@ -22,6 +22,7 @@ type Draft = {
   cta_type: string
   cta_value: string
   audience: string
+  repeat_mode: string
   starts_at: string
   ends_at: string
   is_active: boolean
@@ -36,6 +37,7 @@ const emptyDraft: Draft = {
   cta_type: 'none',
   cta_value: '',
   audience: 'all',
+  repeat_mode: 'once',
   starts_at: '',
   ends_at: '',
   is_active: false,
@@ -65,6 +67,7 @@ export default function PromosPage() {
   const [placements, setPlacements] = useState<Record<string, string>>({})
   const [actions, setActions] = useState<Record<string, string>>({})
   const [audiences, setAudiences] = useState<Record<string, string>>({})
+  const [repeats, setRepeats] = useState<Record<string, string>>({})
   const [draft, setDraft] = useState<Draft>(emptyDraft)
   const [creating, setCreating] = useState(false)
 
@@ -77,6 +80,7 @@ export default function PromosPage() {
       setPlacements(res.placements ?? {})
       setActions(res.actions ?? {})
       setAudiences(res.audiences ?? {})
+      setRepeats(res.repeats ?? {})
     } catch {
       toast.error('Could not load promo cards')
     } finally {
@@ -178,6 +182,21 @@ export default function PromosPage() {
           </Field>
         </div>
 
+        {/* Only the popup interrupts, so only the popup needs a frequency.
+            Shown for it alone rather than greyed out everywhere else. */}
+        {draft.placement === 'popup' && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="How often it appears">
+              <Select value={draft.repeat_mode} onChange={v => setDraft({ ...draft, repeat_mode: v })} options={repeats} />
+            </Field>
+            <p className="self-end pb-2 text-xs text-gray-500">
+              A popup is the only card that interrupts. &ldquo;Once per person&rdquo; is the safe
+              choice &mdash; &ldquo;every time the app opens&rdquo; will teach people to close it
+              without reading it.
+            </p>
+          </div>
+        )}
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Headline">
             <Input value={draft.title} onChange={v => setDraft({ ...draft, title: v })} placeholder="Festive offer — 50% off" />
@@ -270,6 +289,16 @@ export default function PromosPage() {
                         onChange={v => patch(row, { ends_at: v || null })}
                       />
                     </Field>
+
+                    {row.placement === 'popup' && (
+                      <Field label="How often it appears">
+                        <Select
+                          value={row.repeat_mode || 'once'}
+                          onChange={v => patch(row, { repeat_mode: v })}
+                          options={repeats}
+                        />
+                      </Field>
+                    )}
                   </div>
                 </div>
 
