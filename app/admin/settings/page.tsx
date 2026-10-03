@@ -15,6 +15,7 @@ export default function SettingsPage() {
     app_name: 'ZingDates',
     support_email: '',
     max_photos: '6',
+    referral_reward_coins: '10',
     min_age: '18',
     max_age: '99',
     maintenance_mode: false,
@@ -34,6 +35,7 @@ export default function SettingsPage() {
         const s = res.data ?? res ?? {}
         // Numbers come back as numbers; the inputs hold strings.
         setForm(f => ({ ...f, ...s, max_photos: String(s.max_photos ?? f.max_photos), min_age: String(s.min_age ?? f.min_age), max_age: String(s.max_age ?? f.max_age),
+          referral_reward_coins: String(s.referral_reward_coins ?? f.referral_reward_coins),
           test_otp_code: String(s.test_otp_code ?? f.test_otp_code), test_phone_numbers: Array.isArray(s.test_phone_numbers) ? s.test_phone_numbers : [] }))
       } catch (err: any) {
         toast.error(err.message || 'Failed to load settings')
@@ -65,14 +67,19 @@ export default function SettingsPage() {
   async function handleSave(e: { preventDefault(): void }) {
     e.preventDefault()
     const minAge = Number(form.min_age), maxAge = Number(form.max_age), maxPhotos = Number(form.max_photos)
+    const referralCoins = Number(form.referral_reward_coins)
     if (minAge < 18) { toast.error('Minimum age cannot go below 18.'); return }
     if (maxAge < minAge) { toast.error('Maximum age must be at least the minimum age.'); return }
     if (maxPhotos < 1 || maxPhotos > 20) { toast.error('Max photos must be between 1 and 20.'); return }
+    if (!Number.isInteger(referralCoins) || referralCoins < 0) { toast.error('Referral coins must be 0 or more.'); return }
     if (!/^[0-9]{4,8}$/.test(form.test_otp_code)) { toast.error('Test OTP must be 4 to 8 digits.'); return }
     if (form.test_otp_enabled && form.test_phone_numbers.length === 0) { toast.error('Add at least one test number, or turn test OTP off.'); return }
     setSaving(true)
     try {
-      await settingsApi.update(token, { ...form, max_photos: maxPhotos, min_age: minAge, max_age: maxAge })
+      await settingsApi.update(token, {
+        ...form, max_photos: maxPhotos, min_age: minAge, max_age: maxAge,
+        referral_reward_coins: referralCoins,
+      })
       toast.success(form.maintenance_mode ? 'Settings saved — maintenance mode is ON, users cannot use the app' : 'Settings saved')
     } catch (err: any) {
       toast.error(err.message || 'Failed to save settings')
@@ -130,6 +137,32 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Maximum Age</label>
               <input type="number" min={18} max={120} value={form.max_age} onChange={e => set('max_age', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">Referrals</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Coins per referral</label>
+              <input type="number" min={0} max={10000} value={form.referral_reward_coins}
+                onChange={e => set('referral_reward_coins', e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-pink-200" />
+              <p className="text-[11px] text-gray-400 mt-1">
+                What the referrer earns. This one number is what the Refer &amp; Earn screen, the
+                plan popup and the &ldquo;you earned coins&rdquo; notification all quote, so changing
+                it here changes every one of them.
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="text-[11px] text-gray-500 leading-relaxed mt-7">
+                Paid once the referred user <strong>finishes setting up</strong> their profile &mdash; an
+                account abandoned at the OTP screen earns nobody anything &mdash; and only
+                <strong> once per device</strong>, so one phone cannot register account after account
+                against the same code. Set it to 0 to stop paying referrals without
+                hiding the feature.
+              </p>
             </div>
           </div>
         </div>
