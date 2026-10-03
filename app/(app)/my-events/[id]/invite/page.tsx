@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { toast } from 'sonner'
-import { userEventsApi } from '@/lib/api'
+import { peopleApi, userEventsApi } from '@/lib/api'
 import { useAuthStore } from '@/lib/store/auth'
 
 /**
@@ -38,6 +38,25 @@ export default function InvitePage() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [shared, setShared] = useState(false)
+  // Who the viewer tapped to look at. The website has no page of its own for
+  // another member, so this is a panel rather than a route — and deciding
+  // whether to invite someone almost always means looking at them first.
+  const [preview, setPreview] = useState<any | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  async function openProfile(uid: number) {
+    setPreview({ id: uid })
+    setPreviewLoading(true)
+    try {
+      const res = await peopleApi.get(token, uid)
+      setPreview(res.user ?? res.data ?? { id: uid })
+    } catch {
+      toast.error('Could not load that profile')
+      setPreview(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   const load = useCallback(async (q = '') => {
     if (!token) return
@@ -141,10 +160,22 @@ export default function InvitePage() {
                   onClick={() => !p.invited && toggle(p.id)}
                   disabled={p.invited}
                   className="flex w-full items-center gap-3 py-3 text-left disabled:opacity-60">
-                  {p.photo
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={p.photo} alt="" className="h-11 w-11 rounded-full object-cover" />
-                    : <div className="h-11 w-11 rounded-full bg-pink-100" />}
+                  {/* The photo opens the person; the rest of the row ticks
+                      the box. Nested buttons are invalid HTML, so this is a
+                      span that stops the row's click. */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={e => { e.stopPropagation(); openProfile(p.id) }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.stopPropagation(); openProfile(p.id) } }}
+                    aria-label={`View ${p.name}'s profile`}
+                    className="shrink-0 cursor-pointer rounded-full ring-pink-300 hover:ring-2"
+                  >
+                    {p.photo
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={p.photo} alt="" className="h-11 w-11 rounded-full object-cover" />
+                      : <div className="h-11 w-11 rounded-full bg-pink-100" />}
+                  </span>
 
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-semibold text-gray-900">{p.name}</span>
@@ -163,6 +194,42 @@ export default function InvitePage() {
             )
           })}
         </ul>
+      )}
+
+      {preview && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6"
+          onClick={() => setPreview(null)}>
+          <div className="w-full max-w-sm overflow-hidden rounded-t-2xl bg-white sm:rounded-2xl"
+            onClick={e => e.stopPropagation()}>
+            {previewLoading ? (
+              <p className="p-8 text-center text-sm text-gray-500">Loading…</p>
+            ) : (
+              <>
+                {preview.photo
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={preview.photo} alt="" className="h-64 w-full object-cover" />
+                  : <div className="h-64 w-full bg-gradient-to-br from-pink-100 to-purple-100" />}
+
+                <div className="p-5">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    {preview.name}{preview.age ? `, ${preview.age}` : ''}
+                  </h2>
+                  {(preview.city || preview.gender) && (
+                    <p className="mt-0.5 text-sm text-gray-500">
+                      {[preview.gender, preview.city].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  {preview.bio && <p className="mt-3 text-sm text-gray-600">{preview.bio}</p>}
+
+                  <button onClick={() => setPreview(null)}
+                    className="mt-5 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700">
+                    Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       {picked.size > 0 && (

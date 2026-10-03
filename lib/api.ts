@@ -353,6 +353,17 @@ export type PromoCard = {
 }
 
 /**
+ * Another member, as a signed-in user.
+ *
+ * Not `usersApi`, which is the admin's view of the same table and returns
+ * everything. This one answers with User::publicProfile() — no phone, no
+ * exact location, no wallet.
+ */
+export const peopleApi = {
+  get: (token: string, id: number | string) => req<any>(`/users/${id}`, {}, token),
+}
+
+/**
  * Events, as a signed-in user — the same endpoints the app uses.
  *
  * Separate from `eventsApi`, which is the admin's moderation view of the same
