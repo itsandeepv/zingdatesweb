@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -63,6 +63,13 @@ type EventDetail = {
   created_at: string | null
   participants: Participant[]
   reports: Report[]
+  // The promoted banner at the top of the app's Events screen. featured_at
+  // null means this event is not the one being promoted.
+  featured_at: string | null
+  featured_until: string | null
+  featured_image: string | null
+  featured_tagline: string | null
+  featured_badge: string | null
 }
 
 function StatusBadge({ status }: { status: EventStatus }) {
@@ -89,6 +96,132 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-1">{label}</p>
       <div className="text-sm text-gray-900">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * Promoting this event to the banner at the top of the app's Events screen.
+ *
+ * Only the artwork and two lines of copy are set here. The title, date, city
+ * and how many are going come from the event itself, so the banner cannot end
+ * up advertising something the event no longer is — and it stops showing by
+ * itself once the event is cancelled, starts, or the run ends.
+ */
+function FeaturePanel({ event, token, onChanged }: {
+  event: EventDetail; token: string; onChanged: () => void
+}) {
+  const live = !!event.featured_at
+  const [tagline, setTagline] = useState(event.featured_tagline ?? '')
+  const [badge, setBadge] = useState(event.featured_badge ?? '')
+  const [until, setUntil] = useState(event.featured_until?.slice(0, 16) ?? '')
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function run(fn: () => Promise<unknown>, done: string) {
+    setBusy(true)
+    try { await fn(); toast.success(done); onChanged() }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Could not save') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Events screen banner</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {live
+              ? 'This event is the banner at the top of the app right now.'
+              : 'Promote this event to the top of the app’s Events screen. Only one event shows at a time.'}
+          </p>
+        </div>
+        {live && (
+          <span className="shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-pink-100 text-pink-700">
+            Featured
+          </span>
+        )}
+      </div>
+
+      {event.featured_image && (
+        <div className="relative h-32 rounded-xl overflow-hidden mt-4 bg-[#2A1033]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.featured_image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          {/* The scrim the app lays over it, so the preview is honest about
+              how readable the copy will be on this photo. */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(90deg,rgba(26,6,32,0.92),rgba(60,12,58,0.70),rgba(60,12,58,0.28))' }} />
+          <div className="relative p-3">
+            <p className="text-white font-extrabold text-xl">{event.name}</p>
+            {tagline && <p className="text-white/90 text-xs font-semibold">{tagline}</p>}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+        <label className="block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tagline</span>
+          <input value={tagline} onChange={e => setTagline(e.target.value)} maxLength={80}
+            placeholder="Dance • Music • New People"
+            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" />
+        </label>
+        <label className="block">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Corner badge</span>
+          <input value={badge} onChange={e => setBadge(e.target.value)} maxLength={60}
+            placeholder="LIVE DJ · FOOD · GARBA"
+            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Stop showing after (optional)</span>
+          <input type="datetime-local" value={until} onChange={e => setUntil(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300" />
+          <span className="text-[11px] text-gray-400">
+            Leave blank and it runs until the event starts, or until you remove it.
+          </span>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mt-4">
+        <button
+          onClick={() => run(
+            () => eventsApi.setFeatured(token, event.id, {
+              featured: true, tagline, badge, until: until || null,
+            }),
+            live ? 'Banner updated' : 'Now showing on the Events screen',
+          )}
+          disabled={busy}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-pink-500 hover:bg-pink-600 text-white disabled:opacity-50">
+          {busy ? 'Saving…' : live ? 'Save banner' : 'Feature this event'}
+        </button>
+
+        <input ref={fileRef} type="file" accept="image/*" className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) run(() => eventsApi.setFeaturedImage(token, event.id, f), 'Banner image updated')
+            e.target.value = ''
+          }} />
+        <button onClick={() => fileRef.current?.click()} disabled={busy}
+          className="px-4 py-2 text-sm font-semibold rounded-lg border-2 border-pink-200 text-pink-600 hover:bg-pink-50 disabled:opacity-50">
+          {event.featured_image ? 'Replace image' : 'Upload image'}
+        </button>
+
+        {live && (
+          <button
+            onClick={() => run(
+              () => eventsApi.setFeatured(token, event.id, { featured: false }),
+              'Removed from the banner',
+            )}
+            disabled={busy}
+            className="ml-auto px-4 py-2 text-sm font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+            Remove from banner
+          </button>
+        )}
+      </div>
+
+      <p className="text-[11px] text-gray-400 mt-3">
+        Wide photo, around 1200×600. The copy sits on the left, so keep the busy part to the right.
+        No image uploaded means the event&apos;s own cover is used.
+      </p>
     </div>
   )
 }
@@ -343,6 +476,12 @@ export default function EventDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Only for an event that is actually live — promoting something nobody
+          can join is the one thing this panel must not make easy. */}
+      {event.status === 'published' && (
+        <FeaturePanel event={event} token={token} onChanged={load} />
+      )}
 
       {editing && (
         <div className="bg-white rounded-xl border border-pink-200 shadow-sm p-6 space-y-5">
