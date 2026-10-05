@@ -25,6 +25,8 @@ export interface ApiUser {
   status: UserStatus
   role: string
   gender?: string
+  /** Admin-granted permission to alter outgoing call audio from the website. */
+  voice_changer_enabled?: boolean
   // Two addresses, kept apart on purpose. `city`/`country`/`entered_*` are what
   // the member TYPED; `current_*` is where their phone last reported them, and
   // means nothing without `location_updated_at`. Mirrors the users table's

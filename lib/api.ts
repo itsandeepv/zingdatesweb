@@ -357,6 +357,19 @@ export const mediaApi = {
     req<any>('/admin/media-settings', { method: 'PUT', body: JSON.stringify(data) }, token),
 }
 
+/* ─── Admin: voice changer permissions ────────────────────────── */
+// Who may apply a voice effect to their outgoing web calls. The server is the
+// authority — this only grants the permission; it re-checks on every call.
+export const voiceChangerApi = {
+  list: (token: string) => req<any>('/admin/voice-changer/users', {}, token),
+  enable: (token: string, userId: number) =>
+    req<any>(`/admin/voice-changer/${userId}/enable`, { method: 'POST' }, token),
+  disable: (token: string, userId: number) =>
+    req<any>(`/admin/voice-changer/${userId}/disable`, { method: 'POST' }, token),
+  logs: (token: string, userId: number) =>
+    req<any>(`/admin/voice-changer/${userId}/logs`, {}, token),
+}
+
 /* ─── Admin Events ────────────────────────────────────────────── */
 /**
  * Admin > Promo cards — the offer / ad cards shown inside the app.

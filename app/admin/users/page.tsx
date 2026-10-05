@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { usersApi, attentionApi, type PresenceMode } from '@/lib/api'
+import { usersApi, attentionApi, voiceChangerApi, type PresenceMode } from '@/lib/api'
 import GrantPlanModal from '@/components/admin/GrantPlanModal'
 import { useAuthStore } from '@/lib/store/auth'
 import {
@@ -61,6 +61,38 @@ function ActionsMenu({
 }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [confirmVoice, setConfirmVoice] = useState(false)
+
+  const voiceOn = !!user.voice_changer_enabled
+
+  /**
+   * Grant or revoke permission to alter outgoing call audio.
+   *
+   * Granting is confirmed explicitly because it changes what another person
+   * hears on a call. The callee is always shown a "Voice effect ON" badge, and
+   * the server refuses the effect outright against any app build too old to
+   * display it — so this permission can never make an undisclosed call.
+   */
+  async function toggleVoiceChanger() {
+    setConfirmVoice(false)
+    if (busy) return
+    setBusy(true)
+    try {
+      if (voiceOn) await voiceChangerApi.disable(token, user.id)
+      else         await voiceChangerApi.enable(token, user.id)
+      toast.success(voiceOn
+        ? `Voice changer disabled for ${user.name}.`
+        : `Voice changer enabled for ${user.name}.`)
+      onRefresh()
+    } catch (err: any) {
+      // 409 = the global kill switch (VOICE_CHANGER_ENABLED) is off.
+      toast.error(err?.status === 409
+        ? 'The voice changer is switched off globally. Enable VOICE_CHANGER_ENABLED first.'
+        : (err?.message ?? 'Could not change that permission.'))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function handleAction(action: 'verify' | 'suspend' | 'unsuspend' | 'delete') {
     setOpen(false)
@@ -128,6 +160,19 @@ function ActionsMenu({
               Edit User
             </button>
 
+            {/* Voice changer permission */}
+            <button
+              onClick={() => { setOpen(false); setConfirmVoice(true) }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-gray-50 text-left text-gray-700"
+            >
+              <svg className={`w-3.5 h-3.5 flex-shrink-0 ${voiceOn ? 'text-amber-500' : 'text-gray-400'}`}
+                   fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+              {voiceOn ? 'Disable voice changer' : 'Enable voice changer'}
+            </button>
+
             {/* Give plan */}
             <button
               onClick={() => { setOpen(false); onPlan(user) }}
@@ -189,6 +234,57 @@ function ActionsMenu({
               </svg>
               Delete User
             </button>
+          </div>
+        </>
+      )}
+
+      {/* Voice changer confirmation — spelled out, because this changes what
+          the person on the other end of a call hears. */}
+      {confirmVoice && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setConfirmVoice(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setConfirmVoice(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 text-left" onClick={e => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {voiceOn ? 'Disable voice changer?' : 'Enable voice changer?'}
+              </h3>
+
+              {voiceOn ? (
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  <strong className="text-gray-700">{user.name}</strong> will no longer be able to
+                  apply a voice effect on calls from the website. Any call already running loses it
+                  at the next toggle.
+                </p>
+              ) : (
+                <div className="text-sm text-gray-500 leading-relaxed space-y-2">
+                  <p>
+                    <strong className="text-gray-700">{user.name}</strong> will be able to alter their
+                    own voice on outgoing calls from the website.
+                  </p>
+                  <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-amber-800 text-xs leading-relaxed">
+                    The person they call always sees a <strong>&ldquo;Voice effect ON&rdquo;</strong> badge
+                    while it is active, on both the incoming-call and in-call screens. If their app is
+                    too old to show that badge, the server refuses the effect for that call. Every
+                    period it is on is logged.
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setConfirmVoice(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button
+                  onClick={toggleVoiceChanger}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white ${
+                    voiceOn ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
+                  }`}>
+                  {voiceOn ? 'Disable' : 'Enable'}
+                </button>
+              </div>
+            </div>
           </div>
         </>
       )}
