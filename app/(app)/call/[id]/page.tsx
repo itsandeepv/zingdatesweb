@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { callApi } from '@/lib/api'
+import { callApi, meApi } from '@/lib/api'
+import type { VoiceProcessor } from '@/lib/voice/voiceProcessor'
 import { useAuthStore } from '@/lib/store/auth'
 import { triggerPlanModal } from '@/components/NoPlanModal'
 
@@ -48,6 +49,11 @@ export default function CallPage() {
   const [isMuted, setIsMuted] = useState(false)
   const [isCamOff, setIsCamOff] = useState(false)
   const [otherMuted, setOtherMuted] = useState(false)
+  // Whether THIS call may use the effect at all. The server answers on
+  // initiate; the client never decides for itself.
+  const [voiceAllowed, setVoiceAllowed] = useState(false)
+  const [voiceOn, setVoiceOn] = useState(false)
+  const [voiceBusy, setVoiceBusy] = useState(false)
   const [duration, setDuration] = useState(0)
   const [statusText, setStatusText] = useState('Connecting…')
 
@@ -66,10 +72,15 @@ export default function CallPage() {
   // addIceCandidate() throws before a remote description exists, so hold them.
   const pendingIceRef = useRef<any[]>([])
   const durationValRef = useRef(0)
+  const voiceProcRef = useRef<VoiceProcessor | null>(null)
+  const audioSenderRef = useRef<RTCRtpSender | null>(null)
+  const semitonesRef = useRef(5)
 
   const cleanup = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
     if (durationRef.current) clearInterval(durationRef.current)
+    voiceProcRef.current?.dispose()
+    voiceProcRef.current = null
     localStreamRef.current?.getTracks().forEach(t => t.stop())
     pcRef.current?.close()
     pcRef.current = null
@@ -128,7 +139,12 @@ export default function CallPage() {
 
   function createPC(stream: MediaStream) {
     const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
-    stream.getTracks().forEach(t => pc.addTrack(t, stream))
+    stream.getTracks().forEach(t => {
+      const sender = pc.addTrack(t, stream)
+      // Held so the effect can be swapped in and out with replaceTrack(),
+      // which needs no renegotiation and so cannot interrupt the call.
+      if (t.kind === 'audio') audioSenderRef.current = sender
+    })
 
     pc.ontrack = (e) => {
       if (remoteVideoRef.current && e.streams[0]) {
@@ -183,6 +199,18 @@ export default function CallPage() {
     setOtherUser(call.receiver ?? null)
 
     await callApi.sendOffer(token!, call.id, { type: offer.type, sdp: offer.sdp! })
+
+    // The toggle exists only when the server authorised it for THIS call --
+    // kill switch on, admin grant held, and the callee's app able to show the
+    // disclosure badge. Anything else and the control never appears.
+    if (res?.voice_effect_allowed) {
+      try {
+        const f = await meApi.features(token!)
+        semitonesRef.current = f.voice_changer_semitones ?? 5
+      } catch { /* the default shift is fine */ }
+      setVoiceAllowed(true)
+    }
+
     startSignalingPoll(call.id)
   }
 
@@ -308,6 +336,56 @@ export default function CallPage() {
     }
   }
 
+  /**
+   * Swap the outgoing audio track between the raw mic and a pitch-shifted one.
+   *
+   * The server is told first: if it refuses -- permission revoked mid-call, or
+   * the kill switch thrown -- nothing is swapped and the caller keeps sending
+   * their own voice. The effect is never audible without the callee's badge,
+   * which they render from the same server state.
+   */
+  async function toggleVoiceEffect() {
+    const sender = audioSenderRef.current
+    const stream = localStreamRef.current
+    if (!sender || !stream || !callIdRef.current || voiceBusy) return
+
+    const next = !voiceOn
+    setVoiceBusy(true)
+    try {
+      await callApi.voiceEffect(token!, callIdRef.current, next)
+
+      if (next) {
+        const { createVoiceProcessor } = await import('@/lib/voice/voiceProcessor')
+        const proc = await createVoiceProcessor(stream, semitonesRef.current)
+        voiceProcRef.current = proc
+        await sender.replaceTrack(proc.track)
+        if (!proc.active) {
+          // Processing failed and we are sending the raw mic. Say so, and tell
+          // the server, so the callee is not shown a badge for nothing.
+          toast.error('Voice effect could not start — sending your normal voice')
+          await callApi.voiceEffect(token!, callIdRef.current, false).catch(() => {})
+          setVoiceOn(false)
+          return
+        }
+        setVoiceOn(true)
+      } else {
+        const [mic] = stream.getAudioTracks()
+        if (mic) await sender.replaceTrack(mic)
+        await voiceProcRef.current?.dispose()
+        voiceProcRef.current = null
+        setVoiceOn(false)
+      }
+    } catch (err) {
+      const e = err as { status?: number }
+      toast.error(e?.status === 403
+        ? 'Voice effect is not available on this call'
+        : 'Could not change the voice effect')
+      setVoiceOn(false)
+    } finally {
+      setVoiceBusy(false)
+    }
+  }
+
   function toggleCamera() {
     const stream = localStreamRef.current
     if (!stream) return
@@ -361,6 +439,15 @@ export default function CallPage() {
           <p className="text-white/70 text-sm mt-1 capitalize">
             {status === 'connected' ? formatDuration(duration) : statusText}
           </p>
+          {voiceOn && (
+            <p className="text-amber-300 text-xs mt-2 flex items-center justify-center gap-1.5 font-semibold">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 23h8" />
+              </svg>
+              Voice effect ON — {otherName} can see this
+            </p>
+          )}
           {status === 'connected' && otherMuted && (
             <p className="text-white/60 text-xs mt-1 flex items-center justify-center gap-1.5">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -440,6 +527,26 @@ export default function CallPage() {
               <path d="M10.68 13.31a16 16 0 003.41 2.6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7 2 2 0 011.72 2v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.42 19.42 0 013.43 9.19 19.79 19.79 0 01.36 2.56 2 2 0 012 .18 2 2 0 014.18 2v3a2 2 0 001.72 2 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L4.88 13.19a16 16 0 005.8.12z" transform="rotate(135 12 12)" />
             </svg>
           </button>
+
+          {/* Voice effect — only when the server authorised it for this call */}
+          {voiceAllowed && (
+            <button
+              onClick={toggleVoiceEffect}
+              disabled={voiceBusy}
+              title={voiceOn ? 'Turn the voice effect off' : 'Turn the voice effect on'}
+              className={`w-14 h-14 rounded-full flex items-center justify-center transition-all disabled:opacity-50 ${
+                voiceOn ? 'bg-amber-500' : 'bg-white/20 hover:bg-white/30'
+              }`}>
+              {voiceBusy ? (
+                <span className="w-5 h-5 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 23h8" />
+                </svg>
+              )}
+            </button>
+          )}
 
           {/* Camera toggle (video only) */}
           {isVideo ? (

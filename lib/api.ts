@@ -1171,6 +1171,17 @@ export const podcastAdminApi = {
 /* ─── Me (Current User) ───────────────────────────────── */
 export const meApi = {
   profile: (token: string) => req<any>('/profile', {}, token),
+  /**
+   * Per-user feature flags. Only a hint for the UI — the server decides again
+   * at call time, so a tampered response cannot unlock anything.
+   */
+  features: async (token: string) => {
+    const res = await req<any>('/me/features', {}, token)
+    return (res?.features ?? {}) as {
+      voice_changer?: boolean
+      voice_changer_semitones?: number
+    }
+  },
   update: (token: string, data: Record<string, any>) =>
     req<any>('/profile', { method: 'PUT', body: JSON.stringify(data) }, token),
   uploadPhoto: async (token: string, formData: FormData) => {
@@ -1318,6 +1329,12 @@ export const callApi = {
    */
   signaling: (token: string, callId: number, iceAfter = -1) =>
     req<any>(`/calls/${callId}/signaling?ice_after=${iceAfter}`, {}, token),
+  /**
+   * Turn the caller's voice effect on or off mid-call. The server re-checks
+   * permission on every call to this, and logs each window it is on.
+   */
+  voiceEffect: (token: string, callId: number, active: boolean) =>
+    req<any>(`/calls/${callId}/voice-effect`, { method: 'POST', body: JSON.stringify({ active }) }, token),
   mute: (token: string, callId: number, muted: boolean) =>
     req<any>(`/calls/${callId}/mute`, { method: 'POST', body: JSON.stringify({ muted }) }, token),
   camera: (token: string, callId: number, cameraOff: boolean) =>
