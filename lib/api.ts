@@ -1180,6 +1180,7 @@ export const meApi = {
     return (res?.features ?? {}) as {
       voice_changer?: boolean
       voice_changer_semitones?: number
+      voice_changer_formant_ratio?: number
     }
   },
   update: (token: string, data: Record<string, any>) =>

@@ -118,7 +118,9 @@ export default function CallPage() {
   const pollFailuresRef = useRef(0)
   const voiceProcRef = useRef<VoiceProcessor | null>(null)
   const audioSenderRef = useRef<RTCRtpSender | null>(null)
-  const semitonesRef = useRef(5)
+  // Tuning comes from the server at call time, so pitch and formant shaping
+  // can be adjusted by ear without rebuilding the site.
+  const voiceTuneRef = useRef({ semitones: 9, formantRatio: 0.6 })
 
   const cleanup = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -278,7 +280,10 @@ export default function CallPage() {
     if (res?.voice_effect_allowed) {
       try {
         const f = await meApi.features(token!)
-        semitonesRef.current = f.voice_changer_semitones ?? 5
+        voiceTuneRef.current = {
+          semitones: f.voice_changer_semitones ?? 9,
+          formantRatio: f.voice_changer_formant_ratio ?? 0.6,
+        }
       } catch { /* the default shift is fine */ }
       setVoiceAllowed(true)
     }
@@ -455,7 +460,7 @@ export default function CallPage() {
 
       if (next) {
         const { createVoiceProcessor } = await import('@/lib/voice/voiceProcessor')
-        const proc = await createVoiceProcessor(stream, semitonesRef.current)
+        const proc = await createVoiceProcessor(stream, voiceTuneRef.current)
         voiceProcRef.current = proc
         await sender.replaceTrack(proc.track)
         if (!proc.active) {

@@ -1,15 +1,24 @@
 /**
- * Pitch-shifts an outgoing microphone stream for web calls.
+ * Male-to-female voice shaping for outgoing web calls.
  *
  * Browser-only: it touches AudioContext and MediaStream, so it must never be
  * imported at module scope from a server component — load it with a dynamic
  * import inside the call UI.
  *
+ * Two stages, because voice gender is two things, not one:
+ *
+ *   mic → PitchShift(+semitones) → formant-shifter(ratio) → outgoing track
+ *
+ * A pitch shifter alone raises the fundamental AND the vocal-tract resonances
+ * by the same factor, which is the chipmunk effect — a sped-up tape, not a
+ * different person. A male-to-female shift wants F0 up a lot (~1.7x, roughly
+ * 120 Hz to 210 Hz) and formants up only a little (~1.2x). So stage one raises
+ * everything and stage two pulls the formants back down by the remainder.
+ *
  * The contract is deliberately forgiving. A call is more important than an
  * effect, so every failure path returns the untouched microphone track rather
  * than throwing. It does NOT fail silently though: `reason` carries what went
- * wrong so the UI can say it out loud, because a generic "could not start" is
- * unfixable from a bug report.
+ * wrong so the UI can say it out loud.
  */
 
 export interface VoiceProcessor {
@@ -23,6 +32,24 @@ export interface VoiceProcessor {
   dispose: () => Promise<void>
 }
 
+export interface VoiceOptions {
+  /** How far to raise pitch. ~9 puts a male fundamental in a female range. */
+  semitones?: number
+  /**
+   * Formant correction applied AFTER the pitch shift. Below 1 pulls the
+   * resonances back down; 1 leaves the chipmunk effect in place.
+   *
+   * Measured, not guessed: driving a single spectral bump through the worklet
+   * shows the shift is compressive and saturates near 0.62x down and 1.33x up,
+   * so asking for more than that achieves nothing. 0.6 lands around 0.71x in
+   * practice, which against a 1.68x pitch shift leaves formants near 1.2x —
+   * the male-to-female target.
+   */
+  formantRatio?: number
+}
+
+const WORKLET_URL = '/worklets/formant-shifter.js'
+
 /** A no-op processor wrapping the unmodified microphone. */
 function passthrough(track: MediaStreamTrack, reason: string): VoiceProcessor {
   return { track, active: false, reason, dispose: async () => {} }
@@ -34,20 +61,17 @@ function describe(err: unknown): string {
   return e?.message || String(err)
 }
 
-/**
- * Build a pitch-shifted track from `source`.
- *
- * `semitones` is how far up to shift; +5 lands a typical male range inside a
- * typical female one. The source stream is left running and is NOT stopped by
- * dispose() — it belongs to the caller, which still needs it for the raw track.
- */
 export async function createVoiceProcessor(
   source: MediaStream,
-  semitones = 5,
+  options: VoiceOptions | number = {},
 ): Promise<VoiceProcessor> {
+  // Older call sites passed a bare semitone count.
+  const opts: VoiceOptions = typeof options === 'number' ? { semitones: options } : options
+  const semitones = opts.semitones ?? 9
+  const formantRatio = opts.formantRatio ?? 0.6
+
   const [micTrack] = source.getAudioTracks()
   if (!micTrack) {
-    // No microphone at all — nothing to process and nothing to send.
     throw new Error('No audio track on the source stream')
   }
 
@@ -57,6 +81,8 @@ export async function createVoiceProcessor(
   } catch (err) {
     return passthrough(micTrack, `audio library failed to load (${describe(err)})`)
   }
+
+  const cleanup: Array<() => void> = []
 
   try {
     // Tone's context starts suspended and only a user gesture may resume it.
@@ -78,6 +104,8 @@ export async function createVoiceProcessor(
 
     const input = ctx.createMediaStreamSource(source)
     const destination = ctx.createMediaStreamDestination()
+    cleanup.push(() => { try { input.disconnect() } catch {} })
+    cleanup.push(() => { try { destination.disconnect() } catch {} })
 
     const shift = new Tone.PitchShift({
       pitch: semitones,
@@ -85,14 +113,35 @@ export async function createVoiceProcessor(
       // it introduces are far less disruptive on a call than lag.
       windowSize: 0.05,
     })
+    cleanup.push(() => { try { shift.disconnect(); shift.dispose() } catch {} })
+
+    // The formant stage is the part that makes it a voice rather than a
+    // chipmunk, but it is also the part most likely to be unavailable (no
+    // AudioWorklet, worklet file missing after a bad deploy). Losing it is
+    // worth a warning, not a dead toggle, so the chain falls back to pitch
+    // only rather than refusing to run.
+    let formant: AudioWorkletNode | null = null
+    try {
+      await ctx.addAudioWorkletModule(WORKLET_URL)
+      formant = ctx.createAudioWorkletNode('formant-shifter')
+      formant.parameters.get('ratio')!.value = formantRatio
+      cleanup.push(() => { try { formant!.disconnect() } catch {} })
+    } catch (err) {
+      console.warn('[voice] formant stage unavailable, pitch only', err)
+    }
 
     // Tone nodes sit on Tone's own graph, so bridge in and out of raw WebAudio.
     Tone.connect(input, shift)
-    Tone.connect(shift, destination)
+    if (formant) {
+      Tone.connect(shift, formant)
+      Tone.connect(formant, destination)
+    } else {
+      Tone.connect(shift, destination)
+    }
 
     const [outTrack] = destination.stream.getAudioTracks()
     if (!outTrack) {
-      try { shift.dispose() } catch {}
+      cleanup.forEach(fn => fn())
       return passthrough(micTrack, 'the processed stream produced no audio track')
     }
 
@@ -103,15 +152,14 @@ export async function createVoiceProcessor(
       dispose: async () => {
         if (disposed) return
         disposed = true
-        try { shift.disconnect(); shift.dispose() } catch {}
-        try { input.disconnect() } catch {}
-        try { destination.disconnect() } catch {}
+        cleanup.forEach(fn => fn())
         // The mic track is the caller's — only the processed one is ours.
         try { outTrack.stop() } catch {}
       },
     }
   } catch (err) {
-    console.warn('[voice] pitch shift unavailable, sending the raw mic', err)
+    cleanup.forEach(fn => fn())
+    console.warn('[voice] voice shaping unavailable, sending the raw mic', err)
     return passthrough(micTrack, describe(err))
   }
 }
