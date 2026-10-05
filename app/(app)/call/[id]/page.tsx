@@ -291,6 +291,14 @@ export default function CallPage() {
         }
 
         if (typeof res.is_other_muted === 'boolean') setOtherMuted(res.is_other_muted)
+
+        // Disclosure for a web callee. The capability flag is per account, not
+        // per device: a user who also has the app is marked badge-capable, so
+        // the server authorises the effect even when they answer here. Without
+        // this they would hear an altered voice with nothing telling them so.
+        if (role === 'callee' && typeof res.voice_effect_active === 'boolean') {
+          setVoiceOn(res.voice_effect_active)
+        }
       } catch {
         // A dropped poll is normal on a flaky network — the next tick retries.
       }
@@ -445,7 +453,9 @@ export default function CallPage() {
                 <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                 <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 23h8" />
               </svg>
-              Voice effect ON — {otherName} can see this
+              {role === 'caller'
+                ? `Voice effect ON — ${otherName} can see this`
+                : `${otherName} is changing how their voice sounds`}
             </p>
           )}
           {status === 'connected' && otherMuted && (

@@ -367,6 +367,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="text-center">
                 <p className="font-bold text-gray-900 text-xl">{incomingCall.caller?.name ?? 'Unknown'}</p>
                 <p className="text-sm text-gray-500 mt-1 capitalize">{incomingCall.type} call incoming…</p>
+                {/* Disclosure before answering, same as the app's ringing
+                    screen. Optional field — older servers omit it and nothing
+                    is shown. */}
+                {incomingCall.voice_effect_active && (
+                  <p className="mt-2 inline-flex items-center gap-1.5 bg-amber-100 text-amber-800 text-[11px] font-bold px-2.5 py-1 rounded-full">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 23h8" />
+                    </svg>
+                    Voice effect ON
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-4">
