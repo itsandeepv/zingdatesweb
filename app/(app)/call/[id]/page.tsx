@@ -423,9 +423,16 @@ export default function CallPage() {
         voiceProcRef.current = proc
         await sender.replaceTrack(proc.track)
         if (!proc.active) {
-          // Processing failed and we are sending the raw mic. Say so, and tell
-          // the server, so the callee is not shown a badge for nothing.
-          toast.error('Voice effect could not start — sending your normal voice')
+          // Processing failed and we are sending the raw mic. Name the reason
+          // rather than a generic failure -- a silent "could not start" is not
+          // something anyone can act on. Also tell the server, so the callee is
+          // not shown a badge for an effect that is not running.
+          console.warn('[voice] effect unavailable:', proc.reason)
+          toast.error(
+            proc.reason
+              ? `Voice effect unavailable — ${proc.reason}`
+              : 'Voice effect could not start — sending your normal voice',
+          )
           await callApi.voiceEffect(token!, callIdRef.current, false).catch(() => {})
           setVoiceOn(false)
           return

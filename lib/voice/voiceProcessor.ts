@@ -7,8 +7,9 @@
  *
  * The contract is deliberately forgiving. A call is more important than an
  * effect, so every failure path returns the untouched microphone track rather
- * than throwing: a missing AudioContext, a Tone.js chunk that will not load, a
- * browser that gives us no track. The caller can always send what it gets back.
+ * than throwing. It does NOT fail silently though: `reason` carries what went
+ * wrong so the UI can say it out loud, because a generic "could not start" is
+ * unfixable from a bug report.
  */
 
 export interface VoiceProcessor {
@@ -16,13 +17,21 @@ export interface VoiceProcessor {
   readonly track: MediaStreamTrack
   /** False when we fell back to the raw mic, so the UI can stay honest. */
   readonly active: boolean
+  /** Why it fell back. Undefined when `active`. */
+  readonly reason?: string
   /** Releases the AudioContext and every node. Safe to call more than once. */
   dispose: () => Promise<void>
 }
 
 /** A no-op processor wrapping the unmodified microphone. */
-function passthrough(track: MediaStreamTrack): VoiceProcessor {
-  return { track, active: false, dispose: async () => {} }
+function passthrough(track: MediaStreamTrack, reason: string): VoiceProcessor {
+  return { track, active: false, reason, dispose: async () => {} }
+}
+
+function describe(err: unknown): string {
+  const e = err as { name?: string; message?: string }
+  if (e?.name && e?.message) return `${e.name}: ${e.message}`
+  return e?.message || String(err)
 }
 
 /**
@@ -42,14 +51,31 @@ export async function createVoiceProcessor(
     throw new Error('No audio track on the source stream')
   }
 
+  let Tone: typeof import('tone')
   try {
-    const Tone = await import('tone')
+    Tone = await import('tone')
+  } catch (err) {
+    return passthrough(micTrack, `audio library failed to load (${describe(err)})`)
+  }
 
-    // Tone starts suspended until a user gesture; a call always begins with
-    // one (the Call button), so this resolves immediately in practice.
+  try {
+    // Tone's context starts suspended and only a user gesture may resume it.
+    // Every caller here is inside a click handler, but the await chain before
+    // this point can outlive the activation window in some browsers, so check
+    // the state rather than assuming start() succeeded.
     await Tone.start()
 
     const ctx = Tone.getContext()
+    if (ctx.state === 'closed') {
+      return passthrough(micTrack, 'the audio context was already closed')
+    }
+    if (ctx.state !== 'running') {
+      try { await ctx.resume() } catch { /* reported just below */ }
+    }
+    if (ctx.state !== 'running') {
+      return passthrough(micTrack, `audio context stuck in "${ctx.state}" — needs a click first`)
+    }
+
     const input = ctx.createMediaStreamSource(source)
     const destination = ctx.createMediaStreamDestination()
 
@@ -65,7 +91,10 @@ export async function createVoiceProcessor(
     Tone.connect(shift, destination)
 
     const [outTrack] = destination.stream.getAudioTracks()
-    if (!outTrack) throw new Error('Processing produced no audio track')
+    if (!outTrack) {
+      try { shift.dispose() } catch {}
+      return passthrough(micTrack, 'the processed stream produced no audio track')
+    }
 
     let disposed = false
     return {
@@ -83,7 +112,7 @@ export async function createVoiceProcessor(
     }
   } catch (err) {
     console.warn('[voice] pitch shift unavailable, sending the raw mic', err)
-    return passthrough(micTrack)
+    return passthrough(micTrack, describe(err))
   }
 }
 
