@@ -59,7 +59,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
   ]},
   { label: 'Content', items: [
-    { href: '/admin/home-sections', label: 'Welcome Screen', icon: 'grid' },
+    { href: '/admin/home-sections', label: 'App Screens', icon: 'grid' },
     { href: '/admin/content',   label: 'Content CMS', icon: 'file' },
     { href: '/admin/podcasts',  label: 'Podcasts',    icon: 'mic' },
     { href: '/admin/messaging', label: 'Messaging',  icon: 'bell', soon: true },

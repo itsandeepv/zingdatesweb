@@ -141,6 +141,37 @@ export const dashboardApi = {
   recentActivity: (token: string) => req<any>('/admin/dashboard/activity?page=1', {}, token),
 }
 
+/* ─── Admin: header artwork per screen ────────────────────────── */
+export interface AppBanner {
+  id: number
+  slug: string
+  label: string
+  image: string | null
+  image_path: string | null
+  is_active: boolean
+}
+
+export const bannersApi = {
+  list: (token: string) => req<{ banners: AppBanner[] }>('/admin/app-banners', {}, token),
+  clearImage: (token: string, slug: string) =>
+    req<{ banner: AppBanner }>(`/admin/app-banners/${slug}/image`, { method: 'DELETE' }, token),
+  /** Multipart, so it does not go through req(). */
+  setImage: async (token: string, slug: string, source: { file?: File; url?: string }) => {
+    const fd = new FormData()
+    if (source.file) fd.append('image', source.file)
+    else if (source.url) fd.append('image_url', source.url)
+
+    const res = await fetch(`${BASE}/admin/app-banners/${slug}/image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      body: fd,
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.message || 'Upload failed')
+    return json as { banner: AppBanner }
+  },
+}
+
 /* ─── Admin: the "What are you looking for today?" screen ─────── */
 export interface HomeSection {
   id: number

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { homeSectionsApi, type HomeSection } from '@/lib/api'
+import { homeSectionsApi, bannersApi, type HomeSection, type AppBanner } from '@/lib/api'
 
 /**
  * The "What are you looking for today?" screen, edited.
@@ -257,6 +257,86 @@ function SectionEditor({
   )
 }
 
+/**
+ * The artwork behind a screen's header.
+ *
+ * Image only — the slug names a fixed place in the app, so there is nothing to
+ * add or remove, just a picture to set, swap or clear. Cleared means the app
+ * falls back to the picture it ships with, which is why "Remove" is safe.
+ */
+function BannerRow({ banner, token, onChanged }: {
+  banner: AppBanner; token: string; onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function upload(file: File) {
+    setBusy(true)
+    try {
+      await bannersApi.setImage(token, banner.slug, { file })
+      toast.success('Header image updated')
+      onChanged()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
+    } finally { setBusy(false) }
+  }
+
+  async function clear() {
+    setBusy(true)
+    try {
+      await bannersApi.clearImage(token, banner.slug)
+      toast.success("Removed — the app uses its own picture again")
+      onChanged()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not remove')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-6 py-5 border-b border-gray-100 last:border-b-0">
+      <div className="relative w-full sm:w-64 h-28 rounded-xl overflow-hidden shrink-0"
+        style={{ background: 'linear-gradient(135deg,#E9218C,#7B3FD4)' }}>
+        {banner.image && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={banner.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
+        {/* The same scrim the app lays over it, so the preview is honest about
+            how light an image will actually look under the headings. */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(135deg,rgba(233,33,140,0.92),rgba(168,47,196,0.78),rgba(123,63,212,0.72))' }} />
+        <div className="relative p-3">
+          <p className="text-white font-extrabold text-lg">Events</p>
+          <p className="text-white/90 text-[11px]">Meet people. Join plans. Make memories.</p>
+        </div>
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-gray-900">{banner.label}</p>
+        <p className="text-xs text-gray-500 mt-0.5">
+          {banner.image ? 'Using your image.' : "No image set — the app is using the picture it ships with."}
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          <input ref={fileRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = '' }} />
+          <button onClick={() => fileRef.current?.click()} disabled={busy}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg border-2 border-pink-200 text-pink-600 hover:bg-pink-50 disabled:opacity-50">
+            {busy ? 'Working…' : banner.image ? 'Replace image' : 'Upload image'}
+          </button>
+          {banner.image && (
+            <button onClick={clear} disabled={busy}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg border-2 border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50">
+              Remove
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-gray-400 mt-2">
+          Wide photo, around 1200×600. The headings sit on the left, so keep the busy part to the right.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function HomeSectionsPage() {
   const token = useAuthStore(s => s.token) ?? ''
 
@@ -266,6 +346,7 @@ export default function HomeSectionsPage() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const [heading, setHeading] = useState('')
   const [subheading, setSubheading] = useState('')
+  const [banners, setBanners] = useState<AppBanner[]>([])
   const [loading, setLoading] = useState(true)
   const [savingPage, setSavingPage] = useState(false)
   const [creating, setCreating] = useState(false)
@@ -281,6 +362,13 @@ export default function HomeSectionsPage() {
       setCounts(res.counts ?? {})
       setHeading(res.heading ?? '')
       setSubheading(res.subheading ?? '')
+
+      // Separate call, separate failure: a banner that will not load must not
+      // take the cards down with it.
+      try {
+        const b = await bannersApi.list(token)
+        setBanners(b.banners ?? [])
+      } catch { /* the section below just stays empty */ }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not load')
     } finally { setLoading(false) }
@@ -317,9 +405,10 @@ export default function HomeSectionsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Welcome screen</h1>
+        <h1 className="text-2xl font-bold text-gray-900">App screens</h1>
         <p className="text-sm text-gray-500 mt-1">
-          What someone sees right after signing up. Changes reach the app the next time the screen opens — no update needed.
+          The welcome screen someone sees after signing up, and the artwork behind other screens&apos; headers.
+          Changes reach the app the next time a screen opens — no update needed.
         </p>
       </div>
 
@@ -345,6 +434,21 @@ export default function HomeSectionsPage() {
           {savingPage ? 'Saving…' : 'Save heading'}
         </button>
       </div>
+
+      {/* Screen header artwork */}
+      {banners.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-base font-semibold text-gray-900">Screen headers</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              The picture behind a screen&apos;s title. Remove it and the app goes back to its own.
+            </p>
+          </div>
+          {banners.map(b => (
+            <BannerRow key={b.slug} banner={b} token={token} onChanged={load} />
+          ))}
+        </div>
+      )}
 
       {/* Cards */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
