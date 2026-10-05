@@ -15,6 +15,33 @@ const FALLBACK_ICE: RTCIceServer[] = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ]
 
+/** stun:/turn:/turns: host, optional port, optional single transport query. */
+const ICE_URL_RE = /^(stuns?|turns?):[^\s:?/]+(:\d{1,5})?(\?transport=(udp|tcp))?$/i
+
+/**
+ * Drop ICE entries the browser would reject.
+ *
+ * RTCPeerConnection refuses the WHOLE list if any single URL is malformed --
+ * one bad TURN entry from the server and no call can start at all, which is
+ * exactly what "ICE server parsing failed: Invalid port" was. Filtering here
+ * means a misconfigured TURN costs us the relay, not the feature.
+ */
+function sanitizeIceServers(servers: RTCIceServer[]): RTCIceServer[] {
+  const clean: RTCIceServer[] = []
+
+  for (const srv of servers ?? []) {
+    const urls = (Array.isArray(srv?.urls) ? srv.urls : [srv?.urls]).filter(
+      (u): u is string => typeof u === 'string' && ICE_URL_RE.test(u.trim()),
+    )
+    if (urls.length !== (Array.isArray(srv?.urls) ? srv.urls.length : 1)) {
+      console.warn('[call] dropped malformed ICE url(s) from', srv?.urls)
+    }
+    if (urls.length) clean.push({ ...srv, urls })
+  }
+
+  return clean
+}
+
 /**
  * The API stores SDP as a JSON column, so it comes back as an object — but
  * older rows can be a string, or even a doubly-encoded one. Unwrap up to three
@@ -99,8 +126,9 @@ export default function CallPage() {
       // mobile data. Falling back to STUN keeps same-network calls working if
       // the endpoint is unreachable.
       try {
-        const servers = await callApi.iceServers(token!)
+        const servers = sanitizeIceServers(await callApi.iceServers(token!))
         if (servers.length) iceServersRef.current = servers
+        else console.warn('[call] no usable ICE servers returned — falling back to STUN only')
       } catch {
         console.warn('[call] ice-servers unavailable — falling back to STUN only')
       }
@@ -138,7 +166,15 @@ export default function CallPage() {
   }
 
   function createPC(stream: MediaStream) {
-    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
+    let pc: RTCPeerConnection
+    try {
+      pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
+    } catch (err) {
+      // Something in the list still offended the browser. A call on STUN alone
+      // beats no call at all, so retry bare rather than failing the whole thing.
+      console.warn('[call] ICE list rejected, retrying with STUN only', err)
+      pc = new RTCPeerConnection({ iceServers: FALLBACK_ICE })
+    }
     stream.getTracks().forEach(t => {
       const sender = pc.addTrack(t, stream)
       // Held so the effect can be swapped in and out with replaceTrack(),
