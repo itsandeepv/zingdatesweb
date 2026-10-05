@@ -493,6 +493,28 @@ export const eventsApi = {
     req<any>(`/admin/events/${id}`, { method: 'DELETE' }, token),
   stats: (token: string) =>
     req<any>('/admin/events/stats', {}, token),
+  /**
+   * Promote this event to the banner at the top of the app's Events screen,
+   * or take it down. Only one event is ever shown — promoting a second one
+   * demotes the first.
+   */
+  setFeatured: (token: string, id: number, body: {
+    featured: boolean; tagline?: string; badge?: string; until?: string | null
+  }) =>
+    req<any>(`/admin/events/${id}/featured`, { method: 'PATCH', body: JSON.stringify(body) }, token),
+  /** The wide banner artwork. Multipart, so it does not go through req(). */
+  setFeaturedImage: async (token: string, id: number, file: File) => {
+    const fd = new FormData()
+    fd.append('image', file)
+    const res = await fetch(`${BASE}/admin/events/${id}/featured-image`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      body: fd,
+    })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(json?.message || 'Upload failed')
+    return json
+  },
   // Suspends the host AND cancels everything they were running — a suspended
   // host with live events is the worst of both.
   suspendHost: (token: string, id: number, reason: string) =>
@@ -1242,11 +1264,14 @@ export const chatApi = {
 
 /* ─── Calls (WebRTC) ──────────────────────────────────── */
 export const callApi = {
-  initiate: (token: string, receiverId: number, type: 'audio' | 'video', offerSdp: string) =>
-    req<any>(`/calls/${type}/${receiverId}`, {
-      method: 'POST',
-      body: JSON.stringify({ offer_sdp: offerSdp }),
-    }, token),
+  // The protocol below mirrors DatingApp/src/services/api.js exactly. That is
+  // the build that works app-to-app, so it is the reference — field names and
+  // call order here must not drift from it.
+  //
+  // Initiation carries NO offer: the server creates the Call row and rings the
+  // callee, then the caller posts its SDP separately via sendOffer().
+  initiate: (token: string, receiverId: number, type: 'audio' | 'video') =>
+    req<any>(`/calls/${type}/${receiverId}`, { method: 'POST' }, token),
   incoming: (token: string) => req<any>('/calls/incoming', {}, token),
   // Unwrapped poller used by the app layout — returns the call object or null.
   pending: async (token: string) => {
@@ -1255,24 +1280,37 @@ export const callApi = {
   },
   history: (token: string) => req<any[]>('/calls/history', {}, token),
   status: (token: string, callId: number) => req<any>(`/calls/${callId}/status`, {}, token),
+  /** STUN + TURN from the server. Without TURN, calls die on mobile data. */
+  iceServers: async (token: string) => {
+    const res = await req<any>('/calls/ice-servers', {}, token)
+    return (res?.ice_servers ?? []) as RTCIceServer[]
+  },
   answer: (token: string, callId: number) =>
     req<any>(`/calls/${callId}/answer`, { method: 'POST' }, token),
-  answerSdp: (token: string, callId: number, answerSdp: string) =>
-    req<any>(`/calls/${callId}/answer-sdp`, { method: 'POST', body: JSON.stringify({ answer_sdp: answerSdp }) }, token),
+  // Both SDP endpoints take `sdp` — NOT `offer_sdp` / `answer_sdp`. The server
+  // reads $request->input('sdp'); any other key is stored as null.
+  sendOffer: (token: string, callId: number, sdp: { type: string; sdp: string }) =>
+    req<any>(`/calls/${callId}/offer`, { method: 'POST', body: JSON.stringify({ sdp }) }, token),
+  answerSdp: (token: string, callId: number, sdp: { type: string; sdp: string }) =>
+    req<any>(`/calls/${callId}/answer-sdp`, { method: 'POST', body: JSON.stringify({ sdp }) }, token),
   decline: (token: string, callId: number) =>
     req<any>(`/calls/${callId}/decline`, { method: 'POST' }, token),
-  end: (token: string, callId: number) =>
-    req<any>(`/calls/${callId}/end`, { method: 'POST' }, token),
-  sendOffer: (token: string, callId: number, offerSdp: string) =>
-    req<any>(`/calls/${callId}/offer`, { method: 'POST', body: JSON.stringify({ offer_sdp: offerSdp }) }, token),
+  end: (token: string, callId: number, duration = 0) =>
+    req<any>(`/calls/${callId}/end`, { method: 'POST', body: JSON.stringify({ duration }) }, token),
   addIceCandidate: (token: string, callId: number, candidate: any) =>
     req<any>(`/calls/${callId}/ice-candidate`, { method: 'POST', body: JSON.stringify({ candidate }) }, token),
-  signaling: (token: string, callId: number) => req<any>(`/calls/${callId}/signaling`, {}, token),
-  mute: (token: string, callId: number) =>
-    req<any>(`/calls/${callId}/mute`, { method: 'POST' }, token),
-  camera: (token: string, callId: number) =>
-    req<any>(`/calls/${callId}/camera`, { method: 'POST' }, token),
+  /**
+   * `iceAfter` is a cursor: the server returns only candidates newer than it,
+   * and `ice_total` in the response is what the caller stores for next time.
+   */
+  signaling: (token: string, callId: number, iceAfter = -1) =>
+    req<any>(`/calls/${callId}/signaling?ice_after=${iceAfter}`, {}, token),
+  mute: (token: string, callId: number, muted: boolean) =>
+    req<any>(`/calls/${callId}/mute`, { method: 'POST', body: JSON.stringify({ muted }) }, token),
+  camera: (token: string, callId: number, cameraOff: boolean) =>
+    req<any>(`/calls/${callId}/camera`, { method: 'POST', body: JSON.stringify({ camera_off: cameraOff }) }, token),
 }
+
 
 /* ─── Notifications (User) ────────────────────────────── */
 // `/notifications` → { notifications:{ data:[...] }, unread_count }. Items carry `from`.

@@ -9,15 +9,31 @@ import { triggerPlanModal } from '@/components/NoPlanModal'
 
 type CallStatus = 'loading' | 'ringing' | 'connecting' | 'connected' | 'ended' | 'failed'
 
-const ICE_SERVERS: RTCIceServer[] = [
+/** Used only until the server's TURN list arrives. */
+const FALLBACK_ICE: RTCIceServer[] = [
   { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
 ]
+
+/**
+ * The API stores SDP as a JSON column, so it comes back as an object — but
+ * older rows can be a string, or even a doubly-encoded one. Unwrap up to three
+ * times, the same way the mobile client does.
+ */
+function parseSdp(raw: unknown): { type: string; sdp: string } | null {
+  let val: any = raw
+  for (let i = 0; i < 3 && typeof val === 'string'; i++) {
+    try { val = JSON.parse(val) } catch { break }
+  }
+  return val && typeof val === 'object' && val.type && val.sdp
+    ? { type: val.type, sdp: val.sdp }
+    : null
+}
 
 export default function CallPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { token, user } = useAuthStore()
+  const { token } = useAuthStore()
 
   const callIdParam = params.id as string              // "new" or actual callId
   const isNew = callIdParam === 'new'
@@ -31,6 +47,7 @@ export default function CallPage() {
   const [otherUser, setOtherUser] = useState<any>(null)
   const [isMuted, setIsMuted] = useState(false)
   const [isCamOff, setIsCamOff] = useState(false)
+  const [otherMuted, setOtherMuted] = useState(false)
   const [duration, setDuration] = useState(0)
   const [statusText, setStatusText] = useState('Connecting…')
 
@@ -41,8 +58,14 @@ export default function CallPage() {
   const callIdRef = useRef<number | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const durationRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const seenCandidates = useRef<Set<string>>(new Set())
   const endedRef = useRef(false)
+  const iceServersRef = useRef<RTCIceServer[]>(FALLBACK_ICE)
+  // Cursor for /signaling?ice_after=N — the server sends only newer candidates.
+  const lastIceRef = useRef(-1)
+  const remoteSetRef = useRef(false)
+  // addIceCandidate() throws before a remote description exists, so hold them.
+  const pendingIceRef = useRef<any[]>([])
+  const durationValRef = useRef(0)
 
   const cleanup = useCallback(() => {
     if (pollRef.current) clearInterval(pollRef.current)
@@ -60,7 +83,21 @@ export default function CallPage() {
 
   async function init() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: isVideo, audio: true })
+      // TURN comes from the server. Google STUN alone cannot traverse carrier
+      // NAT, which is why web-to-app calls died the moment either side was on
+      // mobile data. Falling back to STUN keeps same-network calls working if
+      // the endpoint is unreachable.
+      try {
+        const servers = await callApi.iceServers(token!)
+        if (servers.length) iceServersRef.current = servers
+      } catch {
+        console.warn('[call] ice-servers unavailable — falling back to STUN only')
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      })
       localStreamRef.current = stream
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream
@@ -73,16 +110,16 @@ export default function CallPage() {
         await startCallee(stream)
       }
     } catch (err: any) {
-      if (err?.name === 'NotAllowedError') {
-        toast.error('Camera/microphone permission denied')
+      if (err?.name === 'NotAllowedError' || err?.name === 'NotFoundError') {
+        toast.error(err?.name === 'NotFoundError' ? 'No microphone found' : 'Camera/microphone permission denied')
         setStatus('failed')
-        setStatusText('Permission denied — allow camera/mic and try again')
+        setStatusText(err?.name === 'NotFoundError' ? 'No mic or camera available' : 'Permission denied — allow camera/mic and try again')
       } else if (err?.status === 402 || err?.needPlan) {
         triggerPlanModal('call')
         router.back()
         return
       } else {
-        toast.error('Failed to start call')
+        toast.error(err?.message || 'Failed to start call')
         setStatus('failed')
         setStatusText('Something went wrong')
       }
@@ -90,7 +127,7 @@ export default function CallPage() {
   }
 
   function createPC(stream: MediaStream) {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
+    const pc = new RTCPeerConnection({ iceServers: iceServersRef.current })
     stream.getTracks().forEach(t => pc.addTrack(t, stream))
 
     pc.ontrack = (e) => {
@@ -114,7 +151,11 @@ export default function CallPage() {
         setStatusText('Connected')
         startDurationTimer()
       }
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
+      if (pc.connectionState === 'failed') {
+        setStatusText('Connection failed')
+        endCall()
+      }
+      if (pc.connectionState === 'disconnected') {
         endCall()
       }
     }
@@ -131,108 +172,111 @@ export default function CallPage() {
     const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: isVideo })
     await pc.setLocalDescription(offer)
 
-    const call = await callApi.initiate(token!, targetUserId, callType, JSON.stringify({ type: offer.type, sdp: offer.sdp }))
+    // Ring first, then post the SDP. The initiate endpoint does not read an
+    // offer from its body — the offer only lands via /offer, keyed by call id.
+    const res = await callApi.initiate(token!, targetUserId, callType)
+    const call = res?.call ?? res
+    if (!call?.id) throw new Error('Could not start the call')
+
     callIdRef.current = call.id
     setCallId(call.id)
-    setOtherUser(call.receiver)
+    setOtherUser(call.receiver ?? null)
 
-    // Poll for answer
-    pollRef.current = setInterval(async () => {
-      if (endedRef.current) return
-      try {
-        const updated = await callApi.signaling(token!, call.id)
-        setOtherUser(updated.receiver)
-
-        if (updated.status === 'declined' || updated.status === 'missed') {
-          clearInterval(pollRef.current!)
-          setStatus('ended')
-          setStatusText(updated.status === 'declined' ? 'Call declined' : 'No answer')
-          return
-        }
-
-        if (updated.answer_sdp && !pc.remoteDescription) {
-          const answer = JSON.parse(updated.answer_sdp)
-          await pc.setRemoteDescription(answer)
-          setStatus('connecting')
-          setStatusText('Connecting…')
-          // Switch to ICE poll
-          clearInterval(pollRef.current!)
-          startIcePoll(call.id)
-        }
-      } catch {}
-    }, 2000)
+    await callApi.sendOffer(token!, call.id, { type: offer.type, sdp: offer.sdp! })
+    startSignalingPoll(call.id)
   }
 
   async function startCallee(stream: MediaStream) {
     const cId = Number(callIdParam)
-    const call = await callApi.signaling(token!, cId)
     callIdRef.current = cId
     setCallId(cId)
-    setOtherUser(call.caller)
     setStatus('connecting')
     setStatusText('Connecting…')
 
-    if (!call.offer_sdp) {
-      toast.error('Call offer not found')
-      setStatus('failed')
-      return
-    }
-
-    const pc = createPC(stream)
-    const offer = JSON.parse(call.offer_sdp)
-    await pc.setRemoteDescription(offer)
-
-    const answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
+    createPC(stream)
     await callApi.answer(token!, cId)
-    await callApi.answerSdp(token!, cId, JSON.stringify({ type: answer.type, sdp: answer.sdp }))
-
-    // Add existing ICE candidates from caller
-    if (call.ice_candidates) {
-      const cands = JSON.parse(call.ice_candidates)
-      for (const c of cands) {
-        if (c.from !== user!.id) {
-          const key = JSON.stringify(c.candidate)
-          if (!seenCandidates.current.has(key)) {
-            seenCandidates.current.add(key)
-            try { await pc.addIceCandidate(c.candidate) } catch {}
-          }
-        }
-      }
-    }
-
-    startIcePoll(cId)
+    startSignalingPoll(cId)
   }
 
-  function startIcePoll(cId: number) {
-    pollRef.current = setInterval(async () => {
+  /**
+   * One poll loop for both roles, mirroring CallScreen.js.
+   *
+   * The server hands back only ICE candidates newer than `ice_after` and tells
+   * us the new cursor in `ice_total`. Candidates are buffered until the remote
+   * description exists, because addIceCandidate() throws before that.
+   */
+  function startSignalingPoll(cId: number) {
+    const tick = async () => {
       if (endedRef.current) return
+      const pc = pcRef.current
+      if (!pc) return
+
       try {
-        const call = await callApi.signaling(token!, cId)
-        if (call.ice_candidates) {
-          const cands = JSON.parse(call.ice_candidates)
-          for (const c of cands) {
-            if (c.from !== user!.id) {
-              const key = JSON.stringify(c.candidate)
-              if (!seenCandidates.current.has(key)) {
-                seenCandidates.current.add(key)
-                try { await pcRef.current?.addIceCandidate(c.candidate) } catch {}
-              }
+        const res = await callApi.signaling(token!, cId, lastIceRef.current)
+
+        if (res.status === 'declined' || res.status === 'missed') {
+          setStatus('ended')
+          setStatusText(res.status === 'declined' ? 'Call declined' : 'No answer')
+          endCall(false)
+          return
+        }
+        if (res.status === 'completed') {
+          endCall(false)
+          return
+        }
+
+        // ── Remote SDP ──
+        if (!remoteSetRef.current) {
+          const raw = role === 'caller' ? res.answer_sdp : res.offer_sdp
+          const sdp = parseSdp(raw)
+          if (sdp) {
+            await pc.setRemoteDescription(sdp as RTCSessionDescriptionInit)
+            remoteSetRef.current = true
+            setStatus('connecting')
+            setStatusText('Connecting…')
+
+            // Callee answers only once it has the caller's offer.
+            if (role === 'callee') {
+              const answer = await pc.createAnswer()
+              await pc.setLocalDescription(answer)
+              await callApi.answerSdp(token!, cId, { type: answer.type, sdp: answer.sdp! })
+            }
+
+            for (const c of pendingIceRef.current.splice(0)) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch {}
             }
           }
         }
-        // Stop polling if call ended remotely
-        if (call.status === 'completed' || call.status === 'declined') {
-          clearInterval(pollRef.current!)
-          endCall(false)
+
+        // ── New ICE candidates ──
+        if (Array.isArray(res.candidates) && res.candidates.length) {
+          for (const c of res.candidates) {
+            if (remoteSetRef.current) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch {}
+            } else {
+              pendingIceRef.current.push(c)
+            }
+          }
+          if (typeof res.ice_total === 'number' && res.ice_total > 0) {
+            lastIceRef.current = res.ice_total - 1
+          }
         }
-      } catch {}
-    }, 2500)
+
+        if (typeof res.is_other_muted === 'boolean') setOtherMuted(res.is_other_muted)
+      } catch {
+        // A dropped poll is normal on a flaky network — the next tick retries.
+      }
+    }
+
+    tick()
+    pollRef.current = setInterval(tick, 1500)
   }
 
   function startDurationTimer() {
+    if (durationRef.current) return   // connectionstatechange can fire twice
     durationRef.current = setInterval(() => {
-      setDuration(d => d + 1)
+      durationValRef.current += 1
+      setDuration(durationValRef.current)
     }, 1000)
   }
 
@@ -242,7 +286,9 @@ export default function CallPage() {
     clearInterval(pollRef.current!)
     clearInterval(durationRef.current!)
     if (sendComplete && callIdRef.current) {
-      try { await callApi.end(token!, callIdRef.current) } catch {}
+      // Duration is what the server bills and shows in history — the old call
+      // sent none, so every web call was logged as 0 seconds.
+      try { await callApi.end(token!, callIdRef.current, durationValRef.current) } catch {}
     }
     cleanup()
     setStatus('ended')
@@ -253,15 +299,24 @@ export default function CallPage() {
   function toggleMute() {
     const stream = localStreamRef.current
     if (!stream) return
-    stream.getAudioTracks().forEach(t => { t.enabled = !t.enabled })
-    setIsMuted(m => !m)
+    const next = !isMuted
+    stream.getAudioTracks().forEach(t => { t.enabled = !next })
+    setIsMuted(next)
+    // Tell the other side, so their UI can show the muted badge.
+    if (callIdRef.current) {
+      callApi.mute(token!, callIdRef.current, next).catch(() => {})
+    }
   }
 
   function toggleCamera() {
     const stream = localStreamRef.current
     if (!stream) return
-    stream.getVideoTracks().forEach(t => { t.enabled = !t.enabled })
-    setIsCamOff(c => !c)
+    const next = !isCamOff
+    stream.getVideoTracks().forEach(t => { t.enabled = !next })
+    setIsCamOff(next)
+    if (callIdRef.current) {
+      callApi.camera(token!, callIdRef.current, next).catch(() => {})
+    }
   }
 
   function formatDuration(s: number) {
@@ -306,6 +361,16 @@ export default function CallPage() {
           <p className="text-white/70 text-sm mt-1 capitalize">
             {status === 'connected' ? formatDuration(duration) : statusText}
           </p>
+          {status === 'connected' && otherMuted && (
+            <p className="text-white/60 text-xs mt-1 flex items-center justify-center gap-1.5">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="1" y1="1" x2="23" y2="23" />
+                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23M12 19v3M8 23h8" />
+              </svg>
+              {otherName} is muted
+            </p>
+          )}
         </div>
       </div>
 
