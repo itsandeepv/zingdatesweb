@@ -1,18 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, Video, Smartphone, X, ArrowRight, Ticket } from 'lucide-react'
+import { Smartphone, X, ArrowRight, Ticket } from 'lucide-react'
 import { PLAY_STORE_URL } from '@/lib/site'
 
 /**
- * Shown when someone tries to do something the website cannot — today that
- * is audio and video calling, which only the mobile app supports. Triggered
- * from anywhere with `triggerDownloadApp('audio' | 'video')`; mounted once in
- * the app layout, like NoPlanModal.
+ * Shown when someone tries to do something the website cannot. Audio and video
+ * calling used to live here; the web client now runs those itself over WebRTC
+ * (see app/(app)/call/[id]), so joining an event is all that is left. Triggered
+ * from anywhere with `triggerDownloadApp('event')`; mounted once in the app
+ * layout, like NoPlanModal.
  */
 export const DOWNLOAD_APP_EVT = 'zd:download-app'
 
-export type DownloadAppReason = 'audio' | 'video' | 'event'
+export type DownloadAppReason = 'event'
 
 export function triggerDownloadApp(reason: DownloadAppReason) {
   if (typeof window !== 'undefined') {
@@ -20,9 +21,7 @@ export function triggerDownloadApp(reason: DownloadAppReason) {
   }
 }
 
-const COPY: Record<DownloadAppReason, { Icon: typeof Phone; title: string; sub: string }> = {
-  audio: { Icon: Phone, title: 'Voice calls are in the app', sub: 'Calling is not available on the website yet. Download the ZingDates app to make voice calls.' },
-  video: { Icon: Video, title: 'Video calls are in the app', sub: 'Calling is not available on the website yet. Download the ZingDates app to make video calls.' },
+const COPY: Record<DownloadAppReason, { Icon: typeof Ticket; title: string; sub: string }> = {
   event: { Icon: Ticket, title: 'Join events in the app', sub: 'Joining an event happens in the ZingDates app. Install it on your phone, open this event, and grab your spot.' },
 }
 
@@ -30,7 +29,7 @@ export default function DownloadAppModal() {
   const [reason, setReason] = useState<DownloadAppReason | null>(null)
 
   useEffect(() => {
-    const onTrigger = (e: Event) => setReason((e as CustomEvent).detail?.reason ?? 'audio')
+    const onTrigger = (e: Event) => setReason((e as CustomEvent).detail?.reason ?? 'event')
     window.addEventListener(DOWNLOAD_APP_EVT, onTrigger)
     return () => window.removeEventListener(DOWNLOAD_APP_EVT, onTrigger)
   }, [])
