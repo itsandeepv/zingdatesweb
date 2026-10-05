@@ -47,13 +47,28 @@ function sanitizeIceServers(servers: RTCIceServer[]): RTCIceServer[] {
  * older rows can be a string, or even a doubly-encoded one. Unwrap up to three
  * times, the same way the mobile client does.
  */
+/**
+ * Force CRLF line endings and a trailing CRLF.
+ *
+ * SDP is line-oriented and the spec says CRLF. A round trip through a JSON
+ * column can arrive with bare LF or without the final terminator, and
+ * setRemoteDescription then rejects the whole thing. CallScreen.js has done
+ * this since it shipped; the web client did not, which is why every poll threw
+ * and retried forever with the ICE cursor stuck at -1.
+ */
+function normalizeSdpString(sdp: string): string {
+  let out = sdp.replace(/\r\n/g, '\n').replace(/\r/g, '\n').replace(/\n/g, '\r\n')
+  if (!out.endsWith('\r\n')) out += '\r\n'
+  return out
+}
+
 function parseSdp(raw: unknown): { type: string; sdp: string } | null {
   let val: any = raw
   for (let i = 0; i < 3 && typeof val === 'string'; i++) {
     try { val = JSON.parse(val) } catch { break }
   }
   return val && typeof val === 'object' && val.type && val.sdp
-    ? { type: val.type, sdp: val.sdp }
+    ? { type: val.type, sdp: normalizeSdpString(val.sdp) }
     : null
 }
 
@@ -99,6 +114,8 @@ export default function CallPage() {
   // addIceCandidate() throws before a remote description exists, so hold them.
   const pendingIceRef = useRef<any[]>([])
   const durationValRef = useRef(0)
+  const sdpFailuresRef = useRef(0)
+  const pollFailuresRef = useRef(0)
   const voiceProcRef = useRef<VoiceProcessor | null>(null)
   const audioSenderRef = useRef<RTCRtpSender | null>(null)
   const semitonesRef = useRef(5)
@@ -313,20 +330,34 @@ export default function CallPage() {
           const raw = role === 'caller' ? res.answer_sdp : res.offer_sdp
           const sdp = parseSdp(raw)
           if (sdp) {
-            await pc.setRemoteDescription(sdp as RTCSessionDescriptionInit)
-            remoteSetRef.current = true
-            setStatus('connecting')
-            setStatusText('Connecting…')
+            try {
+              await pc.setRemoteDescription(sdp as RTCSessionDescriptionInit)
+              remoteSetRef.current = true
+              setStatus('connecting')
+              setStatusText('Connecting…')
 
-            // Callee answers only once it has the caller's offer.
-            if (role === 'callee') {
-              const answer = await pc.createAnswer()
-              await pc.setLocalDescription(answer)
-              await callApi.answerSdp(token!, cId, { type: answer.type, sdp: answer.sdp! })
-            }
+              // Callee answers only once it has the caller's offer.
+              if (role === 'callee') {
+                const answer = await pc.createAnswer()
+                await pc.setLocalDescription(answer)
+                await callApi.answerSdp(token!, cId, { type: answer.type, sdp: answer.sdp! })
+              }
 
-            for (const c of pendingIceRef.current.splice(0)) {
-              try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch {}
+              for (const c of pendingIceRef.current.splice(0)) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(c)) } catch {}
+              }
+            } catch (err) {
+              // Retrying the same rejected SDP forever gets us nowhere, and
+              // silence here is what hid a line-ending bug for a whole round of
+              // testing: the poll threw every tick, so the ICE cursor never
+              // moved off -1 and the screen sat on "Calling…".
+              sdpFailuresRef.current += 1
+              console.error('[call] setRemoteDescription failed', err)
+              if (sdpFailuresRef.current >= 3) {
+                setStatusText('Could not negotiate the connection')
+                endCall()
+                return
+              }
             }
           }
         }
@@ -354,8 +385,13 @@ export default function CallPage() {
         if (role === 'callee' && typeof res.voice_effect_active === 'boolean') {
           setVoiceOn(res.voice_effect_active)
         }
-      } catch {
-        // A dropped poll is normal on a flaky network — the next tick retries.
+      } catch (err) {
+        // One dropped poll is normal on a flaky network and the next tick
+        // retries, but a poll that fails every time is a bug, not weather.
+        pollFailuresRef.current += 1
+        if (pollFailuresRef.current === 1 || pollFailuresRef.current % 10 === 0) {
+          console.warn('[call] signaling poll failed', pollFailuresRef.current, err)
+        }
       }
     }
 
