@@ -56,6 +56,41 @@ function Bubble({ msg, isMine, showAvatar, otherPhoto, otherName }: {
 }) {
   const [imgOpen, setImgOpen] = useState(false)
 
+  // Call events come from the calls table, not the messages table: no text, no
+  // file. Without this they fell through to the text bubble and rendered as
+  // empty coloured blocks — one per call ever placed in the thread.
+  if (msg.type === 'call') {
+    const isVideo = msg.call_type === 'video'
+    const st = msg.call_status
+    const missed = st === 'missed' || st === 'declined'
+    const mins = Math.floor((msg.duration ?? 0) / 60)
+    const secs = (msg.duration ?? 0) % 60
+
+    const label = missed
+      ? `${isMine ? 'No answer' : 'Missed'} ${isVideo ? 'video' : 'voice'} call`
+      : `${isVideo ? 'Video' : 'Voice'} call${msg.duration ? ` · ${mins}:${String(secs).padStart(2, '0')}` : ''}`
+
+    return (
+      <div className="flex justify-center my-2">
+        <div className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold border ${
+          missed ? 'bg-red-50 border-red-100 text-red-500' : 'bg-gray-50 border-gray-150 text-gray-500'
+        }`}>
+          {isVideo ? (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+            </svg>
+          ) : (
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 3.07 10.8 19.79 19.79 0 0 1 .22 2.18 2 2 0 0 1 2.18 0h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L6.91 7.91a16 16 0 0 0 6.18 6.18l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+            </svg>
+          )}
+          {label}
+          <span className="text-[10px] font-medium opacity-60">{formatTime(msg.created_at)}</span>
+        </div>
+      </div>
+    )
+  }
+
   if (msg.type === 'image' && msg.file_url) {
     return (
       <>

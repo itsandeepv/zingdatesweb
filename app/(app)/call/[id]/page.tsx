@@ -227,6 +227,25 @@ export default function CallPage() {
     // Ring first, then post the SDP. The initiate endpoint does not read an
     // offer from its body — the offer only lands via /offer, keyed by call id.
     const res = await callApi.initiate(token!, targetUserId, callType)
+
+    // Two cases where the server deliberately does NOT ring: the callee has Do
+    // Not Disturb on, or they have no plan of their own. Both come back
+    // success:true with a call row already marked declined, so without these
+    // checks the page sends an offer into a dead call, polls, and reports
+    // "Call declined" -- which reads as a rejection the person never made.
+    if (res?.dnd) {
+      setStatus('ended')
+      setStatusText('They have Do Not Disturb on — try again later')
+      setTimeout(() => router.back(), 2600)
+      return
+    }
+    if (res?.receiver_needs_plan) {
+      setStatus('ended')
+      setStatusText(res.message || "They don't have an active plan, so we let them know you called")
+      setTimeout(() => router.back(), 3200)
+      return
+    }
+
     const call = res?.call ?? res
     if (!call?.id) throw new Error('Could not start the call')
 

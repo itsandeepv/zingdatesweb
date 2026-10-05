@@ -382,7 +382,12 @@ export interface ChatMessage {
   chat_id: number
   sender_id: number
   message: string | null
-  type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'voice_note'
+  // 'call' rows are synthesised by the API from the calls table and merged
+  // into the timeline — they have no message text, so anything rendering a
+  // bubble must branch on this or it draws an empty one.
+  type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'voice_note' | 'call'
+  call_type?: 'audio' | 'video'
+  call_status?: 'completed' | 'missed' | 'declined'
   file_url: string | null
   duration?: number
   is_read: boolean
