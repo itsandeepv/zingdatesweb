@@ -117,6 +117,9 @@ export interface AttentionCounts {
   new_companions: number
   pending_companions: number
   pending_verifications: number
+  // Optional: an older backend that has not deployed the live-selfie queue
+  // yet simply does not send it, and the badge reads zero.
+  pending_gender_verifications?: number
   new_verifications: number
   // Support: tickets opened, replies members sent on tickets already open, and
   // everything not yet resolved.
@@ -718,6 +721,35 @@ export const kycApi = {
     req<any>(`/admin/verifications/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }, token),
   recheck: (token: string, id: number) =>
     req<any>(`/admin/verifications/${id}/recheck`, { method: 'POST' }, token),
+}
+
+/**
+ * Admin > the live-selfie queue women are asked to pass at sign-up.
+ *
+ * Separate from kycApi: that one reviews an ID document against a name, this
+ * one reviews a face against a gesture. Nothing automated decides either.
+ */
+export type GenderVerificationRow = {
+  id: number
+  status: 'pending' | 'approved' | 'rejected'
+  gesture: string
+  instruction: string
+  selfie_url: string | null
+  review_note: string | null
+  submitted_at: string | null
+  reviewed_at: string | null
+  user: { id: number; name: string; photo: string | null; gender: string | null; city: string | null; joined: string | null } | null
+}
+
+export const genderVerificationApi = {
+  list: (token: string, status = 'pending') =>
+    req<{ rows: GenderVerificationRow[]; pending: number }>(
+      `/admin/gender-verifications?status=${status}`, {}, token),
+  approve: (token: string, id: number) =>
+    req<any>(`/admin/gender-verifications/${id}/approve`, { method: 'POST' }, token),
+  reject: (token: string, id: number, reason: string) =>
+    req<any>(`/admin/gender-verifications/${id}/reject`,
+      { method: 'POST', body: JSON.stringify({ reason }) }, token),
 }
 
 // Admin-side ticket queue.

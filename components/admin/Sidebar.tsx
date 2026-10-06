@@ -75,6 +75,7 @@ const NAV: NavGroup[] = [
     { href: '/admin/support',  label: 'Support',  icon: 'ticket' },
     { href: '/admin/reports',  label: 'Reports',  icon: 'shield' },
     { href: '/admin/verifications', label: 'Verification', icon: 'shield' },
+    { href: '/admin/gender-verifications', label: 'Live Selfies', icon: 'shield' },
     { href: '/admin/staff',    label: 'Staff',    icon: 'shield' },
     { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
   ]},
@@ -117,6 +118,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
     if (href === '/admin/users') return attention.new_users
     if (href === '/admin/companions') return attention.pending_companions + attention.new_companions
     if (href === '/admin/verifications') return attention.pending_verifications
+    if (href === '/admin/gender-verifications') return attention.pending_gender_verifications ?? 0
     // Support and Reports badge what is still UNDECIDED, not what is unread —
     // an open ticket or an un-actioned report has to keep asking after the page
     // has been opened. Subscriptions is the opposite: it is news, so it clears.
@@ -133,6 +135,10 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
       if (attention.pending_companions) parts.push(`${attention.pending_companions} waiting for approval`)
       if (attention.new_companions) parts.push(`${attention.new_companions} new since you last looked`)
       return parts.join(' · ')
+    }
+    if (href === '/admin/gender-verifications') {
+      const n = attention.pending_gender_verifications ?? 0
+      return n ? `${n} live selfie${n === 1 ? '' : 's'} waiting` : 'No selfies waiting'
     }
     if (href === '/admin/verifications') {
       const parts = [`${attention.pending_verifications} ID checks waiting`]

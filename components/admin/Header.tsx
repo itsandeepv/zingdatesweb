@@ -30,6 +30,7 @@ const TITLES: Record<string, string> = {
   '/admin/analytics':    'Reports & Analytics',
   '/admin/support':      'Support & Tickets',
   '/admin/verifications': 'ID Verification',
+  '/admin/gender-verifications': 'Live Selfie Verification',
   '/admin/staff':        'Staff Management',
   '/admin/security':     'Security & Compliance',
   '/admin/mobile':       'Mobile App Management',

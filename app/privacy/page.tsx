@@ -56,6 +56,9 @@ export default async function PrivacyPage() {
       <ul>
         <li><strong>Account &amp; profile:</strong> name, phone number, email address, date of birth, gender, profile photos, bio, profession, interests, and social links.</li>
         <li><strong>Verification:</strong> documents or details you submit for identity or profile verification (KYC).</li>
+        <li><strong>Live selfie (women only):</strong> when you register as a woman we ask you to take a live
+          selfie holding a pose we name at that moment. It is used once, by a human reviewer, to confirm you
+          are the person signing up &mdash; and then deleted. See section 9.</li>
         <li><strong>Content:</strong> chat messages, media you upload, gifts, ratings, and reviews.</li>
         <li><strong>Payments:</strong> when you buy Coins or subscribe, our payment partners (such as Razorpay) process your payment. We receive transaction details but do not store full card numbers.</li>
       </ul>
@@ -98,6 +101,10 @@ export default async function PrivacyPage() {
         comply with legal obligations, resolve disputes, and enforce our agreements. When you delete your
         account, we remove or anonymise your personal data, except where retention is required by law.
       </p>
+      <p>
+        One exception runs the other way: a verification selfie is deleted as soon as it has been reviewed,
+        whether or not you keep using ZingDates. See section 9.
+      </p>
 
       <h2>6. Your Rights &amp; Choices</h2>
       <ul>
@@ -132,7 +139,41 @@ export default async function PrivacyPage() {
         suspended or permanently banned.
       </p>
 
-      <h2>9. Children&rsquo;s Privacy &amp; Child Safety Standards</h2>
+      <h2>9. Live Selfie Verification</h2>
+      <p>
+        When you register as a woman, we ask for a short live selfie. The app names a pose &mdash; a hand
+        gesture, or turning your head &mdash; a moment before the camera opens, and you take the photo there
+        and then. You cannot choose a picture from your gallery, and the camera is fixed to the front
+        lens. The pose is what tells us the photo was taken just now rather than downloaded from somewhere.
+      </p>
+      <p>
+        <strong>What we do with it.</strong> One member of our review team looks at it once and decides
+        whether to approve you. No facial recognition, gender detection or other automated analysis is run
+        on it &mdash; the decision is a person&rsquo;s.
+      </p>
+      <p>
+        <strong>How it is stored.</strong> On private storage that is never reachable by a web address. It
+        is never shown to other members, never attached to your public profile, and never used to identify
+        you anywhere else on the Service.
+      </p>
+      <p>
+        <strong>How long we keep it.</strong> Until the review decision is made, and no longer. The selfie
+        is permanently deleted the moment you are approved or rejected &mdash; in both cases. We do not keep
+        a copy, a thumbnail, or a face template derived from it.
+      </p>
+      <p>
+        <strong>What it changes.</strong> Approval adds a verified badge to your profile and settles your
+        gender, which can then no longer be edited &mdash; this is what makes the badge mean anything. If
+        your gender is recorded wrongly, contact support. Rejection changes nothing except that you may try
+        the selfie again.
+      </p>
+      <p>
+        Men and members registering under any other gender are not asked for this and no selfie is ever
+        collected from them. Members who registered before this step existed are not required to complete
+        it retroactively.
+      </p>
+
+      <h2>10. Children&rsquo;s Privacy &amp; Child Safety Standards</h2>
       <p>
         ZingDates is intended only for users aged <strong>18 and over</strong>. We do not knowingly collect data
         from anyone under 18, and if we learn that a minor has created an account, we delete it.
@@ -151,26 +192,26 @@ export default async function PrivacyPage() {
         We review every such report and act on it as a priority.
       </p>
 
-      <h2>10. Third-Party Services</h2>
+      <h2>11. Third-Party Services</h2>
       <p>
         The Service may link to or rely on third-party services (such as payment gateways and social logins).
         Their handling of your data is governed by their own privacy policies, which we encourage you to review.
       </p>
 
-      <h2>11. International Data Transfers</h2>
+      <h2>12. International Data Transfers</h2>
       <p>
         Your information may be processed and stored in countries other than your own. Where required, we take
         steps to ensure appropriate safeguards are in place.
       </p>
 
-      <h2>12. Changes to This Policy</h2>
+      <h2>13. Changes to This Policy</h2>
       <p>
         We may update this Privacy Policy from time to time. We will notify you of material changes through
         the app or other reasonable means. Your continued use of the Service after changes take effect means
         you accept the updated policy.
       </p>
 
-      <h2>13. Contact Us</h2>
+      <h2>14. Contact Us</h2>
       <p>
         For any privacy questions or requests, email{' '}
         <a href="mailto:zingdates2026@gmail.com">zingdates2026@gmail.com</a>.
