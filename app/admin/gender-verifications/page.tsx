@@ -31,6 +31,12 @@ export default function GenderVerificationsPage() {
   const [busy, setBusy] = useState<number | null>(null)
   const [rejecting, setRejecting] = useState<number | null>(null)
   const [reason, setReason] = useState('')
+  // selfie_url points at an admin-auth-protected route (never a storage URL —
+  // see GenderVerificationController::selfie), so a plain <img src> gets it
+  // with no Authorization header and fails silently (broken-image icon, no
+  // error anywhere obvious). Fetched with the bearer token instead and shown
+  // as a blob, the same way the KYC document viewer already has to.
+  const [previews, setPreviews] = useState<Record<number, string>>({})
 
   const load = useCallback(async () => {
     if (!token) return
@@ -47,6 +53,33 @@ export default function GenderVerificationsPage() {
   }, [token, status])
 
   useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    const created: string[] = []
+
+    ;(async () => {
+      const next: Record<number, string> = {}
+      for (const row of rows) {
+        if (!row.selfie_url) continue
+        try {
+          const res = await fetch(row.selfie_url, { headers: { Authorization: `Bearer ${token}` } })
+          if (!res.ok) continue
+          const blobUrl = URL.createObjectURL(await res.blob())
+          created.push(blobUrl)
+          next[row.id] = blobUrl
+        } catch {}
+      }
+      if (!cancelled) setPreviews(next)
+    })()
+
+    // Always revoke the ones this run created, never the ones about to
+    // replace them — reusing a URL after it is revoked shows a broken image.
+    return () => {
+      cancelled = true
+      created.forEach(u => URL.revokeObjectURL(u))
+    }
+  }, [rows, token])
 
   async function approve(row: GenderVerificationRow) {
     setBusy(row.id)
@@ -118,9 +151,13 @@ export default function GenderVerificationsPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map(row => (
             <div key={row.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              {row.selfie_url ? (
+              {previews[row.id] ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={row.selfie_url} alt="" className="h-72 w-full bg-gray-100 object-cover" />
+                <img src={previews[row.id]} alt="" className="h-72 w-full bg-gray-100 object-cover" />
+              ) : row.selfie_url ? (
+                <div className="flex h-72 w-full items-center justify-center bg-gray-50 text-xs text-gray-400">
+                  Loading…
+                </div>
               ) : (
                 <div className="flex h-72 w-full items-center justify-center bg-gray-50 px-6 text-center text-xs text-gray-400">
                   Deleted — the selfie is erased as soon as a decision is made.
