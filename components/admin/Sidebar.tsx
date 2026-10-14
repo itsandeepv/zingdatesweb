@@ -40,7 +40,12 @@ const ICONS = {
 }
 
 /* ─── Nav structure ─────────────────────────────────── */
-interface NavItem { href: string; label: string; icon: keyof typeof ICONS; badge?: string; soon?: boolean }
+/**
+ * `perm` is the permission area this section needs, matching the API's
+ * permission keys. Items without one are visible to every staff member —
+ * the dashboard, and anything not owned by a single area.
+ */
+interface NavItem { href: string; label: string; icon: keyof typeof ICONS; badge?: string; soon?: boolean; perm?: string }
 interface NavGroup { label: string | null; items: NavItem[] }
 
 // `soon: true` = section not yet wired to the app backend (kept, disabled).
@@ -49,12 +54,12 @@ const NAV: NavGroup[] = [
     { href: '/admin', label: 'Dashboard', icon: 'grid' },
   ]},
   { label: 'Management', items: [
-    { href: '/admin/users',          label: 'Users',          icon: 'users' },
-    { href: '/admin/companions',     label: 'Companions',     icon: 'heart' },
-    { href: '/admin/subscriptions',  label: 'Subscriptions',  icon: 'card' },
-    { href: '/admin/plans',          label: 'Plans',          icon: 'ticket' },
-    { href: '/admin/payments',       label: 'Payments',       icon: 'dollar' },
-    { href: '/admin/events',         label: 'Events',         icon: 'calendar' },
+    { href: '/admin/users',          label: 'Users',          icon: 'users', perm: 'users' },
+    { href: '/admin/companions',     label: 'Companions',     icon: 'heart', perm: 'users' },
+    { href: '/admin/subscriptions',  label: 'Subscriptions',  icon: 'card', perm: 'subscriptions' },
+    { href: '/admin/plans',          label: 'Plans',          icon: 'ticket', perm: 'subscriptions' },
+    { href: '/admin/payments',       label: 'Payments',       icon: 'dollar', perm: 'payments' },
+    { href: '/admin/events',         label: 'Events',         icon: 'calendar', perm: 'events' },
     { href: '/admin/locations',      label: 'Locations',      icon: 'search' },
     { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
   ]},
@@ -66,22 +71,22 @@ const NAV: NavGroup[] = [
     { href: '/admin/mail',      label: 'Mail',       icon: 'mail' },
   ]},
   { label: 'Growth', items: [
-    { href: '/admin/seo',       label: 'SEO',       icon: 'search' },
-    { href: '/admin/promos',    label: 'Promo Cards', icon: 'megaphone' },
-    { href: '/admin/marketing', label: 'Marketing', icon: 'megaphone', soon: true },
-    { href: '/admin/analytics', label: 'Analytics', icon: 'bar', soon: true },
+    { href: '/admin/seo',       label: 'SEO',       icon: 'search', perm: 'seo' },
+    { href: '/admin/promos',    label: 'Promo Cards', icon: 'megaphone', perm: 'coupons' },
+    { href: '/admin/marketing', label: 'Marketing', icon: 'megaphone', soon: true, perm: 'campaigns' },
+    { href: '/admin/analytics', label: 'Analytics', icon: 'bar', soon: true, perm: 'reports' },
   ]},
   { label: 'Operations', items: [
-    { href: '/admin/support',  label: 'Support',  icon: 'ticket' },
-    { href: '/admin/reports',  label: 'Reports',  icon: 'shield' },
-    { href: '/admin/verifications', label: 'Verification', icon: 'shield' },
-    { href: '/admin/gender-verifications', label: 'Live Selfies', icon: 'shield' },
-    { href: '/admin/staff',    label: 'Staff',    icon: 'shield' },
+    { href: '/admin/support',  label: 'Support',  icon: 'ticket', perm: 'tickets' },
+    { href: '/admin/reports',  label: 'Reports',  icon: 'shield', perm: 'reports' },
+    { href: '/admin/verifications', label: 'Verification', icon: 'shield', perm: 'users' },
+    { href: '/admin/gender-verifications', label: 'Live Selfies', icon: 'shield', perm: 'users' },
+    { href: '/admin/staff',    label: 'Staff',    icon: 'shield', perm: 'staff' },
     { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
   ]},
   { label: 'Platform', items: [
     { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone' },
-    { href: '/admin/api',      label: 'API',        icon: 'code', soon: true },
+    { href: '/admin/api',      label: 'API',        icon: 'code', soon: true, perm: 'api_keys' },
     { href: '/admin/settings', label: 'Settings',   icon: 'gear' },
   ]},
 ]
@@ -90,6 +95,7 @@ const NAV: NavGroup[] = [
 interface Props { collapsed: boolean; onToggle: () => void }
 
 export default function Sidebar({ collapsed, onToggle }: Props) {
+  const can = useAuthStore(s => s.can)
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -165,6 +171,13 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
   const adminInitial = adminName.charAt(0).toUpperCase()
   const logout = () => { clearAuth(); router.replace('/admin-login') }
 
+  // Hide what this staff member cannot act on. The server enforces the same
+  // rule; this just stops the panel offering doors that open onto a 403.
+  // A group with nothing left in it disappears along with its heading.
+  const visibleNav = NAV
+    .map(group => ({ ...group, items: group.items.filter(i => !i.perm || can(i.perm)) }))
+    .filter(group => group.items.length > 0)
+
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)
 
@@ -192,7 +205,7 @@ export default function Sidebar({ collapsed, onToggle }: Props) {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {NAV.map((group, gi) => (
+        {visibleNav.map((group, gi) => (
           <div key={gi} className={gi > 0 ? 'pt-2' : ''}>
             {group.label && !collapsed && (
               <p className="text-xs font-semibold uppercase tracking-widest text-white/30 px-3 mb-2 mt-3">

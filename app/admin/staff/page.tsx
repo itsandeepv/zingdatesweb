@@ -68,6 +68,45 @@ export default function StaffPage() {
   const [invitePassword, setInvitePassword] = useState('')
   const [selectedPerms, setSelectedPerms] = useState<string[]>([])
   const [allPerms, setAllPerms] = useState(false)
+
+  // Edit state. `editing` doubles as the open flag — null means closed.
+  const [editing, setEditing] = useState<StaffMember | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editRole, setEditRole] = useState<AdminRole>('support_agent')
+  const [editPerms, setEditPerms] = useState<string[]>([])
+  const [editAll, setEditAll] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  function openEdit(m: StaffMember) {
+    const perms = m.permissions ?? []
+    setEditing(m)
+    setEditName(m.name)
+    setEditRole(m.role)
+    setEditAll(perms.includes('*'))
+    setEditPerms(perms.filter(x => x !== '*'))
+  }
+
+  async function saveEdit() {
+    if (!editing || savingEdit) return
+    if (!editName.trim()) { toast.error('Name cannot be empty.'); return }
+    setSavingEdit(true)
+    try {
+      await staffApi.update(token, Number(editing.id), {
+        name: editName.trim(),
+        role: editRole,
+        // '*' is the API's own "everything" marker; sending the full list
+        // instead would freeze this member's access at today's permission set.
+        permissions: editAll ? ['*'] : editPerms,
+      })
+      toast.success(`${editName.trim()} updated.`)
+      setEditing(null)
+      await loadStaff()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Could not save those changes.')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
   const [inviting, setInviting] = useState(false)
 
   async function loadStaff() {
@@ -210,7 +249,10 @@ export default function StaffPage() {
                 <p className="text-xl font-extrabold text-gray-900">{r.count}</p>
                 <p className="text-xs font-bold text-gray-700 mt-1 leading-tight">{m.label}</p>
                 <p className="text-xs text-gray-400 mt-1 leading-tight">{m.desc}</p>
-                <button className="mt-2 text-xs gradient-brand-text font-semibold hover:underline">Edit Permissions</button>
+                {/* No role-level permission editor here on purpose: roles are
+                    fixed server-side constants, not per-role records, so there
+                    would be nothing to save. Permissions are edited per member
+                    in the table below. */}
               </div>
             )
           })}
@@ -272,7 +314,12 @@ export default function StaffPage() {
                     <td className="px-6 py-4 text-xs text-gray-500">{s.lastLoginAt}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50">Edit</button>
+                        <button
+                          onClick={() => openEdit(s)}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2 py-1 rounded-lg hover:bg-blue-50"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => handleSuspend(s.id, s.name)}
                           disabled={actionLoading === `suspend-${s.id}`}
@@ -298,6 +345,95 @@ export default function StaffPage() {
       </div>
 
       {/* Invite Member Form */}
+      {/* ── Edit staff member ─────────────────────────────────────── */}
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setEditing(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Edit staff member</h3>
+              <p className="text-sm text-gray-500 mt-0.5">{editing.email}</p>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Name</label>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Role</label>
+                <select
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value as AdminRole)}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                >
+                  {(Object.keys(ROLE_META) as AdminRole[]).map(r => (
+                    <option key={r} value={r}>{ROLE_META[r].label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-400 mt-1.5">{ROLE_META[editRole].desc}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Permissions</label>
+
+                <label className="flex items-center gap-2.5 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editAll}
+                    onChange={e => setEditAll(e.target.checked)}
+                    className="w-4 h-4 rounded accent-pink-500"
+                  />
+                  <span className="text-sm font-semibold text-gray-700">All permissions</span>
+                </label>
+
+                <div className={`grid grid-cols-3 gap-2 ${editAll ? 'opacity-40 pointer-events-none' : ''}`}>
+                  {ALL_PERMISSIONS.map(perm => (
+                    <label key={perm} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editPerms.includes(perm)}
+                        onChange={e => setEditPerms(p => e.target.checked ? [...p, perm] : p.filter(x => x !== perm))}
+                        className="w-3.5 h-3.5 rounded accent-pink-500"
+                      />
+                      <span className="text-xs text-gray-600 capitalize">{perm.replace('_', ' ')}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {/* Super Admin and Admin bypass these checks on the server, so
+                    ticking boxes for them would be a promise the API ignores. */}
+                {(editRole === 'super_admin' || editRole === 'admin') && (
+                  <p className="text-xs text-amber-600 mt-3 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                    {ROLE_META[editRole].label} has unrestricted access regardless of what is ticked here.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setEditing(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit}
+                className="flex-1 py-2.5 rounded-xl gradient-brand text-white text-sm font-bold disabled:opacity-50"
+              >
+                {savingEdit ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showInvite && (
         <div className="bg-white rounded-2xl p-6" style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)', border: '1px solid #fce7f3' }}>
           <div className="flex items-center justify-between mb-4">
