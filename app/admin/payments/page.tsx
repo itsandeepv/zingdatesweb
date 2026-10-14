@@ -492,6 +492,10 @@ export default function PaymentsPage() {
 
   // Invoices. `selected` holds payment ids ticked in the table; `invoices`
   // being non-empty is what opens the printable sheet.
+  // Date range. Both ends are inclusive whole days on the server.
+  const [payFrom, setPayFrom]           = useState('')
+  const [payTo, setPayTo]               = useState('')
+
   const [selected, setSelected]         = useState<Set<number>>(new Set())
   const [invoices, setInvoices]         = useState<Invoice[]>([])
   const [invoiceBusy, setInvoiceBusy]   = useState(false)
@@ -564,6 +568,8 @@ export default function PaymentsPage() {
       if (payType)      p.type    = payType
       if (payGateway)   p.gateway = payGateway
       if (debPaySearch) p.search  = debPaySearch
+      if (payFrom)      p.from    = payFrom
+      if (payTo)        p.to      = payTo
       const res = await paymentsApi.list(token, p)
       setPayments(Array.isArray(res) ? res : (res.data ?? []))
       setPayMeta(res.meta ?? null)
@@ -572,7 +578,7 @@ export default function PaymentsPage() {
     } finally {
       setPayLoading(false)
     }
-  }, [token, payPage, payStatus, payType, payGateway, debPaySearch])
+  }, [token, payPage, payStatus, payType, payGateway, debPaySearch, payFrom, payTo])
 
   /* ── Load coin ledger ── */
   const loadCoins = useCallback(async () => {
@@ -959,8 +965,27 @@ export default function PaymentsPage() {
                     onChange={e => setPaySearch(e.target.value)}
                     className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200 w-full" />
                 </div>
-                {(payStatus || payType || payGateway || paySearch) && (
-                  <button onClick={() => { setPayStatus(''); setPayType(''); setPayGateway(''); setPaySearch(''); setPayPage(1) }}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">From</label>
+                  <input
+                    type="date"
+                    value={payFrom}
+                    max={payTo || undefined}
+                    onChange={e => { setPayFrom(e.target.value); setPayPage(1) }}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                  />
+                  <label className="text-xs font-semibold text-gray-500 whitespace-nowrap">To</label>
+                  <input
+                    type="date"
+                    value={payTo}
+                    min={payFrom || undefined}
+                    onChange={e => { setPayTo(e.target.value); setPayPage(1) }}
+                    className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-pink-200"
+                  />
+                </div>
+
+                {(payStatus || payType || payGateway || paySearch || payFrom || payTo) && (
+                  <button onClick={() => { setPayStatus(''); setPayType(''); setPayGateway(''); setPaySearch(''); setPayFrom(''); setPayTo(''); setPayPage(1) }}
                     className="text-xs text-pink-600 font-semibold hover:text-pink-800 whitespace-nowrap">
                     Clear filters
                   </button>
