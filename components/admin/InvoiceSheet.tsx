@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Invoice } from '@/lib/api'
 
 /**
@@ -161,6 +162,13 @@ export default function InvoiceSheet({
   invoices: Invoice[]
   onClose: () => void
 }) {
+  // Portalled to <body> on purpose. The print rule below hides body's direct
+  // children, and inside the app tree this overlay is not one — it sits under
+  // Next's root wrapper, which WAS being hidden, taking the invoice with it.
+  // That is what produced a blank PDF.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   // Esc closes, as everywhere else in the panel.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -168,18 +176,41 @@ export default function InvoiceSheet({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  if (invoices.length === 0) return null
+  if (invoices.length === 0 || !mounted) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-black/60 overflow-y-auto invoice-overlay">
       {/* Print only the sheet: everything else on the page is chrome. */}
       <style>{`
         @media print {
+          @page { margin: 12mm; }
+          /* Safe now that the overlay is portalled to <body>: everything else
+             at that level is the app, and the invoice is not inside it. */
           body > *:not(.invoice-overlay) { display: none !important; }
-          .invoice-overlay { position: static !important; background: #fff !important; overflow: visible !important; }
+          html, body {
+            background: #fff !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+          .invoice-overlay {
+            position: static !important;
+            background: #fff !important;
+            overflow: visible !important;
+            inset: auto !important;
+          }
           .invoice-toolbar { display: none !important; }
-          .invoice-page { box-shadow: none !important; margin: 0 !important; page-break-after: always; }
-          .invoice-page:last-child { page-break-after: auto; }
+          .invoice-sheet { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+          .invoice-card { box-shadow: none !important; border-radius: 0 !important; overflow: visible !important; }
+          .invoice-page {
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            break-after: page;
+            page-break-after: always;
+          }
+          .invoice-page:last-child { break-after: auto; page-break-after: auto; }
+          /* Keep the backgrounds and rules the invoice relies on. */
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
 
@@ -206,13 +237,14 @@ export default function InvoiceSheet({
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto py-6 space-y-6">
+      <div className="invoice-sheet max-w-3xl mx-auto py-6 space-y-6">
         {invoices.map(inv => (
-          <div key={inv.invoice_no} className="rounded-xl overflow-hidden shadow-2xl">
+          <div key={inv.invoice_no} className="invoice-card rounded-xl overflow-hidden shadow-2xl">
             <OneInvoice inv={inv} />
           </div>
         ))}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
