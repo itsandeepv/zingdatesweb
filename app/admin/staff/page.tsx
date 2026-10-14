@@ -17,7 +17,13 @@ const ROLE_META: Record<AdminRole, { label: string; badgeCls: string; desc: stri
   finance_manager:   { label: 'Finance Manager',    badgeCls: 'bg-yellow-100 text-yellow-700',         desc: 'Payments, invoices, reports' },
 }
 
-const ALL_PERMISSIONS = ['users', 'events', 'payments', 'subscriptions', 'tickets', 'campaigns', 'coupons', 'seo', 'invoices', 'reports', 'api_keys', 'staff']
+// Must match StaffController::PERMISSIONS. A key missing here cannot be
+// granted; a key missing there is rejected on save.
+const ALL_PERMISSIONS = [
+  'users', 'events', 'payments', 'subscriptions', 'tickets',
+  'campaigns', 'coupons', 'seo', 'invoices', 'reports', 'api_keys', 'staff',
+  'content', 'locations', 'settings',
+]
 
 /* ─── Avatar ────────────────────────────────────────────────────────────── */
 function Avatar({ name }: { name: string }) {

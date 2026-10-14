@@ -42,8 +42,12 @@ const ICONS = {
 /* ─── Nav structure ─────────────────────────────────── */
 /**
  * `perm` is the permission area this section needs, matching the API's
- * permission keys. Items without one are visible to every staff member —
- * the dashboard, and anything not owned by a single area.
+ * permission keys.
+ *
+ * Only the dashboard is left untagged. Everything else carries one, because an
+ * untagged item is shown to everybody: that is how a payments-only role kept
+ * Settings, Content CMS and Mobile App in its sidebar after the first pass at
+ * this. Adding a section means giving it a permission.
  */
 interface NavItem { href: string; label: string; icon: keyof typeof ICONS; badge?: string; soon?: boolean; perm?: string }
 interface NavGroup { label: string | null; items: NavItem[] }
@@ -60,15 +64,15 @@ const NAV: NavGroup[] = [
     { href: '/admin/plans',          label: 'Plans',          icon: 'ticket', perm: 'subscriptions' },
     { href: '/admin/payments',       label: 'Payments',       icon: 'dollar', perm: 'payments' },
     { href: '/admin/events',         label: 'Events',         icon: 'calendar', perm: 'events' },
-    { href: '/admin/locations',      label: 'Locations',      icon: 'search' },
-    { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true },
+    { href: '/admin/locations',      label: 'Locations',      icon: 'search', perm: 'locations' },
+    { href: '/admin/social',         label: 'Social',         icon: 'heart', soon: true, perm: 'users' },
   ]},
   { label: 'Content', items: [
-    { href: '/admin/home-sections', label: 'App Screens', icon: 'grid' },
-    { href: '/admin/content',   label: 'Content CMS', icon: 'file' },
-    { href: '/admin/podcasts',  label: 'Podcasts',    icon: 'mic' },
-    { href: '/admin/messaging', label: 'Messaging',  icon: 'bell', soon: true },
-    { href: '/admin/mail',      label: 'Mail',       icon: 'mail' },
+    { href: '/admin/home-sections', label: 'App Screens', icon: 'grid', perm: 'content' },
+    { href: '/admin/content',   label: 'Content CMS', icon: 'file', perm: 'content' },
+    { href: '/admin/podcasts',  label: 'Podcasts',    icon: 'mic', perm: 'content' },
+    { href: '/admin/messaging', label: 'Messaging',  icon: 'bell', soon: true, perm: 'content' },
+    { href: '/admin/mail',      label: 'Mail',       icon: 'mail', perm: 'content' },
   ]},
   { label: 'Growth', items: [
     { href: '/admin/seo',       label: 'SEO',       icon: 'search', perm: 'seo' },
@@ -82,14 +86,31 @@ const NAV: NavGroup[] = [
     { href: '/admin/verifications', label: 'Verification', icon: 'shield', perm: 'users' },
     { href: '/admin/gender-verifications', label: 'Live Selfies', icon: 'shield', perm: 'users' },
     { href: '/admin/staff',    label: 'Staff',    icon: 'shield', perm: 'staff' },
-    { href: '/admin/security', label: 'Security', icon: 'lock', soon: true },
+    { href: '/admin/security', label: 'Security', icon: 'lock', soon: true, perm: 'settings' },
   ]},
   { label: 'Platform', items: [
-    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone' },
+    { href: '/admin/mobile',   label: 'Mobile App', icon: 'phone', perm: 'settings' },
     { href: '/admin/api',      label: 'API',        icon: 'code', soon: true, perm: 'api_keys' },
-    { href: '/admin/settings', label: 'Settings',   icon: 'gear' },
+    { href: '/admin/settings', label: 'Settings',   icon: 'gear', perm: 'settings' },
   ]},
 ]
+
+/**
+ * Which permission a path needs, derived from the nav itself so the sidebar
+ * and the route guard can never drift apart. Longest prefix wins, so
+ * /admin/companions is matched before /admin.
+ */
+export function permissionForPath(path: string): string | null {
+  let best: { href: string; perm?: string } | null = null
+  for (const group of NAV) {
+    for (const item of group.items) {
+      if (path === item.href || path.startsWith(item.href + '/')) {
+        if (!best || item.href.length > best.href.length) best = item
+      }
+    }
+  }
+  return best?.perm ?? null
+}
 
 /* ─── Component ─────────────────────────────────────── */
 interface Props { collapsed: boolean; onToggle: () => void }
