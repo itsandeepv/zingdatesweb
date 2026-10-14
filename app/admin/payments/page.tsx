@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/store/auth'
-import { paymentsApi, companionAdminApi } from '@/lib/api'
+import { paymentsApi, companionAdminApi, type Invoice } from '@/lib/api'
+import InvoiceSheet from '@/components/admin/InvoiceSheet'
 
 /* ─── Types ─────────────────────────────────────────────── */
 type TxStatus  = 'pending' | 'completed' | 'failed' | 'refunded' | 'disputed'
@@ -489,6 +490,53 @@ export default function PaymentsPage() {
   const [refundTx, setRefundTx]         = useState<Transaction | null>(null)
   const [actionIds, setActionIds]       = useState<Set<number>>(new Set())
 
+  // Invoices. `selected` holds payment ids ticked in the table; `invoices`
+  // being non-empty is what opens the printable sheet.
+  const [selected, setSelected]         = useState<Set<number>>(new Set())
+  const [invoices, setInvoices]         = useState<Invoice[]>([])
+  const [invoiceBusy, setInvoiceBusy]   = useState(false)
+
+  const toggleRow = (id: number) =>
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+
+  async function openInvoice(id: number) {
+    if (invoiceBusy) return
+    setInvoiceBusy(true)
+    try {
+      const inv = await paymentsApi.invoice(token, id)
+      if (!inv) { toast.error('No invoice for that payment.'); return }
+      setInvoices([inv])
+    } catch (err) {
+      toast.error((err as Error)?.message ?? 'Could not build that invoice.')
+    } finally {
+      setInvoiceBusy(false)
+    }
+  }
+
+  async function exportSelected() {
+    if (invoiceBusy || selected.size === 0) return
+    setInvoiceBusy(true)
+    try {
+      const list = await paymentsApi.invoices(token, [...selected])
+      if (list.length === 0) { toast.error('Nothing to export.'); return }
+      // Say so when some ids produced nothing, rather than silently
+      // exporting fewer invoices than were ticked.
+      if (list.length < selected.size) {
+        toast.warning(`${selected.size - list.length} of ${selected.size} payments had no invoice.`)
+      }
+      setInvoices(list)
+    } catch (err) {
+      toast.error((err as Error)?.message ?? 'Could not build those invoices.')
+    } finally {
+      setInvoiceBusy(false)
+    }
+  }
+
   /* ── Debounce ── */
   const paySearchTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const coinSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -760,6 +808,7 @@ export default function PaymentsPage() {
     <>
       {detailTx && <TxDetailModal tx={detailTx} onClose={() => setDetailTx(null)} />}
       {refundTx && <RefundModal tx={refundTx} onClose={() => setRefundTx(null)} onConfirm={handleRefund} />}
+      {invoices.length > 0 && <InvoiceSheet invoices={invoices} onClose={() => setInvoices([])} />}
 
       <div className="space-y-6">
 
@@ -918,10 +967,44 @@ export default function PaymentsPage() {
                 )}
               </div>
 
+              {selected.size > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 mb-3 rounded-xl bg-pink-50 border border-pink-100">
+                  <p className="text-sm font-semibold text-pink-700">
+                    {selected.size} selected
+                  </p>
+                  <button
+                    onClick={() => setSelected(new Set())}
+                    className="text-xs font-semibold text-pink-600 hover:text-pink-800">
+                    Clear
+                  </button>
+                  <button
+                    onClick={exportSelected}
+                    disabled={invoiceBusy}
+                    className="ml-auto gradient-brand text-white text-xs font-bold px-4 py-2 rounded-lg disabled:opacity-50">
+                    {invoiceBusy ? 'Building…' : `Export ${selected.size} invoice${selected.size === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50">
+                      <th className="px-4 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          aria-label="Select all payments on this page"
+                          checked={payments.length > 0 && payments.every(p => selected.has(p.id))}
+                          onChange={e => setSelected(prev => {
+                            const next = new Set(prev)
+                            // Only this page's rows — selections made on other
+                            // pages survive paging back and forth.
+                            payments.forEach(p => e.target.checked ? next.add(p.id) : next.delete(p.id))
+                            return next
+                          })}
+                          className="w-4 h-4 rounded accent-pink-500 cursor-pointer"
+                        />
+                      </th>
                       {['#', 'Customer', 'Transaction ID', 'Type', 'Gateway', 'Amount', 'Status', 'Date', 'Actions'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                       ))}
@@ -929,13 +1012,22 @@ export default function PaymentsPage() {
                   </thead>
                   <tbody>
                     {payLoading ? (
-                      <tr><td colSpan={9} className="py-16 text-center">
+                      <tr><td colSpan={10} className="py-16 text-center">
                         <div className="flex items-center justify-center gap-2 text-gray-400 text-sm"><Spinner /> Loading payments…</div>
                       </td></tr>
                     ) : payments.length === 0 ? (
-                      <tr><td colSpan={9} className="py-16 text-center text-gray-400 text-sm">No payments found.</td></tr>
+                      <tr><td colSpan={10} className="py-16 text-center text-gray-400 text-sm">No payments found.</td></tr>
                     ) : payments.map((tx, i) => (
                       <tr key={tx.id} className={`border-b border-gray-50 hover:bg-gray-50/80 transition-colors ${i % 2 !== 0 ? 'bg-gray-50/30' : ''}`}>
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select payment ${tx.id}`}
+                            checked={selected.has(tx.id)}
+                            onChange={() => toggleRow(tx.id)}
+                            className="w-4 h-4 rounded accent-pink-500 cursor-pointer"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{tx.id}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="font-medium text-gray-900 text-sm">{tx.user?.name ?? `User #${tx.user_id}`}</p>
@@ -954,6 +1046,12 @@ export default function PaymentsPage() {
                             <button onClick={() => setDetailTx(tx)}
                               className="px-2.5 py-1 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
                               Details
+                            </button>
+                            <button
+                              onClick={() => openInvoice(tx.id)}
+                              disabled={invoiceBusy}
+                              className="px-2.5 py-1 text-xs rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors disabled:opacity-40">
+                              Invoice
                             </button>
                             {tx.status === 'completed' && (
                               <button

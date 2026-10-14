@@ -647,6 +647,29 @@ export const locationsApi = {
     req<any>(`/admin/event-locations/${id}/reactivate`, { method: 'POST' }, token),
 }
 
+/** What the invoice endpoints return. Fields the server could not fill are absent. */
+export interface Invoice {
+  invoice_no: string
+  issued_at: string | null
+  seller: {
+    company?: string; address?: string; email?: string
+    phone?: string; website?: string; gstin?: string
+  }
+  buyer: {
+    id?: number; name?: string; email?: string; phone?: string
+    city?: string; state?: string; pincode?: string; address?: string; country?: string
+  } | null
+  item: { description: string; plan: string | null; quantity: number }
+  currency: string
+  total: number
+  /** Null when no rate is configured — no split was ever recorded, so none is shown. */
+  tax: { percent: number; base: number; amount: number; inclusive: boolean } | null
+  payment: {
+    status?: string; gateway?: string; transaction_id?: string; order_id?: string
+    paid_at?: string; refund_amount?: number | null; refunded_at?: string | null
+  }
+}
+
 /* ─── Admin Payments ──────────────────────────────────────────── */
 export const paymentsApi = {
   list: (token: string, params: Record<string, string> = {}) =>
@@ -655,6 +678,18 @@ export const paymentsApi = {
   refund: (token: string, id: number, reason: string, amount?: number) =>
     req<any>(`/admin/payments/${id}/refund`, { method: 'POST', body: JSON.stringify({ reason, amount }) }, token),
   export: (token: string) => req<any>('/admin/payments/export', {}, token),
+  /** One payment's invoice, buyer details included. */
+  invoice: async (token: string, id: number) => {
+    const res = await req<any>(`/admin/payments/${id}/invoice`, {}, token)
+    return (res?.data ?? null) as Invoice | null
+  },
+  /** Invoices for a set of picked payments. POST because the id list is a body, not a query. */
+  invoices: async (token: string, ids: number[]) => {
+    const res = await req<any>('/admin/payments/invoices', {
+      method: 'POST', body: JSON.stringify({ ids }),
+    }, token)
+    return (res?.data ?? []) as Invoice[]
+  },
   transactions: (token: string, params: Record<string, string> = {}) =>
     req<any>(`/admin/transactions?${new URLSearchParams(params)}`, {}, token),
   stats: (token: string) => req<any>('/admin/payments/stats', {}, token),
