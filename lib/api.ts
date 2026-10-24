@@ -653,17 +653,24 @@ export interface Invoice {
   issued_at: string | null
   seller: {
     company?: string; address?: string; email?: string
-    phone?: string; website?: string; gstin?: string
+    phone?: string; website?: string; gstin?: string; state?: string
   }
+  place_of_supply: string | null
   buyer: {
     id?: number; name?: string; email?: string; phone?: string
     city?: string; state?: string; pincode?: string; address?: string; country?: string
   } | null
-  item: { description: string; plan: string | null; quantity: number }
+  item: { description: string; plan: string | null; hsn?: string | null; quantity: number }
   currency: string
   total: number
-  /** Null when no rate is configured — no split was ever recorded, so none is shown. */
-  tax: { percent: number; base: number; amount: number; inclusive: boolean } | null
+  total_in_words: string
+  /**
+   * `inclusive: false` — a new order, GST stored at purchase, added on top of
+   * `base`. `inclusive: true` — an order placed before GST existed; `base`
+   * is `total` with the tax reverse-split back out, not money collected on
+   * top of it. Either way exactly one of cgst+sgst or igst is non-zero.
+   */
+  tax: { rate: number; base: number; cgst: number; sgst: number; igst: number; inclusive: boolean }
   payment: {
     status?: string; gateway?: string; transaction_id?: string; order_id?: string
     paid_at?: string; refund_amount?: number | null; refunded_at?: string | null

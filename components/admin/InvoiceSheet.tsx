@@ -30,17 +30,16 @@ const csvCell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
 function downloadCsv(invoices: Invoice[]) {
   const head = [
     'Invoice No', 'Date', 'Name', 'Email', 'Phone', 'City', 'State', 'Pincode',
-    'Description', 'Status', 'Gateway', 'Transaction ID',
-    'Taxable Value', 'Tax %', 'Tax Amount', 'Total', 'Currency',
+    'Description', 'HSN/SAC', 'Status', 'Gateway', 'Transaction ID',
+    'Taxable Value', 'Tax %', 'CGST', 'SGST', 'IGST', 'Total', 'Currency',
   ]
   const rows = invoices.map(inv => [
     inv.invoice_no, fmtDate(inv.issued_at),
     inv.buyer?.name, inv.buyer?.email, inv.buyer?.phone,
     inv.buyer?.city, inv.buyer?.state, inv.buyer?.pincode,
-    inv.item.description, inv.payment.status, inv.payment.gateway, inv.payment.transaction_id,
-    inv.tax ? inv.tax.base : inv.total,
-    inv.tax ? inv.tax.percent : '',
-    inv.tax ? inv.tax.amount : '',
+    inv.item.description, inv.item.hsn ?? '',
+    inv.payment.status, inv.payment.gateway, inv.payment.transaction_id,
+    inv.tax.base, inv.tax.rate, inv.tax.cgst, inv.tax.sgst, inv.tax.igst,
     inv.total, inv.currency,
   ])
 
@@ -66,17 +65,19 @@ function OneInvoice({ inv }: { inv: Invoice }) {
           {seller.phone && <p className="text-sm text-gray-600">{seller.phone}</p>}
           {seller.website && <p className="text-sm text-gray-600">{seller.website}</p>}
           {seller.gstin && <p className="text-sm text-gray-700 mt-1">GSTIN: {seller.gstin}</p>}
+          {seller.state && <p className="text-sm text-gray-600">State: {seller.state}</p>}
         </div>
         <div className="text-right shrink-0">
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Invoice</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Tax Invoice</p>
           <p className="text-lg font-bold mt-1">{inv.invoice_no}</p>
           <p className="text-sm text-gray-600 mt-1">{fmtDate(inv.issued_at)}</p>
+          {inv.place_of_supply && <p className="text-sm text-gray-600">Place of Supply: {inv.place_of_supply}</p>}
         </div>
       </header>
 
       <section className="grid grid-cols-2 gap-8 py-6">
         <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Billed to</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">Bill to / Ship to</p>
           {buyer ? (
             <>
               <p className="font-semibold">{buyer.name ?? `User #${buyer.id}`}</p>
@@ -115,6 +116,7 @@ function OneInvoice({ inv }: { inv: Invoice }) {
         <thead>
           <tr className="text-left text-xs uppercase tracking-wide text-gray-400">
             <th className="py-2 font-bold">Description</th>
+            <th className="py-2 font-bold text-center w-24">HSN/SAC</th>
             <th className="py-2 font-bold text-center w-16">Qty</th>
             <th className="py-2 font-bold text-right w-32">Amount</th>
           </tr>
@@ -122,34 +124,46 @@ function OneInvoice({ inv }: { inv: Invoice }) {
         <tbody>
           <tr className="border-t border-gray-100">
             <td className="py-3">{inv.item.description}</td>
+            <td className="py-3 text-center text-gray-600">{inv.item.hsn ?? '—'}</td>
             <td className="py-3 text-center">{inv.item.quantity}</td>
-            <td className="py-3 text-right">{fmtMoney(inv.tax ? inv.tax.base : inv.total, inv.currency)}</td>
+            <td className="py-3 text-right">{fmtMoney(inv.tax.base, inv.currency)}</td>
           </tr>
         </tbody>
         <tfoot className="border-t-2 border-gray-900">
-          {inv.tax && (
+          <tr><td colSpan={3} className="py-1.5 text-gray-500">Taxable value</td>
+              <td className="py-1.5 text-right">{fmtMoney(inv.tax.base, inv.currency)}</td></tr>
+          {inv.tax.igst > 0 ? (
+            <tr><td colSpan={3} className="py-1.5 text-gray-500">IGST ({inv.tax.rate}%)</td>
+                <td className="py-1.5 text-right">{fmtMoney(inv.tax.igst, inv.currency)}</td></tr>
+          ) : (
             <>
-              <tr><td colSpan={2} className="py-1.5 text-gray-500">Taxable value</td>
-                  <td className="py-1.5 text-right">{fmtMoney(inv.tax.base, inv.currency)}</td></tr>
-              <tr><td colSpan={2} className="py-1.5 text-gray-500">GST ({inv.tax.percent}%)</td>
-                  <td className="py-1.5 text-right">{fmtMoney(inv.tax.amount, inv.currency)}</td></tr>
+              <tr><td colSpan={3} className="py-1.5 text-gray-500">CGST ({(inv.tax.rate / 2).toFixed(1)}%)</td>
+                  <td className="py-1.5 text-right">{fmtMoney(inv.tax.cgst, inv.currency)}</td></tr>
+              <tr><td colSpan={3} className="py-1.5 text-gray-500">SGST ({(inv.tax.rate / 2).toFixed(1)}%)</td>
+                  <td className="py-1.5 text-right">{fmtMoney(inv.tax.sgst, inv.currency)}</td></tr>
             </>
           )}
+          <tr><td colSpan={3} className="py-1.5 text-gray-500">Sub Total</td>
+              <td className="py-1.5 text-right">{fmtMoney(inv.total, inv.currency)}</td></tr>
           <tr className="font-bold text-base">
-            <td colSpan={2} className="py-2.5">Total paid</td>
+            <td colSpan={3} className="py-2.5">Total {inv.payment.status === 'completed' ? 'paid' : ''}</td>
             <td className="py-2.5 text-right">{fmtMoney(inv.total, inv.currency)}</td>
           </tr>
           {inv.payment.refund_amount != null && inv.payment.refund_amount > 0 && (
             <tr className="text-red-600">
-              <td colSpan={2} className="py-1.5">Refunded {inv.payment.refunded_at ? `on ${fmtDate(inv.payment.refunded_at)}` : ''}</td>
+              <td colSpan={3} className="py-1.5">Refunded {inv.payment.refunded_at ? `on ${fmtDate(inv.payment.refunded_at)}` : ''}</td>
               <td className="py-1.5 text-right">−{fmtMoney(inv.payment.refund_amount, inv.currency)}</td>
             </tr>
           )}
         </tfoot>
       </table>
 
+      <p className="pt-4 text-sm text-gray-700">
+        <span className="font-semibold">Total in words: </span>{inv.total_in_words}
+      </p>
+
       <footer className="pt-6 mt-6 border-t border-gray-100 text-xs text-gray-400">
-        {inv.tax?.inclusive && <p>Amount charged is inclusive of GST.</p>}
+        {inv.tax.inclusive && <p>GST shown is reverse-calculated from the amount charged (inclusive), as this order predates itemised GST.</p>}
         <p>Computer generated invoice — no signature required.</p>
       </footer>
     </article>
