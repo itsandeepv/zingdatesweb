@@ -31,11 +31,13 @@ const PLAN_ORDER = ['trial', 'monthly', 'vip']
 
 type PlanCard = { id: string; name: string; price: number; period: string; badge: string | null; features: string[] }
 
-// Fallback used only if the backend plan list can't be reached.
+// Fallback used only if the backend plan list can't be reached — GST
+// included, mirroring the current catalog, so it never shows a different
+// number than what the actual charge would be.
 const FALLBACK_PLANS: PlanCard[] = [
-  { id: 'trial', name: '1 Day Free Trial', price: 49, period: '1 day', ...PLAN_META.trial },
-  { id: 'monthly', name: 'Monthly Premium', price: 149, period: '30 days', ...PLAN_META.monthly },
-  { id: 'vip', name: 'VIP Plan', price: 249, period: '30 days', ...PLAN_META.vip },
+  { id: 'trial', name: '1 Day Free Trial', price: 1.18, period: '1 day', ...PLAN_META.trial },
+  { id: 'monthly', name: 'Monthly Premium', price: 116.82, period: '30 days', ...PLAN_META.monthly },
+  { id: 'vip', name: 'VIP Plan', price: 234.82, period: '30 days', ...PLAN_META.vip },
 ]
 
 function loadRazorpay(): Promise<boolean> {

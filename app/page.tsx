@@ -43,13 +43,14 @@ const STEPS = [
 // Plans are admin-managed (Admin → Plans), so the cards below are built from
 // the API rather than written here. These values are only the fallback for when
 // the public plan list cannot be reached — they mirror what the admin panel
-// currently holds so the section never renders empty or wrong.
+// currently holds, GST included, so the section never renders empty, wrong,
+// or a different number than what signing up actually charges.
 type PlanCard = { name: string; price: string; duration: string; features: string; tag: string | null }
 
 const FALLBACK_PLANS: PlanCard[] = [
-  { name: '1 Day Free Trial', price: '\u20b91',   duration: '1 day',   features: 'Chat, likes & search',                     tag: null },
-  { name: 'Monthly Premium',  price: '\u20b999',  duration: '30 days', features: 'Chat, likes & search',                     tag: null },
-  { name: 'VIP Plan',         price: '\u20b9199', duration: '30 days', features: 'Chat, likes, search + audio & video calls', tag: 'Includes calls' },
+  { name: '1 Day Free Trial', price: '\u20b91.18',   duration: '1 day',   features: 'Chat, likes & search',                     tag: null },
+  { name: 'Monthly Premium',  price: '\u20b9116.82',  duration: '30 days', features: 'Chat, likes & search',                     tag: null },
+  { name: 'VIP Plan',         price: '\u20b9234.82', duration: '30 days', features: 'Chat, likes, search + audio & video calls', tag: 'Includes calls' },
 ]
 
 // Admin rows → what the card actually shows. Inactive plans are dropped and the
