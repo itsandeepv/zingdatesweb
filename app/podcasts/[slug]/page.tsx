@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import { podcastApi } from '@/lib/api'
 import { SITE_URL, SITE_NAME, fmtDate, fmtDuration } from '@/lib/site'
 
@@ -154,6 +155,7 @@ export default async function PodcastEpisodePage({
         </div>
       </article>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

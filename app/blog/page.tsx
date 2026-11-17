@@ -3,6 +3,7 @@ import Image from 'next/image'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import { blogApi } from '@/lib/api'
 import { fmtDate, readingTime, slugify, toList } from '@/lib/site'
 import { pageMetadata } from '@/lib/seo-meta'
@@ -126,6 +127,7 @@ export default async function BlogIndexPage({
         )}
       </main>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

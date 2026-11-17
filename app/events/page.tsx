@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import EventSearch from '@/components/EventSearch'
 import { publicEventApi, type PublicEvent, type PublicPastEvent, type PublicEventReview } from '@/lib/api'
 import { pageMetadata } from '@/lib/seo-meta'
@@ -297,6 +298,7 @@ export default async function EventsPage({
         </section>
       )}
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import JoinInAppButton from '@/components/JoinInAppButton'
 import { publicEventApi, type PublicEventReview } from '@/lib/api'
 
@@ -264,6 +265,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         </aside>
       </section>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

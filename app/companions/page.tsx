@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import ScrollReveal from '@/components/ScrollReveal'
 import CompanionCard from '@/components/CompanionCard'
 import { publicCompanionApi } from '@/lib/api'
@@ -219,6 +220,7 @@ export default async function CompanionsPage({
         </div>
       </section>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

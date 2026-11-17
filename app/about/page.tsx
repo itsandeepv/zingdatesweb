@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { PhoneFrame } from '@/components/AppScreens'
 import { screen } from '@/lib/screens'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import { SITE_NAME } from '@/lib/site'
 import { pageMetadata } from '@/lib/seo-meta'
 
@@ -259,6 +260,7 @@ export default function AboutPage() {
         </div>
       </section>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

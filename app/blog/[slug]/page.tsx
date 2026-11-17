@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import { blogApi } from '@/lib/api'
 import { SITE_URL, SITE_NAME, fmtDate, readingTime } from '@/lib/site'
 import JsonLd from '@/components/JsonLd'
@@ -170,6 +171,7 @@ export default async function BlogPostPage({
         </div>
       </article>
 
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )

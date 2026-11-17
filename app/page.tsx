@@ -4,6 +4,7 @@ import HeroVideo from '@/components/HeroVideo'
 import type { Metadata } from 'next'
 import Navbar from '@/components/Navbar'
 import SiteFooter from '@/components/SiteFooter'
+import AdSlot from '@/components/AdSlot'
 import ScrollReveal from '@/components/ScrollReveal'
 import AppScreens, { PhoneFrame } from '@/components/AppScreens'
 import CompanionsSection from '@/components/CompanionsSection'
@@ -517,6 +518,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── Footer ─────────────────────────────────────── */}
+      <AdSlot className="max-w-4xl mx-auto px-4 sm:px-6 pb-10" />
       <SiteFooter />
     </div>
   )
