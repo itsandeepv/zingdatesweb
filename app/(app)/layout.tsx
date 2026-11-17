@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/store/auth'
 import { callApi, meApi, registerUnauthorizedHandler, unregisterUnauthorizedHandler } from '@/lib/api'
 import { isProfileComplete, unwrapProfile } from '@/lib/profile'
 import NoPlanModal from '@/components/NoPlanModal'
+import AdSlot from '@/components/AdSlot'
 import DownloadAppModal from '@/components/DownloadAppModal'
 
 function Avatar({ name, src, size = 'sm' }: { name: string; src?: string | null; size?: 'sm' | 'md' | 'lg' }) {
@@ -323,6 +324,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             : 'p-4 lg:p-8 pb-24 lg:pb-8 max-w-7xl mx-auto'
         }`}>
           {children}
+
+          {/* Ads sit after the page content, never over it. Hidden entirely
+              on full-screen surfaces (a call, an open chat) where a banner
+              would cover what the person is actually doing, and absent for
+              paying members and whenever the admin has ads switched off. */}
+          {!isFullScreen && <AdSlot className="mt-8" />}
         </main>
       </div>
 

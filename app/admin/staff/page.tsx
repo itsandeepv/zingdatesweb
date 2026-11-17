@@ -22,7 +22,7 @@ const ROLE_META: Record<AdminRole, { label: string; badgeCls: string; desc: stri
 const ALL_PERMISSIONS = [
   'users', 'events', 'payments', 'subscriptions', 'tickets',
   'campaigns', 'coupons', 'seo', 'invoices', 'reports', 'api_keys', 'staff',
-  'content', 'locations', 'settings',
+  'content', 'locations', 'settings', 'ads',
 ]
 
 /* ─── Avatar ────────────────────────────────────────────────────────────── */

@@ -1071,6 +1071,44 @@ export const contactApi = {
     }),
 }
 
+/* ─── Ads ─────────────────────────────────────────────────────── */
+export interface AdConfig {
+  show: boolean
+  units: { client?: string; slot?: string; android?: string; ios?: string }
+  /** Why not, when `show` is false: ads_disabled | surface_disabled | not_configured | premium_member */
+  reason: string | null
+}
+
+export const adsApi = {
+  /**
+   * Whether to render an ad, decided server-side so the admin switch takes
+   * effect without a deploy. A token is sent when there is one, so paying
+   * members are recognised and get `show: false`.
+   */
+  config: async (token?: string | null) => {
+    try {
+      const res = await req<{ ads?: AdConfig }>('/ads/config?surface=web', {}, token ?? undefined)
+      return res?.ads ?? null
+    } catch {
+      // Never let an ad lookup break a page.
+      return null
+    }
+  },
+}
+
+/* ─── Admin: ads ──────────────────────────────────────────────── */
+export const adminAdsApi = {
+  settings: (token: string) => req<Record<string, unknown>>('/admin/ads/settings', {}, token),
+  update: (token: string, data: Record<string, unknown>) =>
+    req<Record<string, unknown>>('/admin/ads/settings', { method: 'PUT', body: JSON.stringify(data) }, token),
+  revenue: (token: string, from?: string, to?: string) => {
+    const p = new URLSearchParams()
+    if (from) p.set('from', from)
+    if (to) p.set('to', to)
+    return req<Record<string, unknown>>(`/admin/ads/revenue?${p}`, {}, token)
+  },
+}
+
 /* ─── Public Companions (no auth) ─────────────────────────────── */
 // Powers the marketing site's companion section. Narrower payload than the
 // in-app `/companion/feed` — see PublicCompanionController on the API.
